@@ -18,5 +18,5 @@ end
 
 -- baru disini lu load script BAS yang udah lu obfuscate ringan
 if game.PlaceId == 114326934417838 or game.GameId == 114326934417838 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/bas.lua"))()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/BAS.lua"))()
 end
