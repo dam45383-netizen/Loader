@@ -5,11 +5,10 @@ Window = SORU:CreateWindow({
     KickIfNotSupported = false
 })
 
-if Window:IsGame(129827112113663) or game.PlaceId == 129827112113663 then
+if game.PlaceId == 129827112113663 or game.GameId == 129827112113663 then
     local MainAPI = Window:Tab({Title = "Main"})
-    MainAPI:Button({Title = "Test Prospecting Work", Callback = function() print("Prospecting OK") end})
-
-elseif Window:IsGame(10765288803) or game.PlaceId == 10765288803 then
+    MainAPI:Button({Title = "Prospecting OK", Callback = function() print("ok") end})
+else
     local MainAPI = Window:Tab({Title = "Main"})
-    MainAPI:Button({Title = "Test BAS Work", Callback = function() print("BAS OK") end})
+    MainAPI:Button({Title = "BAS OK - Game ID lain", Callback = function() print("ok") end})
 end
