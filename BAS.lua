@@ -11013,13 +11013,12 @@ local UserInputService = game:GetService("UserInputService")
 local VIM = game:GetService("VirtualInputManager")
 local RS = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 local plr = Players.LocalPlayer
 
--- clean anim
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Animator") then pcall(function() v:Destroy() end) end end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("Animator") then task.wait(0.1) pcall(function() v:Destroy() end) end end)
 
+-- AMBIL SCROLL ASLI V2 ANTI DPI
 local function getTabScroll(name)
     local t = Window.Tabs[name]
     if t and t.frame then
@@ -11033,7 +11032,9 @@ repeat task.wait() until mainFrame and miscFrame
 
 local function clearFrame(f)
     for _,v in ipairs(f:GetChildren()) do
-        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then v:Destroy() end
+        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then
+            v:Destroy()
+        end
     end
 end
 clearFrame(mainFrame)
@@ -11052,7 +11053,7 @@ local ACCENT2 = Color3.fromRGB(99,102,241)
 local DIM = Color3.fromRGB(148,140,180)
 local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p) end
 
--- no dpi drag/resize tracker
+-- TRACK DRAG/RESIZE (sama kayak lib v2 biar scale bener)
 local function track(handle, onBegin, onMove, onEnd)
     handle.InputBegan:Connect(function(input)
         local ut = input.UserInputType
@@ -11208,7 +11209,6 @@ for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") the
 local scroll=mainFrame
 local miscScroll=miscFrame
 
--- CLEAN UI BUILDER (NO V1 TEXT)
 local function createAccordion(parent,title,emoji,order,open)
     local acc=Instance.new("Frame") acc.LayoutOrder=order acc.Size=UDim2.new(1,-5,0,open and 300 or 56) acc.BackgroundColor3=Color3.fromRGB(20,18,32) acc.BackgroundTransparency=0.2 acc.ClipsDescendants=true acc.Parent=parent
     Instance.new("UICorner",acc).CornerRadius=UDim.new(0,14) local stroke=Instance.new("UIStroke",acc) stroke.Color=Color3.fromRGB(50,45,70) stroke.Transparency=0.6 stroke.Thickness=1
@@ -11216,8 +11216,8 @@ local function createAccordion(parent,title,emoji,order,open)
     local header=Instance.new("TextButton",acc) header.Size=UDim2.new(1,0,0,56) header.BackgroundTransparency=1 header.Text="" header.ZIndex=3
     local icon=Instance.new("Frame",header) icon.Size=UDim2.fromOffset(36,36) icon.Position=UDim2.new(0,12,0.5,-18) icon.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",icon).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",icon).Color=ACCENT Instance.new("UIStroke",icon).Transparency=0.5
     local ic=Instance.new("TextLabel",icon) ic.Size=UDim2.new(1,0,1,0) ic.BackgroundTransparency=1 ic.Text=emoji ic.Font=Enum.Font.GothamBold ic.TextSize=16 ic.TextColor3=Color3.new(1,1,1)
-    local tl=Instance.new("TextLabel",header) tl.Text=title tl.Position=UDim2.new(0,58,0,14) tl.Size=UDim2.new(1,-100,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
-    local sub=Instance.new("TextLabel",header) sub.Text="" sub.Position=UDim2.new(0,58,0,32) sub.Size=UDim2.new(1,-100,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+    local tl=Instance.new("TextLabel",header) tl.Text=title tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(1,-100,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
+    local sub=Instance.new("TextLabel",header) sub.Text="V1 • "..string.lower(title) sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(1,-100,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
     local arrowBg=Instance.new("Frame",header) arrowBg.Size=UDim2.fromOffset(32,32) arrowBg.Position=UDim2.new(1,-40,0.5,-16) arrowBg.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",arrowBg).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",arrowBg).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",arrowBg).Transparency=0.6
     local arrow=Instance.new("TextLabel",arrowBg) arrow.Size=UDim2.new(1,0,1,0) arrow.BackgroundTransparency=1 arrow.Text="▼" arrow.Font=Enum.Font.GothamBold arrow.TextSize=10 arrow.TextColor3=DIM arrow.Rotation=open and 0 or -90
     local content=Instance.new("Frame",acc) content.Position=UDim2.new(0,0,0,56) content.Size=UDim2.new(1,0,0,200) content.BackgroundColor3=Color3.fromRGB(18,16,28) content.BackgroundTransparency=0.25 content.Visible=open Instance.new("UICorner",content).CornerRadius=UDim.new(0,14)
@@ -11249,8 +11249,7 @@ local function createDropdown(parent, placeholder)
     return {frame=drop, btn=dropBtn, txt=dropTxt, arr=dropArr, listF=listF, sF=sF}
 end
 
--- MAIN ACCORDIONS
-local baseAcc=createAccordion(scroll,"BASE","⚡",1,true) local baseToggle=createToggle(baseAcc.content,1,"Auto Base","Auto return to base") baseAcc.setH(62)
+local baseAcc=createAccordion(scroll,"BASE","⚡",1,true) local baseToggle=createToggle(baseAcc.content,1,"Auto Base"," ") baseAcc.setH(62)
 local stealAcc=createAccordion(scroll,"STEAL","🔥",2,true)
 local selected={} local dd=createDropdown(stealAcc.content, "Select Rarity") dd.frame.LayoutOrder=1
 local open=false local function upd() local h=open and (math.min(#rarityNames,4)*40+12) or 0 dd.listF.Size=UDim2.new(1,0,0,h) dd.listF.Visible=open dd.frame.Size=UDim2.new(1,-8,0,46+h) stealAcc.setH(dd.frame.Size.Y.Offset+220) tw(dd.arr,{Rotation=open and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
@@ -11270,32 +11269,29 @@ local defendModes={"None","ZigZag","Random","Circle","Juke"} local defendOpen=fa
 for _,mode in ipairs(defendModes) do local it=Instance.new("TextButton",defendDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=mode lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() defendMode=mode defendDD.txt.Text="Defend: "..mode defendOpen=false defendUpd() end) end
 defendDD.btn.MouseButton1Click:Connect(function() defendOpen=not defendOpen defendUpd() end)
 
-local stealToggle=createToggle(stealAcc.content,4,"Auto Steal","Auto steal selected rarity") stealToggle.btn.Parent.LayoutOrder=4
-local attackToggle=createToggle(stealAcc.content,5,"Attack Carrier","Hit carrier when stealing") attackToggle.btn.Parent.LayoutOrder=5
+local stealToggle=createToggle(stealAcc.content,4,"Auto Steal"," ") stealToggle.btn.Parent.LayoutOrder=4
+local attackToggle=createToggle(stealAcc.content,5,"Attack Carrier"," ") attackToggle.btn.Parent.LayoutOrder=5
 stealAcc.setH(360)
 
--- NEW CHAT ACCORDION
-local chatAcc=createAccordion(scroll,"CHAT","💬",3,true)
-local chatToggle=createToggle(chatAcc.content,1,"Show Global Chat","Toggle chat Soru") chatAcc.setH(62)
-
-local panelAcc=createAccordion(scroll,"PANEL","📦",4,true) local panelToggle=createToggle(panelAcc.content,1,"External Panel","Show item panel") panelAcc.setH(62)
-local eggAcc=createAccordion(scroll,"BREAK EGG","🥚",5,false)
+local panelAcc=createAccordion(scroll,"PANEL","📦",3,true) local panelToggle=createToggle(panelAcc.content,1,"External Panel","") panelAcc.setH(62)
+local eggAcc=createAccordion(scroll,"BREAK EGG","🥚",4,false)
 local eggZoneDD=createDropdown(eggAcc.content, "Select Zone") eggZoneDD.frame.LayoutOrder=1
 local eggZoneOpen=false local function eggZUpd() local h=eggZoneOpen and (math.min(#zoneNames,5)*40+12) or 0 eggZoneDD.listF.Size=UDim2.new(1,0,0,h) eggZoneDD.listF.Visible=eggZoneOpen eggZoneDD.frame.Size=UDim2.new(1,-8,0,46+h) eggAcc.setH(eggZoneDD.frame.Size.Y.Offset+62) tw(eggZoneDD.arr,{Rotation=eggZoneOpen and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
 eggZoneDD.txt.Text="Select Zone" local selectedEggZone=nil
 for _,zn in ipairs(zoneNames) do local it=Instance.new("TextButton",eggZoneDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=zn lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() selectedEggZone=zn eggZoneDD.txt.Text=zn eggZoneOpen=false eggZUpd() end) end
 eggZoneDD.btn.MouseButton1Click:Connect(function() eggZoneOpen=not eggZoneOpen eggZUpd() end)
-local eggToggle=createToggle(eggAcc.content,2,"Break Egg","Auto break egg in zone") eggToggle.btn.Parent.LayoutOrder=2 eggAcc.setH(108)
+local eggToggle=createToggle(eggAcc.content,2,"Break Egg","") eggToggle.btn.Parent.LayoutOrder=2 eggAcc.setH(108)
 
 local miscAcc=createAccordion(miscScroll,"MISC","🛡️",1,true)
-local ragdollToggle=createToggle(miscAcc.content,1,"No Ragdoll","Prevent ragdoll")
-local antiMentalToggle=createToggle(miscAcc.content,2,"Anti Mental","Anti fling")
+local ragdollToggle=createToggle(miscAcc.content,1,"No Ragdoll","")
+local antiMentalToggle=createToggle(miscAcc.content,2,"Anti Mental","")
 miscAcc.setH(124)
 
 local gamepassAcc=createAccordion(miscScroll,"GAMEPASS","🎫",2,true)
-local fastBreakToggle=createToggle(gamepassAcc.content,1,"Fast Break","Fast swing") gamepassAcc.setH(62)
+local fastBreakToggle=createToggle(gamepassAcc.content,1,"Fast Break"," ")
+gamepassAcc.setH(62)
 
--- EXTERNAL PANEL
+-- EXTERNAL PANEL ANTI DPI KANAN BAWAH + RESIZE
 local mainExt=Instance.new("Frame") mainExt.Name="ExternalPanel" mainExt.Size=UDim2.fromOffset(300,340) mainExt.Position=UDim2.new(1,-310,1,-360) mainExt.BackgroundColor3=Color3.fromRGB(20,18,32) mainExt.BackgroundTransparency=0.1 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50 mainExt.ClipsDescendants=false
 Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",mainExt).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",mainExt).Transparency=0.4
 local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0,1) accentLine2.BackgroundColor3=ACCENT Instance.new("UIGradient",accentLine2).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine2).CornerRadius=UDim.new(0,99)
@@ -11303,8 +11299,9 @@ local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,52) t
 local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
 local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
 local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
-local sub=Instance.new("TextLabel",titleBar) sub.Text="Panel" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+local sub=Instance.new("TextLabel",titleBar) sub.Text="" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
 local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
+-- drag title
 track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved)
     if moved and st then local s=rootScale and rootScale.Scale or 1 mainExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end
 end)
@@ -11315,6 +11312,7 @@ local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{Backgrou
 normalBtn.MouseButton1Click:Connect(function() setMode("Normal") end) helperBtn.MouseButton1Click:Connect(function() setMode("Helper") end)
 local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-126) extScroll.Position=UDim2.new(0,6,0,90) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=1 extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
 Instance.new("UIPadding",extScroll).PaddingTop=UDim.new(0,2) Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,36) Instance.new("UIPadding",extScroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",extScroll).PaddingRight=UDim.new(0,4) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
+-- RESIZE HANDLE KANAN BAWAH
 local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true resizeHandle.ZIndex=60
 local rhLabel=Instance.new("TextLabel",resizeHandle) rhLabel.Text="⋰" rhLabel.Size=UDim2.fromScale(1,1) rhLabel.BackgroundTransparency=1 rhLabel.Font=Enum.Font.GothamBold rhLabel.TextSize=16 rhLabel.TextColor3=Color3.fromRGB(100,94,130) rhLabel.TextXAlignment=Enum.TextXAlignment.Right rhLabel.TextYAlignment=Enum.TextYAlignment.Bottom
 local minSize=Vector2.new(260,250) local maxSize=Vector2.new(420,600)
@@ -11325,137 +11323,6 @@ track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st)
     mainExt.Size=UDim2.fromOffset(nw,nh)
 end)
 
--- GLOBAL CHAT SORU UI (DRAGGABLE + RESIZABLE NO DPI)
-local chatExt=Instance.new("Frame") chatExt.Name="SoruGlobalChat" chatExt.Size=UDim2.fromOffset(340,380) chatExt.Position=UDim2.new(0,20,1,-400) chatExt.BackgroundColor3=Color3.fromRGB(20,18,32) chatExt.BackgroundTransparency=0.08 chatExt.Visible=false chatExt.Parent=root chatExt.ZIndex=55 chatExt.ClipsDescendants=false
-Instance.new("UICorner",chatExt).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",chatExt).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",chatExt).Transparency=0.4
-local chatAccent=Instance.new("Frame",chatExt) chatAccent.Size=UDim2.new(1,0,0,2) chatAccent.BackgroundColor3=ACCENT chatAccent.ZIndex=56 Instance.new("UIGradient",chatAccent).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",chatAccent).CornerRadius=UDim.new(0,99)
-local chatTitleBar=Instance.new("Frame",chatExt) chatTitleBar.Size=UDim2.new(1,0,0,52) chatTitleBar.BackgroundTransparency=1 chatTitleBar.Active=true chatTitleBar.ZIndex=56
-local cib=Instance.new("Frame",chatTitleBar) cib.Size=UDim2.fromOffset(36,36) cib.Position=UDim2.new(0,12,0.5,-18) cib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",cib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",cib).Color=ACCENT Instance.new("UIStroke",cib).Transparency=0.5
-local cii=Instance.new("TextLabel",cib) cii.Size=UDim2.new(1,0,1,0) cii.BackgroundTransparency=1 cii.Text="💬" cii.Font=Enum.Font.GothamBold cii.TextSize=16 cii.TextColor3=Color3.new(1,1,1)
-local ctl=Instance.new("TextLabel",chatTitleBar) ctl.Text="Global Chat Soru" ctl.Position=UDim2.new(0,58,0,10) ctl.Size=UDim2.new(1,-100,0,14) ctl.BackgroundTransparency=1 ctl.Font=Enum.Font.GothamBold ctl.TextSize=13 ctl.TextColor3=Color3.new(1,1,1) ctl.TextXAlignment=Enum.TextXAlignment.Left
-local csub=Instance.new("TextLabel",chatTitleBar) csub.Text="Live • Emoji Supported" csub.Position=UDim2.new(0,58,0,26) csub.Size=UDim2.new(1,-100,0,10) csub.BackgroundTransparency=1 csub.Font=Enum.Font.GothamMedium csub.TextSize=9 csub.TextColor3=ACCENT csub.TextXAlignment=Enum.TextXAlignment.Left
-local chatClose=Instance.new("TextButton",chatTitleBar) chatClose.Size=UDim2.fromOffset(32,32) chatClose.Position=UDim2.new(1,-40,0.5,-16) chatClose.Text="✕" chatClose.Font=Enum.Font.GothamMedium chatClose.TextSize=12 chatClose.TextColor3=DIM chatClose.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",chatClose).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",chatClose).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",chatClose).Transparency=0.6 chatClose.AutoButtonColor=false
-
-track(chatTitleBar, function() return chatExt.Position end, function(dx,dy,st,moved)
-    if moved and st then local s=rootScale and rootScale.Scale or 1 chatExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end
-end)
-
-local chatScroll=Instance.new("ScrollingFrame",chatExt) chatScroll.Name="ChatList" chatScroll.Size=UDim2.new(1,-12,1,-118) chatScroll.Position=UDim2.new(0,6,0,54) chatScroll.BackgroundColor3=Color3.fromRGB(18,16,28) chatScroll.BackgroundTransparency=0.3 chatScroll.ScrollBarThickness=2 chatScroll.CanvasSize=UDim2.new(0,0,0,0) chatScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y Instance.new("UICorner",chatScroll).CornerRadius=UDim.new(0,10)
-Instance.new("UIPadding",chatScroll).PaddingTop=UDim.new(0,6) Instance.new("UIPadding",chatScroll).PaddingBottom=UDim.new(0,6) Instance.new("UIPadding",chatScroll).PaddingLeft=UDim.new(0,6) Instance.new("UIPadding",chatScroll).PaddingRight=UDim.new(0,6)
-local chatListLayout=Instance.new("UIListLayout",chatScroll) chatListLayout.Padding=UDim.new(0,6) chatListLayout.SortOrder=Enum.SortOrder.LayoutOrder
-
-local inputBar=Instance.new("Frame",chatExt) inputBar.Size=UDim2.new(1,-12,0,48) inputBar.Position=UDim2.new(0,6,1,-56) inputBar.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",inputBar).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",inputBar).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",inputBar).Transparency=0.6
-
-local emojiBtn=Instance.new("TextButton",inputBar) emojiBtn.Size=UDim2.fromOffset(36,36) emojiBtn.Position=UDim2.new(0,6,0.5,-18) emojiBtn.Text="😀" emojiBtn.Font=Enum.Font.GothamBold emojiBtn.TextSize=16 emojiBtn.TextColor3=Color3.new(1,1,1) emojiBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",emojiBtn).CornerRadius=UDim.new(0,8) emojiBtn.AutoButtonColor=false
-
-local chatInput=Instance.new("TextBox",inputBar) chatInput.Size=UDim2.new(1,-100,1,-12) chatInput.Position=UDim2.new(0,48,0,6) chatInput.BackgroundTransparency=1 chatInput.Text="" chatInput.PlaceholderText="Ketik pesan..." chatInput.Font=Enum.Font.GothamMedium chatInput.TextSize=12 chatInput.TextColor3=Color3.new(1,1,1) chatInput.PlaceholderColor3=DIM chatInput.TextXAlignment=Enum.TextXAlignment.Left chatInput.ClearTextOnFocus=false
-
-local sendBtn=Instance.new("TextButton",inputBar) sendBtn.Size=UDim2.fromOffset(44,36) sendBtn.Position=UDim2.new(1,-50,0.5,-18) sendBtn.Text="SEND" sendBtn.Font=Enum.Font.GothamBold sendBtn.TextSize=10 sendBtn.TextColor3=Color3.new(1,1,1) sendBtn.BackgroundColor3=ACCENT Instance.new("UICorner",sendBtn).CornerRadius=UDim.new(0,8) sendBtn.AutoButtonColor=false
-
-local emojiPicker=Instance.new("Frame",chatExt) emojiPicker.Size=UDim2.fromOffset(200,130) emojiPicker.Position=UDim2.new(0,6,1,-190) emojiPicker.BackgroundColor3=Color3.fromRGB(24,22,36) emojiPicker.Visible=false emojiPicker.ZIndex=70 Instance.new("UICorner",emojiPicker).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",emojiPicker).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",emojiPicker).Transparency=0.5
-local epGrid=Instance.new("UIGridLayout",emojiPicker) epGrid.CellSize=UDim2.fromOffset(28,28) epGrid.CellPadding=UDim2.fromOffset(4,4) epGrid.SortOrder=Enum.SortOrder.LayoutOrder
-Instance.new("UIPadding",emojiPicker).PaddingTop=UDim.new(0,6) Instance.new("UIPadding",emojiPicker).PaddingLeft=UDim.new(0,6)
-local emojis={"😀","😂","😎","😭","🔥","💀","👑","⚡","❤️","🥚","📦","💬","✅","❌","👋","🤑","🤣","😍","🙏","😡","🤔","👀","💯","🎉","😴","🥶"}
-
-local chatResize=Instance.new("Frame",chatExt) chatResize.Size=UDim2.fromOffset(28,28) chatResize.Position=UDim2.new(1,-28,1,-28) chatResize.BackgroundTransparency=1 chatResize.Active=true chatResize.ZIndex=80
-local crLabel=Instance.new("TextLabel",chatResize) crLabel.Text="⋰" crLabel.Size=UDim2.fromScale(1,1) crLabel.BackgroundTransparency=1 crLabel.Font=Enum.Font.GothamBold crLabel.TextSize=16 crLabel.TextColor3=Color3.fromRGB(100,94,130) crLabel.TextXAlignment=Enum.TextXAlignment.Right crLabel.TextYAlignment=Enum.TextYAlignment.Bottom
-track(chatResize, function() return chatExt.Size end, function(dx,dy,st)
-    local s=rootScale and rootScale.Scale or 1
-    local nw=math.clamp(st.X.Offset + dx/s, 300, 500)
-    local nh=math.clamp(st.Y.Offset + dy/s, 280, 600)
-    chatExt.Size=UDim2.fromOffset(nw,nh)
-end)
-
--- CHAT LOGIC
-local CHAT_TOPIC = "SORU_GLOBAL_CHAT"
-local chatMessagesCount=0
-local function addChatBubble(username, message, isMe)
-    chatMessagesCount+=1
-    local bubble=Instance.new("Frame") bubble.LayoutOrder=chatMessagesCount bubble.Size=UDim2.new(1,-6,0,0) bubble.AutomaticSize=Enum.AutomaticSize.Y bubble.BackgroundColor3=isMe and Color3.fromRGB(139,92,246) or Color3.fromRGB(28,26,42) bubble.BackgroundTransparency=isMe and 0.1 or 0.15 Instance.new("UICorner",bubble).CornerRadius=UDim.new(0,10)
-    local pad=Instance.new("UIPadding",bubble) pad.PaddingTop=UDim.new(0,6) pad.PaddingBottom=UDim.new(0,6) pad.PaddingLeft=UDim.new(0,8) pad.PaddingRight=UDim.new(0,8)
-    local nameLbl=Instance.new("TextLabel",bubble) nameLbl.Size=UDim2.new(1,0,0,12) nameLbl.BackgroundTransparency=1 nameLbl.Text=username nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=isMe and Color3.new(1,1,1) or ACCENT nameLbl.TextXAlignment=Enum.TextXAlignment.Left
-    local msgLbl=Instance.new("TextLabel",bubble) msgLbl.Size=UDim2.new(1,0,0,0) msgLbl.Position=UDim2.new(0,0,0,14) msgLbl.AutomaticSize=Enum.AutomaticSize.Y msgLbl.BackgroundTransparency=1 msgLbl.Text=message msgLbl.Font=Enum.Font.GothamMedium msgLbl.TextSize=12 msgLbl.TextColor3=Color3.new(1,1,1) msgLbl.TextXAlignment=Enum.TextXAlignment.Left msgLbl.TextWrapped=true msgLbl.RichText=false
-    bubble.Parent=chatScroll
-    task.wait() chatScroll.CanvasPosition=Vector2.new(0, chatScroll.AbsoluteCanvasSize.Y+1000)
-end
-
-local MessagingService
-pcall(function() MessagingService=game:GetService("MessagingService") end)
-
-local chatFolder
-pcall(function()
-    chatFolder=workspace:FindFirstChild("SORU_CHAT_LOGS")
-    if not chatFolder then
-        chatFolder=Instance.new("Folder")
-        chatFolder.Name="SORU_CHAT_LOGS"
-        chatFolder.Parent=workspace
-    end
-end)
-
-local function publishMessage(msg)
-    if msg:gsub("%s","")=="" then return end
-    -- MessagingService (cross-server)
-    if MessagingService then
-        pcall(function()
-            if setthreadidentity then setthreadidentity(2) end
-            MessagingService:PublishAsync(CHAT_TOPIC, {user=plr.DisplayName, uid=plr.UserId, msg=msg})
-            if setthreadidentity then setthreadidentity(7) end
-        end)
-    end
-    -- Workspace fallback (same server for exploit)
-    if chatFolder then
-        pcall(function()
-            local v=Instance.new("StringValue")
-            v.Name=plr.UserId.."_"..tick()
-            v.Value=HttpService:JSONEncode({user=plr.DisplayName, uid=plr.UserId, msg=msg, t=os.time()})
-            v.Parent=chatFolder
-            game.Debris:AddItem(v, 30)
-        end)
-    end
-end
-
-if MessagingService then
-    pcall(function()
-        if setthreadidentity then setthreadidentity(2) end
-        MessagingService:SubscribeAsync(CHAT_TOPIC, function(data)
-            local d=data.Data
-            if d and d.uid ~= plr.UserId then
-                addChatBubble(d.user, d.msg, false)
-            end
-        end)
-        if setthreadidentity then setthreadidentity(7) end
-    end)
-end
-if chatFolder then
-    chatFolder.ChildAdded:Connect(function(child)
-        if child:IsA("StringValue") then
-            local ok, data=pcall(function() return HttpService:JSONDecode(child.Value) end)
-            if ok and data and data.uid ~= plr.UserId then
-                addChatBubble(data.user, data.msg, false)
-            end
-        end
-    end)
-end
-
-local function sendChat()
-    local txt=chatInput.Text
-    if txt:gsub("%s","")=="" then return end
-    if #txt>150 then txt=txt:sub(1,150) end
-    addChatBubble(plr.DisplayName.." (You)", txt, true)
-    publishMessage(txt)
-    chatInput.Text=""
-    emojiPicker.Visible=false
-end
-
-sendBtn.MouseButton1Click:Connect(sendChat)
-chatInput.FocusLost:Connect(function(enter) if enter then sendChat() end end)
-emojiBtn.MouseButton1Click:Connect(function() emojiPicker.Visible=not emojiPicker.Visible end)
-for _,e in ipairs(emojis) do
-    local b=Instance.new("TextButton",emojiPicker) b.Text=e b.Font=Enum.Font.GothamBold b.TextSize=16 b.BackgroundColor3=Color3.fromRGB(34,30,50) b.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",b).CornerRadius=UDim.new(0,6) b.AutoButtonColor=false
-    b.MouseButton1Click:Connect(function() chatInput.Text=chatInput.Text..e chatInput:CaptureFocus() end)
-end
-
--- PANEL + CHAT TOGGLE LOGIC
 local function createExtCard(model)
     local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
     local zone=getAnimalZone(model) local cashPerSec=getCashPerSecond(model)
@@ -11471,11 +11338,8 @@ local function createExtCard(model)
 end
 local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
 closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false end)
-chatClose.MouseButton1Click:Connect(function() chatExt.Visible=false tw(chatToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(chatToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(chatToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() end)
 
 local extOn=false panelToggle.btn.MouseButton1Click:Connect(function() extOn=not extOn if extOn then tw(panelToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() mainExt.Visible=true refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) else tw(panelToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() mainExt.Visible=false end end)
-
-local chatOn=false chatToggle.btn.MouseButton1Click:Connect(function() chatOn=not chatOn if chatOn then tw(chatToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(chatToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(chatToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() chatExt.Visible=true addChatBubble("System","Welcome to Global Chat Soru! 👋 Support emoji 🔥", false) else tw(chatToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(chatToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(chatToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() chatExt.Visible=false end end)
 
 local baseOn=false local baseConn=nil baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
 
@@ -11572,11 +11436,7 @@ RunService.Heartbeat:Connect(function()
     if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end
 end)
 
-Window.Notify("Soru","Global Chat Ready 💬", ACCENT, 3)
--- HAPUS repeat wait Window.Tabs, HAPUS getTabScroll, HAPUS clearFrame
--- langsung bikin button di bawah pake MainTab:Button dll
--- logic steal lu tempel di bawah sini aja
---(%--&_>@)
+Window.Notify("👑","", ACCENT, 3)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
