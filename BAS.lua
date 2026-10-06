@@ -11079,7 +11079,7 @@ local function track(handle, onBegin, onMove, onEnd)
     end)
 end
 
-local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Divine"]=9,["Celestial"]=10}
+local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Cosmic"]=9,["Divine"]=10,["Celestial"]=11}
 local rarityNames={} local rf=RS:FindFirstChild("Rarities") if rf then for _,c in ipairs(rf:GetChildren()) do table.insert(rarityNames,c.Name) end else rarityNames={"Common","Rare","Epic","Legendary","Mythic","Secret"} end
 local function getRarityScore(n) if RARITY_SCORE[n] then return RARITY_SCORE[n] end for i,v in ipairs(rarityNames) do if v==n then return i end end return 0 end
 local function getBasePos(m) local b if m.PrimaryPart then b=m.PrimaryPart.Position else local ok,cf=pcall(function() return m:GetPivot() end) if ok then b=Vector3.new(cf.X,cf.Y,cf.Z) else for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then b=v.Position break end end end end return b end
@@ -11249,7 +11249,7 @@ local function createDropdown(parent, placeholder)
     return {frame=drop, btn=dropBtn, txt=dropTxt, arr=dropArr, listF=listF, sF=sF}
 end
 
-local baseAcc=createAccordion(scroll,"BASE","⚡",1,true) local baseToggle=createToggle(baseAcc.content,1,"Auto Base","Y 3.5 no rotate") baseAcc.setH(62)
+local baseAcc=createAccordion(scroll,"BASE","⚡",1,true) local baseToggle=createToggle(baseAcc.content,1,"Auto Base"," ") baseAcc.setH(62)
 local stealAcc=createAccordion(scroll,"STEAL","🔥",2,true)
 local selected={} local dd=createDropdown(stealAcc.content, "Select Rarity") dd.frame.LayoutOrder=1
 local open=false local function upd() local h=open and (math.min(#rarityNames,4)*40+12) or 0 dd.listF.Size=UDim2.new(1,0,0,h) dd.listF.Visible=open dd.frame.Size=UDim2.new(1,-8,0,46+h) stealAcc.setH(dd.frame.Size.Y.Offset+220) tw(dd.arr,{Rotation=open and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
@@ -11269,26 +11269,26 @@ local defendModes={"None","ZigZag","Random","Circle","Juke"} local defendOpen=fa
 for _,mode in ipairs(defendModes) do local it=Instance.new("TextButton",defendDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=mode lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() defendMode=mode defendDD.txt.Text="Defend: "..mode defendOpen=false defendUpd() end) end
 defendDD.btn.MouseButton1Click:Connect(function() defendOpen=not defendOpen defendUpd() end)
 
-local stealToggle=createToggle(stealAcc.content,4,"Auto Steal","3 studs + validasi") stealToggle.btn.Parent.LayoutOrder=4
-local attackToggle=createToggle(stealAcc.content,5,"Attack Carrier","Bat 5 studs") attackToggle.btn.Parent.LayoutOrder=5
+local stealToggle=createToggle(stealAcc.content,4,"Auto Steal"," ") stealToggle.btn.Parent.LayoutOrder=4
+local attackToggle=createToggle(stealAcc.content,5,"Attack Carrier"," ") attackToggle.btn.Parent.LayoutOrder=5
 stealAcc.setH(360)
 
-local panelAcc=createAccordion(scroll,"PANEL","📦",3,true) local panelToggle=createToggle(panelAcc.content,1,"External Panel","Cash/sec V2") panelAcc.setH(62)
+local panelAcc=createAccordion(scroll,"PANEL","📦",3,true) local panelToggle=createToggle(panelAcc.content,1,"External Panel","") panelAcc.setH(62)
 local eggAcc=createAccordion(scroll,"BREAK EGG","🥚",4,false)
 local eggZoneDD=createDropdown(eggAcc.content, "Select Zone") eggZoneDD.frame.LayoutOrder=1
 local eggZoneOpen=false local function eggZUpd() local h=eggZoneOpen and (math.min(#zoneNames,5)*40+12) or 0 eggZoneDD.listF.Size=UDim2.new(1,0,0,h) eggZoneDD.listF.Visible=eggZoneOpen eggZoneDD.frame.Size=UDim2.new(1,-8,0,46+h) eggAcc.setH(eggZoneDD.frame.Size.Y.Offset+62) tw(eggZoneDD.arr,{Rotation=eggZoneOpen and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
 eggZoneDD.txt.Text="Select Zone" local selectedEggZone=nil
 for _,zn in ipairs(zoneNames) do local it=Instance.new("TextButton",eggZoneDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=zn lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() selectedEggZone=zn eggZoneDD.txt.Text=zn eggZoneOpen=false eggZUpd() end) end
 eggZoneDD.btn.MouseButton1Click:Connect(function() eggZoneOpen=not eggZoneOpen eggZUpd() end)
-local eggToggle=createToggle(eggAcc.content,2,"Break Egg","Walk 3 studs +5 speed") eggToggle.btn.Parent.LayoutOrder=2 eggAcc.setH(108)
+local eggToggle=createToggle(eggAcc.content,2,"Break Egg","") eggToggle.btn.Parent.LayoutOrder=2 eggAcc.setH(108)
 
 local miscAcc=createAccordion(miscScroll,"MISC","🛡️",1,true)
-local ragdollToggle=createToggle(miscAcc.content,1,"No Ragdoll","Anti ragdoll V2")
-local antiMentalToggle=createToggle(miscAcc.content,2,"Anti Mental","Anti fling V2")
+local ragdollToggle=createToggle(miscAcc.content,1,"No Ragdoll","")
+local antiMentalToggle=createToggle(miscAcc.content,2,"Anti Mental","")
 miscAcc.setH(124)
 
 local gamepassAcc=createAccordion(miscScroll,"GAMEPASS","🎫",2,true)
-local fastBreakToggle=createToggle(gamepassAcc.content,1,"Fast Break","FastSwingOwned = true")
+local fastBreakToggle=createToggle(gamepassAcc.content,1,"Fast Break"," ")
 gamepassAcc.setH(62)
 
 -- EXTERNAL PANEL ANTI DPI KANAN BAWAH + RESIZE
@@ -11298,8 +11298,8 @@ local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0
 local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,52) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=51
 local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
 local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
-local tl=Instance.new("TextLabel",titleBar) tl.Text="ANIMAL SCAN" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
-local sub=Instance.new("TextLabel",titleBar) sub.Text="SPEED +5 • VALIDASI" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
+local sub=Instance.new("TextLabel",titleBar) sub.Text="" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
 local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
 -- drag title
 track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved)
@@ -11436,7 +11436,7 @@ RunService.Heartbeat:Connect(function()
     if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end
 end)
 
-Window.Notify("Fixed v2 Anti DPI","Main & Misc + External Panel kanan bawah resize", ACCENT, 3)
+Window.Notify("👑","", ACCENT, 3)
 
 -- HAPUS repeat wait Window.Tabs, HAPUS getTabScroll, HAPUS clearFrame
 -- langsung bikin button di bawah pake MainTab:Button dll
