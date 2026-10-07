@@ -238,18 +238,6 @@ function SORU:CreateWindow(C)
     do local mk = Data.Features["MenuKey"] if type(mk) == "string" then toggleKey = toKey(mk) or toggleKey end end
     local binding = false
     local booting = false
-    
-   local TAB_SOUND_ID = "rbxassetid://6895079853" -- kalau tidak bunyi / mau suara lain, ganti ID ini
-local soundOn = (Data.Features["UISound"] ~= false)
-local tabSnd = new("Sound", {Name = "SORU_TabSwitch", SoundId = TAB_SOUND_ID, Volume = 0.5}, gui)
-local function playTab(dir)
-    if not soundOn then return end
-    pcall(function()
-        tabSnd.PlaybackSpeed = (dir == 1) and 1.06 or 0.94 -- pitch naik/turun sesuai arah tab
-        tabSnd.TimePosition = 0
-        tabSnd:Play()
-    end)
-end
 
     local gameName = "Unknown"
     pcall(function() local i = Market:GetProductInfo(placeId) if i and i.Name then gameName = i.Name end end)
@@ -753,7 +741,6 @@ end
         local ne = tabs[n]
         local dir = (ne.index > (old and old.index or 0)) and 1 or -1
         cur = n
-       playTab(dir)
         if old then
             play(old.label, {TextColor3 = DIM}, 0.2)
             play(old.badge, {BackgroundTransparency = 0.82}, 0.2)
@@ -807,17 +794,16 @@ end
     ------------------------------------------------------------------
     -- KOMPONEN
     ------------------------------------------------------------------
-    local function buildComponents(scroll, host)
-    local nested = host ~= nil
-    host = host or scroll
-    local K = {}
-    local order = 0
-    local list = {}
-    if not nested then entranceLists[scroll] = list end
-    K._list = list
+    local function buildComponents(scroll)
+        local K = {}
+        local order = 0
+        local list = {}
+        entranceLists[scroll] = list
+        local function nextOrder() order = order + 1 return order end
+        K._next = nextOrder
 
         local function holder(h, auto)
-            local hf = new("Frame", {Name = "Holder", Size = UDim2.new(1, 0, 0, h or 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextOrder()}, host)
+            local hf = new("Frame", {Name = "Holder", Size = UDim2.new(1, 0, 0, h or 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextOrder()}, scroll)
             if auto then hf.AutomaticSize = Enum.AutomaticSize.Y end
             return hf
         end
@@ -1425,91 +1411,6 @@ end
             }
         end
         K.Color = K.ColorPicker
-       function K:Accordion(o)
-    o = o or {}
-    local flag = o.Flag or ("Acc_"..tostring(o.Title or ""))
-    local open = Data.Features[flag]
-    if type(open) ~= "boolean" then open = (o.Open == true) end
-    local hasDesc = o.Desc ~= nil
-    local H0 = hasDesc and 54 or 42
-    local contentH, animUntil = 0, 0
-
-    local f, st, hf = card(H0)
-    f.ClipsDescendants = true
-    local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, H0)}, f)
-    ripple(head)
-    label(head, {Text = o.Title or "Accordion", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -96, 0, hasDesc and 18 or H0), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
-    if hasDesc then
-        label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -96, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 2})
-    end
-    local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -38, 0, H0 / 2), Size = UDim2.fromOffset(26, 20), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 2}, head)
-    corner(cnt, FULL) stroke(cnt, ACCENT, 1, 0.55)
-    local cntL = label(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 3, TextTruncate = Enum.TextTruncate.None})
-    local arrow = label(head, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0, H0 / 2), Size = UDim2.fromOffset(20, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = ACCENT, Rotation = open and -90 or 90, ZIndex = 2})
-
-    -- area isi (lebih gelap + rail gradien di kiri)
-    local bodyBg = new("Frame", {Position = UDim2.fromOffset(8, H0 + 2), Size = UDim2.new(1, -16, 0, 12), BackgroundColor3 = T.ink, BackgroundTransparency = 0.45, BorderSizePixel = 0}, f)
-    corner(bodyBg, 10) stroke(bodyBg, T.stroke, 1, 0.75) regTrans(bodyBg, 0.3)
-    local rail = new("Frame", {Position = UDim2.fromOffset(0, 10), Size = UDim2.new(0, 2, 1, -20), BackgroundColor3 = WHITE, BorderSizePixel = 0}, bodyBg)
-    corner(rail, FULL) grad(rail, T.cyan, T.accent, 90)
-    local inner = new("Frame", {Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -14, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0}, bodyBg)
-    local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, inner)
-    local sub = buildComponents(scroll, inner) -- semua komponen (Toggle, Slider, Dropdown, dst) jalan di dalam
-
-    -- tinggi mengikuti isi (dibagi skala UI), jadi dropdown/colorpicker di dalam ikut mengembang
-    local function measure(force)
-        local s = math.max(rootScale.Scale * winScale.Scale, 0.01)
-        local h = math.max(0, math.floor(lay.AbsoluteContentSize.Y / s + 0.5))
-        if h ~= contentH or force then
-            contentH = h
-            inner.Size = UDim2.new(1, -14, 0, h)
-            bodyBg.Size = UDim2.new(1, -16, 0, h + 12)
-            cntL.Text = tostring(#sub._list)
-            if open and os.clock() > animUntil then hf.Size = UDim2.new(1, 0, 0, H0 + h + 20) end
-        end
-    end
-    lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() measure(false) end)
-
-    local function setOpen(v, silent)
-        open = v and true or false
-        animUntil = os.clock() + 0.45
-        play(arrow, {Rotation = open and -90 or 90}, 0.3, Enum.EasingStyle.Back)
-        play(hf, {Size = UDim2.new(1, 0, 0, open and (H0 + contentH + 20) or H0)}, 0.4, Enum.EasingStyle.Quint)
-        play(st, {Color = open and ACCENT or T.stroke, Transparency = open and 0.25 or 0.55}, 0.2)
-        play(cnt, {BackgroundTransparency = open and 0.55 or 0.82}, 0.2)
-        for i, b in ipairs(sub._list) do -- isi masuk satu-satu
-            if b.Parent and i <= 10 then
-                if open then b.Position = UDim2.fromOffset(-16, 0) end
-                task.delay(0.05 + i * 0.03, function()
-                    if not b.Parent then return end
-                    if open then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.45, Enum.EasingStyle.Back)
-                    else b.Position = UDim2.fromOffset(0, 0) end
-                end)
-            end
-        end
-        task.delay(0.46, function() measure(true) end)
-        if not silent then
-            if flag and not loading then Data.Features[flag] = open saveN(curName) end
-            if o.Callback then o.Callback(open) end
-        end
-    end
-
-    head.MouseEnter:Connect(function() if not open then play(st, {Color = ACCENT, Transparency = 0.35}, 0.18) end end)
-    head.MouseLeave:Connect(function() if not open then play(st, {Color = T.stroke, Transparency = 0.55}, 0.22) end end)
-    head.MouseButton1Click:Connect(function() setOpen(not open) end)
-
-    if open then st.Color = ACCENT st.Transparency = 0.25 cnt.BackgroundTransparency = 0.55 end
-    if flag then Data.Features[flag] = open end
-
-    -- objek yang dikembalikan = semua method komponen + kontrol buka/tutup
-    return setmetatable({
-        SetOpen = function(_, v) setOpen(v, true) end,
-        GetOpen = function() return open end,
-        Flip = function() setOpen(not open) end,
-    }, {__index = sub})
-end
-K.Collapse = K.Accordion
-
 
         return K
     end
@@ -1678,10 +1579,6 @@ K.Collapse = K.Accordion
         Title = "Animated background", Desc = "Aurora glow and floating particles", Flag = "UIAnim", Default = true,
         Callback = function(v) ambientOn = v ambient.Visible = v end,
     })
-   D:Toggle({
-    Title = "Sound effects", Desc = "Click sound when switching tabs", Flag = "UISound", Default = true,
-    Callback = function(v) soundOn = v end,
-})
     D:Keybind({
         Title = "Menu key", Desc = "Show or hide the interface", Flag = "MenuKey", Default = toggleKey,
         OnChange = function(k) if k then toggleKey = k end end,
