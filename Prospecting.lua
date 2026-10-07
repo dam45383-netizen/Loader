@@ -16024,7 +16024,6 @@ local shakeOnly = false
 local autoGeode = false
 local currentWalkSpeed = 16
 
--- [FUNGSI LU TETAP SAMA, GW SINGKAT BIAR RAPIH]
 local function getHRP() return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") end
 local function getRemotes()
     local chars = workspace:FindFirstChild("Characters")
@@ -16292,47 +16291,42 @@ end
 local function applyNoTexture(state) pcall(function() for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = state and 1 or 0 end end end) end
 local function applyDisable3D(state) pcall(function() game:GetService("RunService"):Set3dRenderingEnabled(not state) end) end
 
--- ============================================
--- UI BARU PAKE ACCORDION RAPIH
--- ============================================
-
--- MAIN TAB
-local FarmSetup = MainTab:Accordion({Title = "🏜️ FARM SETUP", Desc = "Atur posisi farming utama", Flag = "ACC_FarmSetup", Open = true})
-FarmSetup:Button({Title = "SET SAND", Desc = "Set posisi pasir", Callback = function()
+-- UI NO DESC VERSION
+local FarmSetup = MainTab:Accordion({Title = "FARM SETUP", Flag = "ACC_FarmSetup", Open = true})
+FarmSetup:Button({Title = "SET SAND", Callback = function()
     local hrp=getHRP() if not hrp then return end sandPos=hrp.CFrame getgenv().SoruProspecting.sandPos=sandPos Window.Notify("MAIN","SAND SET",Color3.fromRGB(139,92,246),2)
 end})
-FarmSetup:Button({Title = "SET WATER", Desc = "Set posisi air", Callback = function()
+FarmSetup:Button({Title = "SET WATER", Callback = function()
     local hrp=getHRP() if not hrp then return end waterPos=hrp.CFrame getgenv().SoruProspecting.waterPos=waterPos Window.Notify("MAIN","WATER SET",Color3.fromRGB(99,102,241),2)
 end})
 
-local AutoFarmAcc = MainTab:Accordion({Title = "🤖 AUTO FARM", Desc = "Kontrol auto farm & shake", Flag = "ACC_AutoFarm", Open = true})
-AutoFarmAcc:Toggle({Title = "AUTO FARM", Desc = "Farm sand -> water otomatis", Flag = "AutoFarm_Soru", Default = false, Callback = function(v)
+local AutoFarmAcc = MainTab:Accordion({Title = "AUTO FARM", Flag = "ACC_AutoFarm", Open = true})
+AutoFarmAcc:Toggle({Title = "AUTO FARM", Flag = "AutoFarm_Soru", Default = false, Callback = function(v)
     if v then
         if not sandPos or not waterPos then Window.Notify("MAIN","SET SAND & WATER dulu",Color3.fromRGB(200,60,60),2) return end
         if shakeOnly then shakeOnly=false end autoFarm=true task.spawn(farmLoop)
     else autoFarm=false unlock() end
 end})
-AutoFarmAcc:Toggle({Title = "SHAKE ONLY", Desc = "Cuma shake pas di water", Flag = "ShakeOnly_Soru", Default = false, Callback = function(v)
+AutoFarmAcc:Toggle({Title = "SHAKE ONLY", Flag = "ShakeOnly_Soru", Default = false, Callback = function(v)
     shakeOnly=v if v then if autoFarm then autoFarm=false end task.spawn(shakeOnlyLoop) end
 end})
-AutoFarmAcc:Toggle({Title = "COLLECT GEODE", Desc = "Auto ambil geode sekitar", Flag = "AutoGeode_Soru", Default = false, Callback = function(v) autoGeode=v if v then task.spawn(geodeLoop) end end})
+AutoFarmAcc:Toggle({Title = "COLLECT GEODE", Flag = "AutoGeode_Soru", Default = false, Callback = function(v) autoGeode=v if v then task.spawn(geodeLoop) end end})
 
-local SellingAcc = MainTab:Accordion({Title = "💰 SELLING", Desc = "Merchant & auto sell", Flag = "ACC_Selling", Open = false})
-SellingAcc:Button({Title = "SET MERCHANT", Desc = "Set posisi merchant", Callback = function()
+local SellingAcc = MainTab:Accordion({Title = "SELLING", Flag = "ACC_Selling", Open = false})
+SellingAcc:Button({Title = "SET MERCHANT", Callback = function()
     local hrp=getHRP() if not hrp then return end merchantPos=hrp.CFrame getgenv().SoruProspecting.merchantPos=merchantPos Window.Notify("MERCHANT","MERCHANT SET",Color3.fromRGB(80,220,120),2)
 end})
-SellingAcc:Button({Title = "TP SELL", Desc = "Teleport ke merchant + sell", Callback = function()
+SellingAcc:Button({Title = "TP SELL", Callback = function()
     if not merchantPos and not findMerchantPos() then Window.Notify("MERCHANT","SET MERCHANT dulu",Color3.fromRGB(200,60,60),2) return end task.spawn(function() sellWithTween() end)
 end})
-SellingAcc:Button({Title = "SELL NOW", Desc = "Jual langsung ditempat", Callback = function() task.spawn(sellWithTween) end})
-SellingAcc:Toggle({Title = "AUTO SELL", Desc = "Auto jual pas inventory penuh", Flag = "AutoSell_Soru", Default = false, Callback = function(v)
+SellingAcc:Button({Title = "SELL NOW", Callback = function() task.spawn(sellWithTween) end})
+SellingAcc:Toggle({Title = "AUTO SELL", Flag = "AutoSell_Soru", Default = false, Callback = function(v)
     autoSell=v
     if v then task.spawn(function() while autoSell do local cur,max= getInventory() if cur and max and cur>=max then sellWithTween() task.wait(4) end task.wait(0.5) end end) else setNoclip(false) end
 end})
 
--- TRAVEL TAB
-local TravelAcc = TravelTab:Accordion({Title = "✈️ WAYPOINT TRAVEL", Desc = "Fast travel antar waypoint", Flag = "ACC_Travel", Open = true})
-local waypointDropdown = TravelAcc:Dropdown({Title = "Pilih Waypoint", Desc = "Pilih tujuan travel", Flag = "TravelWaypoint_Soru", Options = {"Loading..."}, Callback = function(val)
+local TravelAcc = TravelTab:Accordion({Title = "WAYPOINT TRAVEL", Flag = "ACC_Travel", Open = true})
+local waypointDropdown = TravelAcc:Dropdown({Title = "Pilih Waypoint", Flag = "TravelWaypoint_Soru", Options = {"Loading..."}, Callback = function(val)
     local name = type(val)=="table" and val[1] or val
     for _,wp in ipairs(getWaypoints()) do if wp.Name == name then selectedWaypoint=wp break end end
 end})
@@ -16341,16 +16335,15 @@ local function refreshWaypointsDropdown()
     local names={} for _,wp in ipairs(wps) do table.insert(names, wp.Name) end
     if #names==0 then names={"No Waypoints"} end waypointDropdown:Refresh(names)
 end
-TravelAcc:Button({Title = "REFRESH WAYPOINTS", Desc = "Reload list waypoint", Callback = function() refreshWaypointsDropdown() end})
-TravelAcc:Button({Title = "TELEPORT", Desc = "Gas travel sekarang", Callback = function()
+TravelAcc:Button({Title = "REFRESH WAYPOINTS", Callback = function() refreshWaypointsDropdown() end})
+TravelAcc:Button({Title = "TELEPORT", Callback = function()
     if not selectedWaypoint then Window.Notify("TRAVEL","Pilih waypoint dulu",Color3.fromRGB(200,60,60),2) return end doFastTravel(selectedWaypoint)
 end})
 task.spawn(function() task.wait(0.8) refreshWaypointsDropdown() end)
 
--- SHOP TAB
-local ShopAcc = ShopTab:Accordion({Title = "🛒 PAN & SHOVEL SHOP", Desc = "Beli equipment terbaik", Flag = "ACC_Shop", Open = true})
+local ShopAcc = ShopTab:Accordion({Title = "PAN & SHOVEL SHOP", Flag = "ACC_Shop", Open = true})
 local shopListCache = {}
-local shopDropdown = ShopAcc:Dropdown({Title = "Pilih Pan / Shovel", Desc = "Pilih item termahal - termurah", Flag = "ShopItem_Soru", Options = {"Loading..."}, Callback = function(val)
+local shopDropdown = ShopAcc:Dropdown({Title = "Pilih Pan / Shovel", Flag = "ShopItem_Soru", Options = {"Loading..."}, Callback = function(val)
     local str = type(val)=="table" and val[1] or val
     for _,data in ipairs(shopListCache) do local label = data.name.." | $"..data.price.." ("..data.folderName..")" if label == str or data.name == str then selectedShopData=data break end end
 end})
@@ -16358,23 +16351,22 @@ local function refreshShopDropdown()
     local items=getShopItems() shopListCache=items local opts={} for _,data in ipairs(items) do table.insert(opts, data.name.." | $"..data.price.." ("..data.folderName..")") end
     if #opts==0 then opts={"No Item Found"} end shopDropdown:Refresh(opts)
 end
-ShopAcc:Button({Title = "REFRESH SHOP", Desc = "Reload list shop", Callback = function() refreshShopDropdown() end})
-ShopAcc:Button({Title = "TP TO ITEM", Desc = "Teleport ke item terpilih", Callback = function()
+ShopAcc:Button({Title = "REFRESH SHOP", Callback = function() refreshShopDropdown() end})
+ShopAcc:Button({Title = "TP TO ITEM", Callback = function()
     if not selectedShopData then Window.Notify("SHOP","Pilih item dulu",Color3.fromRGB(200,60,60),2) return end
     local pos=getModelPos(selectedShopData.model) if not pos then return end
     task.spawn(function() setNoclip(true) local hrp=getHRP() if hrp then hrp.Anchored=false hrp.CFrame=CFrame.new(pos + Vector3.new(0,5,0)) task.wait(0.1) hrp.Anchored=true task.wait(3) hrp.Anchored=false end setNoclip(false) end)
 end})
 task.spawn(function() task.wait(0.8) refreshShopDropdown() end)
 
--- MISC TAB
-local MovementAcc = MiscTab:Accordion({Title = "🏃 MOVEMENT", Desc = "Atur kecepatan karakter", Flag = "ACC_Movement", Open = true})
-MovementAcc:Slider({Title = "WALKSPEED", Desc = "Default 16", Flag = "WalkSpeed_Soru", Min = 16, Max = 200, Step = 1, Default = 16, Suffix = "", Callback = function(v) currentWalkSpeed=v end})
+local MovementAcc = MiscTab:Accordion({Title = "MOVEMENT", Flag = "ACC_Movement", Open = true})
+MovementAcc:Slider({Title = "WALKSPEED", Flag = "WalkSpeed_Soru", Min = 16, Max = 200, Step = 1, Default = 16, Suffix = "", Callback = function(v) currentWalkSpeed=v end})
 task.spawn(function() while true do local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") if hum and hum.WalkSpeed ~= currentWalkSpeed then hum.WalkSpeed = currentWalkSpeed end task.wait(0.15) end end)
 
-local PerfAcc = MiscTab:Accordion({Title = "⚡ PERFORMANCE", Desc = "Boost FPS & rendering", Flag = "ACC_Performance", Open = false})
-PerfAcc:Toggle({Title = "FPS BOOST", Desc = "Matikan efek berat", Flag = "FPSBoost_Soru", Default = false, Callback = function(v) applyFPSBoost(v) end})
-PerfAcc:Toggle({Title = "NO TEXTURE", Desc = "Hilangin texture/decal", Flag = "NoTexture_Soru", Default = false, Callback = function(v) applyNoTexture(v) end})
-PerfAcc:Toggle({Title = "DISABLE 3D RENDERING", Desc = "Extreme low spec", Flag = "Disable3D_Soru", Default = false, Callback = function(v) applyDisable3D(v) end})--(%--&_>@)
+local PerfAcc = MiscTab:Accordion({Title = "PERFORMANCE", Flag = "ACC_Performance", Open = false})
+PerfAcc:Toggle({Title = "FPS BOOST", Flag = "FPSBoost_Soru", Default = false, Callback = function(v) applyFPSBoost(v) end})
+PerfAcc:Toggle({Title = "NO TEXTURE", Flag = "NoTexture_Soru", Default = false, Callback = function(v) applyNoTexture(v) end})
+PerfAcc:Toggle({Title = "DISABLE 3D RENDERING", Flag = "Disable3D_Soru", Default = false, Callback = function(v) applyDisable3D(v) end})--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
