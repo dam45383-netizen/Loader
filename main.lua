@@ -1,4 +1,4 @@
-local SORU_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
+local SORU_URL = "https://pastebin.com/hActzjgY"
 
 local ok, SORU = pcall(function()
     return loadstring(game:HttpGet(SORU_URL))()
