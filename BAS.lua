@@ -11001,8 +11001,8 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
-local MainAPI = Window:Tab({Title = "Main"})
-local MiscAPI = Window:Tab({Title = "Misc"})
+local MainAPI = Window:Tab({Title = "Main", Icon = "⚡"})
+local MiscAPI = Window:Tab({Title = "Misc", Icon = "🛡️"})
 
 repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"] and Window.Gui:FindFirstChild("Root")
 
@@ -11018,7 +11018,6 @@ local plr = Players.LocalPlayer
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Animator") then pcall(function() v:Destroy() end) end end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("Animator") then task.wait(0.1) pcall(function() v:Destroy() end) end end)
 
--- AMBIL SCROLL ASLI V2 ANTI DPI
 local function getTabScroll(name)
     local t = Window.Tabs[name]
     if t and t.frame then
@@ -11053,7 +11052,6 @@ local ACCENT2 = Color3.fromRGB(99,102,241)
 local DIM = Color3.fromRGB(148,140,180)
 local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p) end
 
--- TRACK DRAG/RESIZE (sama kayak lib v2 biar scale bener)
 local function track(handle, onBegin, onMove, onEnd)
     handle.InputBegan:Connect(function(input)
         local ut = input.UserInputType
@@ -11079,6 +11077,7 @@ local function track(handle, onBegin, onMove, onEnd)
     end)
 end
 
+-- LOGIC UTAMA (TETEP)
 local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Cosmic"]=9,["Divine"]=10,["Celestial"]=11}
 local rarityNames={} local rf=RS:FindFirstChild("Rarities") if rf then for _,c in ipairs(rf:GetChildren()) do table.insert(rarityNames,c.Name) end else rarityNames={"Common","Rare","Epic","Legendary","Mythic","Secret"} end
 local function getRarityScore(n) if RARITY_SCORE[n] then return RARITY_SCORE[n] end for i,v in ipairs(rarityNames) do if v==n then return i end end return 0 end
@@ -11206,149 +11205,113 @@ end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("ProximityPrompt") then task.wait(0.1) makeBigPrompt(v) end end)
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") then makeBigPrompt(v) end end
 
-local scroll=mainFrame
-local miscScroll=miscFrame
+-- ===================== UI BARU: ACCORDION TETEP, KOMPONEN LIB BAWAAN =====================
+local function moveLastHolder(srcScroll, destContent)
+    local holder=nil local maxO=-1
+    for _,v in ipairs(srcScroll:GetChildren()) do
+        if v.Name=="Holder" and v.Parent==srcScroll then
+            if v.LayoutOrder>maxO then maxO=v.LayoutOrder holder=v end
+        end
+    end
+    if holder then
+        holder.Parent = destContent
+        holder.Size = UDim2.new(1,0,0,0)
+        holder.AutomaticSize = Enum.AutomaticSize.Y
+    end
+    return holder
+end
 
 local function createAccordion(parent,title,emoji,order,open)
-    local acc=Instance.new("Frame") acc.LayoutOrder=order acc.Size=UDim2.new(1,-5,0,open and 300 or 56) acc.BackgroundColor3=Color3.fromRGB(20,18,32) acc.BackgroundTransparency=0.2 acc.ClipsDescendants=true acc.Parent=parent
-    Instance.new("UICorner",acc).CornerRadius=UDim.new(0,14) local stroke=Instance.new("UIStroke",acc) stroke.Color=Color3.fromRGB(50,45,70) stroke.Transparency=0.6 stroke.Thickness=1
-    local accentLine=Instance.new("Frame",acc) accentLine.Size=UDim2.new(1,0,0,1) accentLine.Position=UDim2.new(0,0,0,0) accentLine.BackgroundColor3=ACCENT accentLine.ZIndex=2 Instance.new("UIGradient",accentLine).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine).CornerRadius=UDim.new(0,99)
+    local acc=Instance.new("Frame")
+    acc.Name=title.."_ACC"
+    acc.LayoutOrder=order
+    acc.Size=UDim2.new(1,-5,0,0)
+    acc.AutomaticSize=Enum.AutomaticSize.Y
+    acc.BackgroundColor3=Color3.fromRGB(18,16,30)
+    acc.BackgroundTransparency=0.05
+    acc.ClipsDescendants=true
+    acc.Parent=parent
+    Instance.new("UICorner",acc).CornerRadius=UDim.new(0,16)
+    local s=Instance.new("UIStroke",acc) s.Color=Color3.fromRGB(64,58,98) s.Transparency=0.55 s.Thickness=1
+
+    local accentLine=Instance.new("Frame",acc) accentLine.Size=UDim2.new(1,0,0,2) accentLine.BackgroundColor3=Color3.fromRGB(255,255,255) accentLine.ZIndex=2
+    Instance.new("UIGradient",accentLine).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)}
+    Instance.new("UICorner",accentLine).CornerRadius=UDim.new(0,99)
+
     local header=Instance.new("TextButton",acc) header.Size=UDim2.new(1,0,0,56) header.BackgroundTransparency=1 header.Text="" header.ZIndex=3
-    local icon=Instance.new("Frame",header) icon.Size=UDim2.fromOffset(36,36) icon.Position=UDim2.new(0,12,0.5,-18) icon.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",icon).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",icon).Color=ACCENT Instance.new("UIStroke",icon).Transparency=0.5
+    local icon=Instance.new("Frame",header) icon.Size=UDim2.fromOffset(36,36) icon.Position=UDim2.new(0,12,0.5,-18) icon.BackgroundColor3=Color3.fromRGB(26,24,42) Instance.new("UICorner",icon).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",icon).Color=ACCENT Instance.new("UIStroke",icon).Transparency=0.5
     local ic=Instance.new("TextLabel",icon) ic.Size=UDim2.new(1,0,1,0) ic.BackgroundTransparency=1 ic.Text=emoji ic.Font=Enum.Font.GothamBold ic.TextSize=16 ic.TextColor3=Color3.new(1,1,1)
     local tl=Instance.new("TextLabel",header) tl.Text=title tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(1,-100,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
-    local sub=Instance.new("TextLabel",header) sub.Text="V1 • "..string.lower(title) sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(1,-100,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+    local sub=Instance.new("TextLabel",header) sub.Text="V3 • "..string.lower(title) sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(1,-100,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
     local arrowBg=Instance.new("Frame",header) arrowBg.Size=UDim2.fromOffset(32,32) arrowBg.Position=UDim2.new(1,-40,0.5,-16) arrowBg.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",arrowBg).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",arrowBg).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",arrowBg).Transparency=0.6
     local arrow=Instance.new("TextLabel",arrowBg) arrow.Size=UDim2.new(1,0,1,0) arrow.BackgroundTransparency=1 arrow.Text="▼" arrow.Font=Enum.Font.GothamBold arrow.TextSize=10 arrow.TextColor3=DIM arrow.Rotation=open and 0 or -90
-    local content=Instance.new("Frame",acc) content.Position=UDim2.new(0,0,0,56) content.Size=UDim2.new(1,0,0,200) content.BackgroundColor3=Color3.fromRGB(18,16,28) content.BackgroundTransparency=0.25 content.Visible=open Instance.new("UICorner",content).CornerRadius=UDim.new(0,14)
-    local pad=Instance.new("UIPadding",content) pad.PaddingTop=UDim.new(0,6) pad.PaddingBottom=UDim.new(0,10) pad.PaddingLeft=UDim.new(0,8) pad.PaddingRight=UDim.new(0,8)
-    Instance.new("UIListLayout",content).Padding=UDim.new(0,8)
-    local isOpen=open local curH=200 local function setH(h) curH=h content.Size=UDim2.new(1,0,0,h) if isOpen then acc.Size=UDim2.new(1,-5,0,56+h+8) end end
-    header.MouseButton1Click:Connect(function() isOpen=not isOpen tw(arrow,{Rotation=isOpen and 0 or -90},0.35,Enum.EasingStyle.Back):Play() tw(arrowBg,{BackgroundColor3=isOpen and ACCENT or Color3.fromRGB(24,22,36)},0.2):Play() tw(arrow,{TextColor3=isOpen and Color3.new(1,1,1) or DIM},0.2):Play() if isOpen then content.Visible=true tw(acc,{Size=UDim2.new(1,-5,0,56+curH+8)},0.4,Enum.EasingStyle.Back):Play() else tw(acc,{Size=UDim2.new(1,-5,0,56)},0.3):Play() task.delay(0.3,function() content.Visible=false end) end end)
-    return {content=content,setH=setH}
-end
-local function createToggle(parent,order,title,desc)
-    local f=Instance.new("Frame",parent) f.LayoutOrder=order f.Size=UDim2.new(1,-8,0,54) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.BackgroundTransparency=0.15 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
-    local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0,14) dot.BackgroundColor3=Color3.fromRGB(60,55,80) Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
-    local t=Instance.new("TextLabel",f) t.Text=title t.Position=UDim2.new(0,26,0,8) t.Size=UDim2.new(1,-80,0,12) t.BackgroundTransparency=1 t.Font=Enum.Font.GothamBold t.TextSize=12 t.TextColor3=Color3.new(1,1,1) t.TextXAlignment=Enum.TextXAlignment.Left
-    local d=Instance.new("TextLabel",f) d.Text=desc d.Position=UDim2.new(0,26,0,22) d.Size=UDim2.new(1,-80,0,10) d.BackgroundTransparency=1 d.Font=Enum.Font.GothamMedium d.TextSize=9 d.TextColor3=DIM d.TextXAlignment=Enum.TextXAlignment.Left
-    local btn=Instance.new("TextButton",f) btn.Size=UDim2.fromOffset(44,24) btn.Position=UDim2.new(1,-54,0.5,-12) btn.Text="" btn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",btn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",btn).Transparency=0.6
-    local knob=Instance.new("Frame",btn) knob.Size=UDim2.fromOffset(18,18) knob.Position=UDim2.new(0,3,0.5,-9) knob.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
-    return {btn=btn,dot=knob,accent=dot, track=btn}
-end
-local function createDropdown(parent, placeholder)
-    local drop=Instance.new("Frame",parent) drop.LayoutOrder=1 drop.Size=UDim2.new(1,-8,0,46) drop.BackgroundColor3=Color3.fromRGB(24,22,36) drop.BackgroundTransparency=0.15 drop.ClipsDescendants=true Instance.new("UICorner",drop).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",drop).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",drop).Transparency=0.6
-    local dot=Instance.new("Frame",drop) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0.5,-3) dot.BackgroundColor3=ACCENT Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
-    local dropBtn=Instance.new("TextButton",drop) dropBtn.Size=UDim2.new(1,0,0,46) dropBtn.BackgroundTransparency=1 dropBtn.Text=""
-    local dropTxt=Instance.new("TextLabel",drop) dropTxt.Size=UDim2.new(1,-70,0,46) dropTxt.Position=UDim2.new(0,28,0,0) dropTxt.BackgroundTransparency=1 dropTxt.Text=placeholder or "Select" dropTxt.Font=Enum.Font.GothamMedium dropTxt.TextSize=12 dropTxt.TextColor3=DIM dropTxt.TextXAlignment=Enum.TextXAlignment.Left
-    local dropArrBg=Instance.new("Frame",drop) dropArrBg.Size=UDim2.fromOffset(28,28) dropArrBg.Position=UDim2.new(1,-36,0,9) dropArrBg.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",dropArrBg).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",dropArrBg).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",dropArrBg).Transparency=0.6
-    local dropArr=Instance.new("TextLabel",dropArrBg) dropArr.Size=UDim2.new(1,0,1,0) dropArr.BackgroundTransparency=1 dropArr.Text="▼" dropArr.Font=Enum.Font.GothamBold dropArr.TextSize=10 dropArr.TextColor3=DIM
-    local listF=Instance.new("Frame",drop) listF.Position=UDim2.new(0,0,0,46) listF.Size=UDim2.new(1,0,0,0) listF.BackgroundColor3=Color3.fromRGB(20,18,32) listF.BackgroundTransparency=0.2 Instance.new("UICorner",listF).CornerRadius=UDim.new(0,12) listF.Visible=false
-    local sF=Instance.new("ScrollingFrame",listF) sF.Size=UDim2.new(1,0,1,0) sF.BackgroundTransparency=1 sF.ScrollBarThickness=1 sF.CanvasSize=UDim2.new(0,0,0,0) sF.AutomaticCanvasSize=Enum.AutomaticSize.Y
-    Instance.new("UIPadding",sF).PaddingTop=UDim.new(0,6) Instance.new("UIPadding",sF).PaddingBottom=UDim.new(0,6) Instance.new("UIPadding",sF).PaddingLeft=UDim.new(0,6) Instance.new("UIPadding",sF).PaddingRight=UDim.new(0,6) Instance.new("UIListLayout",sF).Padding=UDim.new(0,6)
-    return {frame=drop, btn=dropBtn, txt=dropTxt, arr=dropArr, listF=listF, sF=sF}
+
+    local content=Instance.new("Frame",acc) content.Name="Content" content.Position=UDim2.new(0,0,0,56) content.Size=UDim2.new(1,0,0,0) content.AutomaticSize=Enum.AutomaticSize.Y content.BackgroundColor3=Color3.fromRGB(14,12,24) content.BackgroundTransparency=0.15 content.Visible=open Instance.new("UICorner",content).CornerRadius=UDim.new(0,14)
+    local pad=Instance.new("UIPadding",content) pad.PaddingTop=UDim.new(0,8) pad.PaddingBottom=UDim.new(0,10) pad.PaddingLeft=UDim.new(0,8) pad.PaddingRight=UDim.new(0,8)
+    local layout=Instance.new("UIListLayout",content) layout.Padding=UDim.new(0,8) layout.SortOrder=Enum.SortOrder.LayoutOrder
+
+    local isOpen=open
+    header.MouseButton1Click:Connect(function()
+        isOpen=not isOpen
+        tw(arrow,{Rotation=isOpen and 0 or -90},0.35,Enum.EasingStyle.Back):Play()
+        tw(arrowBg,{BackgroundColor3=isOpen and ACCENT or Color3.fromRGB(24,22,36)},0.2):Play()
+        content.Visible=isOpen
+    end)
+    return acc, content
 end
 
-local baseAcc=createAccordion(scroll,"BASE","⚡",1,true) local baseToggle=createToggle(baseAcc.content,1,"Auto Base"," ") baseAcc.setH(62)
-local stealAcc=createAccordion(scroll,"STEAL","🔥",2,true)
-local selected={} local dd=createDropdown(stealAcc.content, "Select Rarity") dd.frame.LayoutOrder=1
-local open=false local function upd() local h=open and (math.min(#rarityNames,4)*40+12) or 0 dd.listF.Size=UDim2.new(1,0,0,h) dd.listF.Visible=open dd.frame.Size=UDim2.new(1,-8,0,46+h) stealAcc.setH(dd.frame.Size.Y.Offset+220) tw(dd.arr,{Rotation=open and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
-local function refTxt() local c=0 for _ in pairs(selected) do c+=1 end if c==0 then dd.txt.Text="Select Rarity" elseif c==1 then for k in pairs(selected) do dd.txt.Text=k break end else dd.txt.Text=c.." Selected" end end
-for _,n in ipairs(rarityNames) do local it=Instance.new("TextButton",dd.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=n lb.Size=UDim2.new(1,-50,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left local ch=Instance.new("Frame",it) ch.Size=UDim2.fromOffset(20,20) ch.Position=UDim2.new(1,-30,0.5,-10) ch.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",ch).CornerRadius=UDim.new(0,6) Instance.new("UIStroke",ch).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",ch).Transparency=0.6 local ck=Instance.new("TextLabel",ch) ck.Size=UDim2.new(1,0,1,0) ck.BackgroundTransparency=1 ck.Text="✓" ck.Font=Enum.Font.GothamBold ck.TextSize=11 ck.TextColor3=Color3.new(1,1,1) ck.Visible=false it.MouseButton1Click:Connect(function() if selected[n] then selected[n]=nil ck.Visible=false tw(ch,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.15):Play() else selected[n]=true ck.Visible=true tw(ch,{BackgroundColor3=ACCENT},0.15):Play() end refTxt() end) end
-dd.btn.MouseButton1Click:Connect(function() open=not open upd() end)
-
+-- DATA ZONE
 local zoneNames={} local zbFolder=getZoneBuildsFolder() if zbFolder then for _,m in ipairs(zbFolder:GetChildren()) do if m:IsA("Model") then table.insert(zoneNames,m.Name) end end end if #zoneNames==0 then zoneNames={"Zone1"} end
-local selectedZones={} local zDD=createDropdown(stealAcc.content, "Filter Zone (All)") zDD.frame.LayoutOrder=2
-local zOpen=false local function zUpd() local h=zOpen and (math.min(#zoneNames,4)*40+12) or 0 zDD.listF.Size=UDim2.new(1,0,0,h) zDD.listF.Visible=zOpen zDD.frame.Size=UDim2.new(1,-8,0,46+h) stealAcc.setH(320) tw(zDD.arr,{Rotation=zOpen and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
-local function refZoneTxt() local c=0 for _ in pairs(selectedZones) do c+=1 end if c==0 then zDD.txt.Text="Filter Zone (All)" elseif c==1 then for k in pairs(selectedZones) do zDD.txt.Text=k break end else zDD.txt.Text=c.." Zones" end end
-for _,zn in ipairs(zoneNames) do local it=Instance.new("TextButton",zDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=zn lb.Size=UDim2.new(1,-50,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left local ch=Instance.new("Frame",it) ch.Size=UDim2.fromOffset(20,20) ch.Position=UDim2.new(1,-30,0.5,-10) ch.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",ch).CornerRadius=UDim.new(0,6) Instance.new("UIStroke",ch).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",ch).Transparency=0.6 local ck=Instance.new("TextLabel",ch) ck.Size=UDim2.new(1,0,1,0) ck.BackgroundTransparency=1 ck.Text="✓" ck.Font=Enum.Font.GothamBold ck.TextSize=11 ck.TextColor3=Color3.new(1,1,1) ck.Visible=false it.MouseButton1Click:Connect(function() if selectedZones[zn] then selectedZones[zn]=nil ck.Visible=false tw(ch,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.15):Play() else selectedZones[zn]=true ck.Visible=true tw(ch,{BackgroundColor3=ACCENT},0.15):Play() end refZoneTxt() end) end
-zDD.btn.MouseButton1Click:Connect(function() zOpen=not zOpen zUpd() end)
+local defendModes={"None","ZigZag","Random","Circle","Juke"}
+local selected={} local selectedZones={} local selectedEggZone=nil
 
-local defendDD=createDropdown(stealAcc.content, "Defend: None") defendDD.frame.LayoutOrder=3
-local defendModes={"None","ZigZag","Random","Circle","Juke"} local defendOpen=false local function defendUpd() local h=defendOpen and (#defendModes*40+12) or 0 defendDD.listF.Size=UDim2.new(1,0,0,h) defendDD.listF.Visible=defendOpen defendDD.frame.Size=UDim2.new(1,-8,0,46+h) stealAcc.setH(380) tw(defendDD.arr,{Rotation=defendOpen and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
-for _,mode in ipairs(defendModes) do local it=Instance.new("TextButton",defendDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=mode lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() defendMode=mode defendDD.txt.Text="Defend: "..mode defendOpen=false defendUpd() end) end
-defendDD.btn.MouseButton1Click:Connect(function() defendOpen=not defendOpen defendUpd() end)
+-- ACCORDIONS
+local baseFrame, baseContent = createAccordion(mainFrame,"BASE","⚡",1,true)
+local stealFrame, stealContent = createAccordion(mainFrame,"STEAL","🔥",2,true)
+local panelFrame, panelContent = createAccordion(mainFrame,"PANEL","📦",3,true)
+local eggFrame, eggContent = createAccordion(mainFrame,"BREAK EGG","🥚",4,false)
+local miscFrameAcc, miscContent = createAccordion(miscFrame,"MISC","🛡️",1,true)
+local gpFrame, gpContent = createAccordion(miscFrame,"GAMEPASS","🎫",2,true)
 
-local stealToggle=createToggle(stealAcc.content,4,"Auto Steal"," ") stealToggle.btn.Parent.LayoutOrder=4
-local attackToggle=createToggle(stealAcc.content,5,"Attack Carrier"," ") attackToggle.btn.Parent.LayoutOrder=5
-stealAcc.setH(360)
+-- ====== MAIN TAB LIB COMPONENTS -> PINDAH KE ACCORDION ======
+-- BASE
+local baseOn=false local baseConn=nil
+MainAPI:Toggle({Title="Auto Base", Desc="Auto balik ke base saat di-steal", Flag="AutoBase", Default=false, Callback=function(v)
+    baseOn=v
+    if v then
+        baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end)
+    else
+        if baseConn then baseConn:Disconnect() baseConn=nil end
+    end
+end})
+moveLastHolder(mainFrame, baseContent)
 
-local panelAcc=createAccordion(scroll,"PANEL","📦",3,true) local panelToggle=createToggle(panelAcc.content,1,"External Panel","") panelAcc.setH(62)
-local eggAcc=createAccordion(scroll,"BREAK EGG","🥚",4,false)
-local eggZoneDD=createDropdown(eggAcc.content, "Select Zone") eggZoneDD.frame.LayoutOrder=1
-local eggZoneOpen=false local function eggZUpd() local h=eggZoneOpen and (math.min(#zoneNames,5)*40+12) or 0 eggZoneDD.listF.Size=UDim2.new(1,0,0,h) eggZoneDD.listF.Visible=eggZoneOpen eggZoneDD.frame.Size=UDim2.new(1,-8,0,46+h) eggAcc.setH(eggZoneDD.frame.Size.Y.Offset+62) tw(eggZoneDD.arr,{Rotation=eggZoneOpen and 180 or 0},0.3,Enum.EasingStyle.Back):Play() end
-eggZoneDD.txt.Text="Select Zone" local selectedEggZone=nil
-for _,zn in ipairs(zoneNames) do local it=Instance.new("TextButton",eggZoneDD.sF) it.Size=UDim2.new(1,-6,0,36) it.BackgroundColor3=Color3.fromRGB(24,22,36) it.BackgroundTransparency=0.15 it.Text="" it.AutoButtonColor=false Instance.new("UICorner",it).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",it).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",it).Transparency=0.6 local lb=Instance.new("TextLabel",it) lb.Text=zn lb.Size=UDim2.new(1,-20,1,0) lb.Position=UDim2.new(0,12,0,0) lb.BackgroundTransparency=1 lb.Font=Enum.Font.GothamMedium lb.TextSize=11 lb.TextColor3=Color3.new(1,1,1) lb.TextXAlignment=Enum.TextXAlignment.Left it.MouseButton1Click:Connect(function() selectedEggZone=zn eggZoneDD.txt.Text=zn eggZoneOpen=false eggZUpd() end) end
-eggZoneDD.btn.MouseButton1Click:Connect(function() eggZoneOpen=not eggZoneOpen eggZUpd() end)
-local eggToggle=createToggle(eggAcc.content,2,"Break Egg","") eggToggle.btn.Parent.LayoutOrder=2 eggAcc.setH(108)
+-- RARITY FILTER (Multi)
+MainAPI:Dropdown({Title="Rarity Filter", Desc="Pilih rarity yang mau di-steal", Flag="RarityFilter", Options=rarityNames, Multi=true, Default={}, Callback=function(vals)
+    table.clear(selected)
+    for _,n in ipairs(vals) do selected[n]=true end
+end})
+moveLastHolder(mainFrame, stealContent)
 
-local miscAcc=createAccordion(miscScroll,"MISC","🛡️",1,true)
-local ragdollToggle=createToggle(miscAcc.content,1,"No Ragdoll","")
-local antiMentalToggle=createToggle(miscAcc.content,2,"Anti Mental","")
-miscAcc.setH(124)
+-- ZONE FILTER (Multi)
+MainAPI:Dropdown({Title="Zone Filter", Desc="Filter zone, kosong = all", Flag="ZoneFilter", Options=zoneNames, Multi=true, Default={}, Callback=function(vals)
+    table.clear(selectedZones)
+    for _,n in ipairs(vals) do selectedZones[n]=true end
+end})
+moveLastHolder(mainFrame, stealContent)
 
-local gamepassAcc=createAccordion(miscScroll,"GAMEPASS","🎫",2,true)
-local fastBreakToggle=createToggle(gamepassAcc.content,1,"Fast Break"," ")
-gamepassAcc.setH(62)
+-- DEFEND MODE
+MainAPI:Dropdown({Title="Defend Mode", Flag="DefendMode", Options=defendModes, Default="None", Callback=function(v)
+    defendMode = typeof(v)=="table" and v[1] or v
+end})
+moveLastHolder(mainFrame, stealContent)
 
--- EXTERNAL PANEL ANTI DPI KANAN BAWAH + RESIZE
-local mainExt=Instance.new("Frame") mainExt.Name="ExternalPanel" mainExt.Size=UDim2.fromOffset(300,340) mainExt.Position=UDim2.new(1,-310,1,-360) mainExt.BackgroundColor3=Color3.fromRGB(20,18,32) mainExt.BackgroundTransparency=0.1 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50 mainExt.ClipsDescendants=false
-Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",mainExt).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",mainExt).Transparency=0.4
-local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0,1) accentLine2.BackgroundColor3=ACCENT Instance.new("UIGradient",accentLine2).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine2).CornerRadius=UDim.new(0,99)
-local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,52) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=51
-local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
-local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
-local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
-local sub=Instance.new("TextLabel",titleBar) sub.Text="" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
-local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
--- drag title
-track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved)
-    if moved and st then local s=rootScale and rootScale.Scale or 1 mainExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end
-end)
-local modeFrame2=Instance.new("Frame",mainExt) modeFrame2.Size=UDim2.new(1,-12,0,30) modeFrame2.Position=UDim2.new(0,6,0,54) modeFrame2.BackgroundColor3=Color3.fromRGB(24,22,36) modeFrame2.BackgroundTransparency=0.15 Instance.new("UICorner",modeFrame2).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",modeFrame2).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",modeFrame2).Transparency=0.6
-local normalBtn=Instance.new("TextButton",modeFrame2) normalBtn.Size=UDim2.new(0.5,-2,1,-4) normalBtn.Position=UDim2.new(0,2,0,2) normalBtn.Text="NORMAL" normalBtn.Font=Enum.Font.GothamBold normalBtn.TextSize=10 normalBtn.TextColor3=Color3.new(1,1,1) normalBtn.BackgroundColor3=ACCENT Instance.new("UICorner",normalBtn).CornerRadius=UDim.new(0,8) normalBtn.AutoButtonColor=false
-local helperBtn=Instance.new("TextButton",modeFrame2) helperBtn.Size=UDim2.new(0.5,-2,1,-4) helperBtn.Position=UDim2.new(0.5,0,0,2) helperBtn.Text="HELPER" helperBtn.Font=Enum.Font.GothamBold helperBtn.TextSize=10 helperBtn.TextColor3=DIM helperBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",helperBtn).CornerRadius=UDim.new(0,8) helperBtn.AutoButtonColor=false
-local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(normalBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(helperBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(helperBtn,{TextColor3=DIM},0.2):Play() else tw(helperBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(helperBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(normalBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(normalBtn,{TextColor3=DIM},0.2):Play() end end
-normalBtn.MouseButton1Click:Connect(function() setMode("Normal") end) helperBtn.MouseButton1Click:Connect(function() setMode("Helper") end)
-local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-126) extScroll.Position=UDim2.new(0,6,0,90) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=1 extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-Instance.new("UIPadding",extScroll).PaddingTop=UDim.new(0,2) Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,36) Instance.new("UIPadding",extScroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",extScroll).PaddingRight=UDim.new(0,4) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
--- RESIZE HANDLE KANAN BAWAH
-local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true resizeHandle.ZIndex=60
-local rhLabel=Instance.new("TextLabel",resizeHandle) rhLabel.Text="⋰" rhLabel.Size=UDim2.fromScale(1,1) rhLabel.BackgroundTransparency=1 rhLabel.Font=Enum.Font.GothamBold rhLabel.TextSize=16 rhLabel.TextColor3=Color3.fromRGB(100,94,130) rhLabel.TextXAlignment=Enum.TextXAlignment.Right rhLabel.TextYAlignment=Enum.TextYAlignment.Bottom
-local minSize=Vector2.new(260,250) local maxSize=Vector2.new(420,600)
-track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st)
-    local s=rootScale and rootScale.Scale or 1
-    local nw=math.clamp(st.X.Offset + dx/s, minSize.X, maxSize.X)
-    local nh=math.clamp(st.Y.Offset + dy/s, minSize.Y, maxSize.Y)
-    mainExt.Size=UDim2.fromOffset(nw,nh)
-end)
-
-local function createExtCard(model)
-    local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
-    local zone=getAnimalZone(model) local cashPerSec=getCashPerSecond(model)
-    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,78) card.BackgroundColor3=Color3.fromRGB(24,22,36) card.BackgroundTransparency=0.15 Instance.new("UICorner",card).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",card).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",card).Transparency=0.6
-    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT Instance.new("UIStroke",vp).Transparency=0.6 setupViewportModel(vp, model)
-    local mid=Instance.new("Frame",card) mid.Size=UDim2.new(1,-108,1,0) mid.Position=UDim2.new(0,58,0,0) mid.BackgroundTransparency=1
-    local nameLbl=Instance.new("TextLabel",mid) nameLbl.Size=UDim2.new(1,-72,0,12) nameLbl.Position=UDim2.new(0,0,0,6) nameLbl.BackgroundTransparency=1 nameLbl.Text=model.Name:upper() nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=Color3.new(1,1,1) nameLbl.TextXAlignment=Enum.TextXAlignment.Left nameLbl.TextTruncate=Enum.TextTruncate.AtEnd
-    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cashPerSec cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=Color3.fromRGB(80,255,120) cashLbl.TextXAlignment=Enum.TextXAlignment.Right cashLbl.TextTruncate=Enum.TextTruncate.AtEnd
-    local kgLbl=Instance.new("TextLabel",mid) kgLbl.Size=UDim2.new(1,0,0,10) kgLbl.Position=UDim2.new(0,0,0,20) kgLbl.BackgroundTransparency=1 kgLbl.Text=tostring(weight).." KG • "..string.upper(rarity) kgLbl.Font=Enum.Font.GothamMedium kgLbl.TextSize=9 kgLbl.TextColor3=DIM kgLbl.TextXAlignment=Enum.TextXAlignment.Left
-    local zoneLbl=Instance.new("TextLabel",mid) zoneLbl.Size=UDim2.new(1,0,0,10) zoneLbl.Position=UDim2.new(0,0,0,34) zoneLbl.BackgroundTransparency=1 zoneLbl.Text="📍 "..zone zoneLbl.Font=Enum.Font.GothamBold zoneLbl.TextSize=9 zoneLbl.TextColor3=ACCENT zoneLbl.TextXAlignment=Enum.TextXAlignment.Left
-    local kg2=Instance.new("TextLabel",mid) kg2.Size=UDim2.new(1,0,0,10) kg2.Position=UDim2.new(0,0,0,48) kg2.BackgroundTransparency=1 kg2.Text="3 STUDS • +"..SPEED_BUFF.." SPD • "..cashPerSec.."/s" kg2.Font=Enum.Font.GothamMedium kg2.TextSize=8 kg2.TextColor3=Color3.fromRGB(100,95,120) kg2.TextXAlignment=Enum.TextXAlignment.Left
-    local btn=Instance.new("TextButton",card) btn.Size=UDim2.fromOffset(44,26) btn.Position=UDim2.new(1,-50,0.5,-13) btn.Text="STEAL" btn.Font=Enum.Font.GothamBold btn.TextSize=9 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=ACCENT Instance.new("UICorner",btn).CornerRadius=UDim.new(0,8) btn.AutoButtonColor=false btn.MouseButton1Click:Connect(function() stealMethod(model) end) return card
-end
-local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
-closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false end)
-
-local extOn=false panelToggle.btn.MouseButton1Click:Connect(function() extOn=not extOn if extOn then tw(panelToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() mainExt.Visible=true refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) else tw(panelToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() mainExt.Visible=false end end)
-
-local baseOn=false local baseConn=nil baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
-
+-- AUTO STEAL & ATTACK
 local stealOn=false
-stealToggle.btn.MouseButton1Click:Connect(function()
-    stealOn=not stealOn
-    if stealOn then
-        if next(selected)==nil then stealOn=false return end
-        tw(stealToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+MainAPI:Toggle({Title="Auto Steal", Desc="Steal sesuai filter rarity & zone", Flag="AutoSteal", Default=false, Callback=function(v)
+    stealOn=v
+    if v then
+        if next(selected)==nil then Window.Notify("⚠️","Pilih rarity dulu", Color3.fromRGB(250,204,21),3) return end
         walkToSafeBase()
         task.spawn(function()
             while stealOn do
@@ -11360,10 +11323,26 @@ stealToggle.btn.MouseButton1Click:Connect(function()
                 if not found then task.wait(0.8) end
             end
         end)
-    else tw(stealToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() stealOn=false end
-end)
+    end
+end})
+moveLastHolder(mainFrame, stealContent)
 
-attackToggle.btn.MouseButton1Click:Connect(function() attackEnabled=not attackEnabled if attackEnabled then tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() else tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() end end)
+MainAPI:Toggle({Title="Attack Carrier", Desc="Hit player yang bawa animal target", Flag="AttackCarrier", Default=false, Callback=function(v) attackEnabled=v end})
+moveLastHolder(mainFrame, stealContent)
+
+-- PANEL EXTERNAL TOGGLE
+local extOn=false
+-- panel utama dibuat dibawah, toggle disini
+MainAPI:Toggle({Title="External Panel", Desc="Panel list animal di kanan bawah (drag & resize)", Flag="ExternalPanel", Default=false, Callback=function(v)
+    extOn=v
+    mainExt.Visible=v
+    if v then refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) end
+end})
+moveLastHolder(mainFrame, panelContent)
+
+-- EGG
+MainAPI:Dropdown({Title="Egg Zone", Flag="EggZone", Options=zoneNames, Default=nil, Callback=function(v) selectedEggZone = typeof(v)=="table" and v[1] or v end})
+moveLastHolder(mainFrame, eggContent)
 
 local function getEggsInZone(zoneName) local zb=getZoneBuildsFolder() if not zb then return {} end local zoneModel=zb:FindFirstChild(zoneName) if not zoneModel then return {} end local eggsRoot=zoneModel:FindFirstChild("Eggs") or zoneModel local out={} for _,v in ipairs(eggsRoot:GetChildren()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end if #out==0 then for _,v in ipairs(eggsRoot:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end end return out end
 local function getEggHealth(eggModel) if eggModel:GetAttribute("Health") then return eggModel:GetAttribute("Health") end for _,d in ipairs(eggModel:GetDescendants()) do local h=d:GetAttribute("Health") if h~=nil then return h end end return nil end
@@ -11371,11 +11350,10 @@ local function equipPickaxe() local char=plr.Character if not char then return n
 local function getStealTargets() local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end local out={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(out,m) end end table.sort(out, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end) return out end
 
 local breakOn=false
-eggToggle.btn.MouseButton1Click:Connect(function()
-    breakOn=not breakOn
-    if breakOn then
-        if not selectedEggZone then breakOn=false eggZoneDD.txt.Text="Pilih Zone dulu!" task.wait(1) eggZoneDD.txt.Text="Select Zone" return end
-        tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play()
+MainAPI:Toggle({Title="Break Egg", Desc="Prioritas steal > break egg", Flag="BreakEgg", Default=false, Callback=function(v)
+    breakOn=v
+    if v then
+        if not selectedEggZone then Window.Notify("⚠️","Pilih zone egg dulu", Color3.fromRGB(250,204,21),3) return end
         task.spawn(function()
             while breakOn do
                 local targets=getStealTargets()
@@ -11392,18 +11370,11 @@ eggToggle.btn.MouseButton1Click:Connect(function()
                 task.wait(0.5)
             end
         end)
-    else tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.25):Play() end
-end)
+    end
+end})
+moveLastHolder(mainFrame, eggContent)
 
-local fastBreakOn=false local fastBreakConn=nil
-local function setFastBreakAttribute(state) pcall(function() plr:SetAttribute("FastSwingOwned", state) end) pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end) end
-fastBreakToggle.btn.MouseButton1Click:Connect(function()
-    fastBreakOn=not fastBreakOn
-    if fastBreakOn then tw(fastBreakToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() setFastBreakAttribute(true)
-        if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end)
-    else tw(fastBreakToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end
-end)
-
+-- MISC TAB
 local noRagdollOn=false local ragdollConns={}
 local function enableNoRagdoll()
     for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={}
@@ -11413,12 +11384,75 @@ local function enableNoRagdoll()
     table.insert(ragdollConns, RunService.Heartbeat:Connect(function() local c=plr.Character local h=c and c:FindFirstChildOfClass("Humanoid") if h then if h:GetState()==Enum.HumanoidStateType.Ragdoll or h:GetState()==Enum.HumanoidStateType.FallingDown then h:ChangeState(Enum.HumanoidStateType.GettingUp) h.PlatformStand=false end h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) h:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end end))
 end
 local function disableNoRagdoll() for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={} local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true) hum.BreakJointsOnDeath=true end) end end
-ragdollToggle.btn.MouseButton1Click:Connect(function() noRagdollOn=not noRagdollOn if noRagdollOn then tw(ragdollToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableNoRagdoll() else tw(ragdollToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableNoRagdoll() end end)
+
+MiscAPI:Toggle({Title="No Ragdoll", Desc="Anti ragdoll & falling", Flag="NoRagdoll", Default=false, Callback=function(v) noRagdollOn=v if v then enableNoRagdoll() else disableNoRagdoll() end end})
+moveLastHolder(miscFrame, miscContent)
 
 local antiMentalOn=false local antiMentalConns={}
 local function enableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} table.insert(antiMentalConns, RunService.Heartbeat:Connect(function() local char=plr.Character local hrp=char and char:FindFirstChild("HumanoidRootPart") if not hrp then return end local vel=hrp.AssemblyLinearVelocity local flat=Vector3.new(vel.X,0,vel.Z).Magnitude if flat>35 then hrp.AssemblyLinearVelocity=Vector3.new(0,vel.Y,0) hrp.AssemblyAngularVelocity=Vector3.zero pcall(function() hrp.Velocity=Vector3.new(0,hrp.Velocity.Y,0) end) end if hrp.AssemblyAngularVelocity.Magnitude>20 then hrp.AssemblyAngularVelocity=Vector3.zero end end)) end
 local function disableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} end
-antiMentalToggle.btn.MouseButton1Click:Connect(function() antiMentalOn=not antiMentalOn if antiMentalOn then tw(antiMentalToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableAntiMental() else tw(antiMentalToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableAntiMental() end end)
+
+MiscAPI:Toggle({Title="Anti Mental", Desc="Anti fling / velocity gila", Flag="AntiMental", Default=false, Callback=function(v) antiMentalOn=v if v then enableAntiMental() else disableAntiMental() end end})
+moveLastHolder(miscFrame, miscContent)
+
+local fastBreakOn=false local fastBreakConn=nil
+local function setFastBreakAttribute(state) pcall(function() plr:SetAttribute("FastSwingOwned", state) end) pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end) end
+MiscAPI:Toggle({Title="Fast Break", Desc="Bypass swing cooldown", Flag="FastBreak", Default=false, Callback=function(v)
+    fastBreakOn=v
+    if v then setFastBreakAttribute(true) if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end)
+    else if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end
+end})
+moveLastHolder(miscFrame, gpContent)
+
+-- EXTERNAL PANEL - LEBIH NYATU SAMA LIB
+local mainExt=Instance.new("Frame") mainExt.Name="ExternalPanel" mainExt.Size=UDim2.fromOffset(320,380) mainExt.Position=UDim2.new(1,-330,1,-400) mainExt.BackgroundColor3=Color3.fromRGB(18,16,30) mainExt.BackgroundTransparency=0.05 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50 mainExt.ClipsDescendants=false
+Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,16) local extStroke=Instance.new("UIStroke",mainExt) extStroke.Color=Color3.fromRGB(64,58,98) extStroke.Transparency=0.4 extStroke.Thickness=1
+local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0,2) accentLine2.BackgroundColor3=Color3.fromRGB(255,255,255) Instance.new("UIGradient",accentLine2).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine2).CornerRadius=UDim.new(0,99)
+local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,56) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=51
+local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,42) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
+local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
+local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
+local sub2=Instance.new("TextLabel",titleBar) sub2.Text="integrated • v3" sub2.Position=UDim2.new(0,58,0,26) sub2.Size=UDim2.new(0,120,0,10) sub2.BackgroundTransparency=1 sub2.Font=Enum.Font.GothamMedium sub2.TextSize=9 sub2.TextColor3=ACCENT sub2.TextXAlignment=Enum.TextXAlignment.Left
+local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(26,24,42) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
+
+track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved)
+    if moved and st then local s=rootScale and rootScale.Scale or 1 mainExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end
+end)
+
+local modeFrame2=Instance.new("Frame",mainExt) modeFrame2.Size=UDim2.new(1,-12,0,34) modeFrame2.Position=UDim2.new(0,6,0,58) modeFrame2.BackgroundColor3=Color3.fromRGB(26,23,42) modeFrame2.BackgroundTransparency=0.15 Instance.new("UICorner",modeFrame2).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",modeFrame2).Color=Color3.fromRGB(64,58,98) Instance.new("UIStroke",modeFrame2).Transparency=0.6
+local normalBtn=Instance.new("TextButton",modeFrame2) normalBtn.Size=UDim2.new(0.5,-3,1,-6) normalBtn.Position=UDim2.new(0,3,0,3) normalBtn.Text="NORMAL" normalBtn.Font=Enum.Font.GothamBold normalBtn.TextSize=10 normalBtn.TextColor3=Color3.new(1,1,1) normalBtn.BackgroundColor3=ACCENT Instance.new("UICorner",normalBtn).CornerRadius=UDim.new(0,8) normalBtn.AutoButtonColor=false
+local helperBtn=Instance.new("TextButton",modeFrame2) helperBtn.Size=UDim2.new(0.5,-3,1,-6) helperBtn.Position=UDim2.new(0.5,0,0,3) helperBtn.Text="HELPER" helperBtn.Font=Enum.Font.GothamBold helperBtn.TextSize=10 helperBtn.TextColor3=DIM helperBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",helperBtn).CornerRadius=UDim.new(0,8) helperBtn.AutoButtonColor=false
+local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(normalBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(helperBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(helperBtn,{TextColor3=DIM},0.2):Play() else tw(helperBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(helperBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(normalBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(normalBtn,{TextColor3=DIM},0.2):Play() end end
+normalBtn.MouseButton1Click:Connect(function() setMode("Normal") end) helperBtn.MouseButton1Click:Connect(function() setMode("Helper") end)
+
+local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-136) extScroll.Position=UDim2.new(0,6,0,98) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=2 extScroll.ScrollBarImageColor3=ACCENT extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+Instance.new("UIPadding",extScroll).PaddingTop=UDim.new(0,2) Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,36) Instance.new("UIPadding",extScroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",extScroll).PaddingRight=UDim.new(0,4) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
+
+local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true resizeHandle.ZIndex=60
+local rhLabel=Instance.new("TextLabel",resizeHandle) rhLabel.Text="⋰" rhLabel.Size=UDim2.fromScale(1,1) rhLabel.BackgroundTransparency=1 rhLabel.Font=Enum.Font.GothamBold rhLabel.TextSize=16 rhLabel.TextColor3=Color3.fromRGB(100,94,130) rhLabel.TextXAlignment=Enum.TextXAlignment.Right rhLabel.TextYAlignment=Enum.TextYAlignment.Bottom
+local minSize=Vector2.new(280,300) local maxSize=Vector2.new(420,600)
+track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st)
+    local s=rootScale and rootScale.Scale or 1
+    local nw=math.clamp(st.X.Offset + dx/s, minSize.X, maxSize.X)
+    local nh=math.clamp(st.Y.Offset + dy/s, minSize.Y, maxSize.Y)
+    mainExt.Size=UDim2.fromOffset(nw,nh)
+end)
+
+local function createExtCard(model)
+    local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
+    local zone=getAnimalZone(model) local cashPerSec=getCashPerSecond(model)
+    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,78) card.BackgroundColor3=Color3.fromRGB(26,23,42) card.BackgroundTransparency=0.15 Instance.new("UICorner",card).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",card).Color=Color3.fromRGB(64,58,98) Instance.new("UIStroke",card).Transparency=0.6
+    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT Instance.new("UIStroke",vp).Transparency=0.6 setupViewportModel(vp, model)
+    local mid=Instance.new("Frame",card) mid.Size=UDim2.new(1,-108,1,0) mid.Position=UDim2.new(0,58,0,0) mid.BackgroundTransparency=1
+    local nameLbl=Instance.new("TextLabel",mid) nameLbl.Size=UDim2.new(1,-72,0,12) nameLbl.Position=UDim2.new(0,0,0,6) nameLbl.BackgroundTransparency=1 nameLbl.Text=model.Name:upper() nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=Color3.new(1,1,1) nameLbl.TextXAlignment=Enum.TextXAlignment.Left nameLbl.TextTruncate=Enum.TextTruncate.AtEnd
+    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cashPerSec cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=Color3.fromRGB(80,255,120) cashLbl.TextXAlignment=Enum.TextXAlignment.Right cashLbl.TextTruncate=Enum.TextTruncate.AtEnd
+    local kgLbl=Instance.new("TextLabel",mid) kgLbl.Size=UDim2.new(1,0,0,10) kgLbl.Position=UDim2.new(0,0,0,20) kgLbl.BackgroundTransparency=1 kgLbl.Text=tostring(weight).." KG • "..string.upper(rarity) kgLbl.Font=Enum.Font.GothamMedium kgLbl.TextSize=9 kgLbl.TextColor3=DIM kgLbl.TextXAlignment=Enum.TextXAlignment.Left
+    local zoneLbl=Instance.new("TextLabel",mid) zoneLbl.Size=UDim2.new(1,0,0,10) zoneLbl.Position=UDim2.new(0,0,0,34) zoneLbl.BackgroundTransparency=1 zoneLbl.Text="📍 "..zone zoneLbl.Font=Enum.Font.GothamBold zoneLbl.TextSize=9 zoneLbl.TextColor3=ACCENT zoneLbl.TextXAlignment=Enum.TextXAlignment.Left
+    local kg2=Instance.new("TextLabel",mid) kg2.Size=UDim2.new(1,0,0,10) kg2.Position=UDim2.new(0,0,0,48) kg2.BackgroundTransparency=1 kg2.Text="3 STUDS • +"..SPEED_BUFF.." SPD • "..cashPerSec.."/s" kg2.Font=Enum.Font.GothamMedium kg2.TextSize=8 kg2.TextColor3=Color3.fromRGB(100,95,120) kg2.TextXAlignment=Enum.TextXAlignment.Left
+    local btn=Instance.new("TextButton",card) btn.Size=UDim2.fromOffset(44,26) btn.Position=UDim2.new(1,-50,0.5,-13) btn.Text="STEAL" btn.Font=Enum.Font.GothamBold btn.TextSize=9 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=ACCENT Instance.new("UICorner",btn).CornerRadius=UDim.new(0,8) btn.AutoButtonColor=false btn.MouseButton1Click:Connect(function() stealMethod(model) end) return card
+end
+function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
+closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false extOn=false end)
 
 plr.CharacterAdded:Connect(function(char)
     task.wait(0.5)
@@ -11436,7 +11470,7 @@ RunService.Heartbeat:Connect(function()
     if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end
 end)
 
-Window.Notify("👑","", ACCENT, 3)--(%--&_>@)
+Window.Notify("👑 SORU V3","Lib components integrated", ACCENT, 3)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
