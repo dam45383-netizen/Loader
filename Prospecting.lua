@@ -16013,226 +16013,956 @@ if not Window then return end
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local LocalPlayer = Players.LocalPlayer
 
-    local T = {
-        card = Color3.fromRGB(27, 25, 43),
-        cardHover = Color3.fromRGB(38, 35, 60),
-        stroke = Color3.fromRGB(62, 57, 94),
-        text = Color3.fromRGB(244, 242, 255),
-        dim = Color3.fromRGB(148, 140, 180),
-        accent = Color3.fromRGB(139, 92, 246),
-        accent2 = Color3.fromRGB(99, 102, 241),
-        cyan = Color3.fromRGB(56, 189, 248),
-        ok = Color3.fromRGB(74, 222, 128),
-        warn = Color3.fromRGB(250, 204, 21),
-        bad = Color3.fromRGB(248, 113, 113),
-        off = Color3.fromRGB(52, 50, 74),
-    }
-
-    -- WAJIB Instance.new
-    local function New(class, props, parent)
-        local o = Instance.new(class)
-        if props then for k,v in pairs(props) do o[k]=v end end
-        if parent then o.Parent = parent end
-        return o
-    end
-    local function Corner(o,r) return New("UICorner",{CornerRadius = typeof(r)=="UDim" and r or UDim.new(0,r or 14)}, o) end
-    local function Stroke(o,c,th,tr) return New("UIStroke",{Color=c or T.stroke, Thickness=th or 1.2, Transparency=tr or 0.55}, o) end
-    local function Play(o,p,t,s,d) return TweenService:Create(o, TweenInfo.new(t or 0.25, s or Enum.EasingStyle.Quint, d or Enum.EasingDirection.Out), p):Play() end
-    local function PlayObj(o,p,t,s,d) local tw=TweenService:Create(o, TweenInfo.new(t or 0.25, s or Enum.EasingStyle.Quint, d or Enum.EasingDirection.Out), p) tw:Play() return tw end
-
-    -- HELPER AMBIL SCROLL BAWAAN LIB
-    local function GetTabScroll(tabName)
-        local page = Window.Tabs[tabName].frame -- ini frame bawaan lib (CanvasGroup)
-        local scroll = page:FindFirstChildOfClass("ScrollingFrame")
-        if not scroll then
-            scroll = New("ScrollingFrame",{Size=UDim2.fromScale(1,1), BackgroundTransparency=1, BorderSizePixel=0, ScrollBarThickness=3, ScrollBarImageColor3=T.accent}, page)
-        end
-        scroll:ClearAllChildren()
-        New("UIListLayout",{Padding=UDim.new(0,12), SortOrder=Enum.SortOrder.LayoutOrder}, scroll)
-        New("UIPadding",{PaddingTop=UDim.new(0,10), PaddingBottom=UDim.new(0,14), PaddingLeft=UDim.new(0,10), PaddingRight=UDim.new(0,12)}, scroll)
-        return scroll
-    end
-
     getgenv().SoruProspecting = getgenv().SoruProspecting or {}
     local sandPos = getgenv().SoruProspecting.sandPos
     local waterPos = getgenv().SoruProspecting.waterPos
     local merchantPos = getgenv().SoruProspecting.merchantPos
-    local autoFarm,autoSell = false,false
-    local isPlayOpen,isSellOpen,isGeodeOpen,isTravelOpen,isShopOpen,isPlayerOpen,isScreenOpen = false,false,false,false,false,false,false
-    local selectedShopData,selectedWaypoint=nil,nil
 
-    -- LOGIC SAMA (ga gue ubah)
+    local autoFarm = false
+    local autoSell = false
+    local isPlayOpen = false
+    local isSellOpen = false
+    local isTravelOpen = false
+    local isShopOpen = false
+    local selectedShopData = nil
+
     local function getHRP() return LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") end
     local function getRemotes()
-        local chars=workspace:FindFirstChild("Characters") local my=chars and chars:FindFirstChild(LocalPlayer.Name) if not my then return nil,nil end
-        for _,tool in ipairs(my:GetChildren()) do local s=tool:FindFirstChild("Scripts") if s then local c=s:FindFirstChild("Collect") local sh=s:FindFirstChild("Shake") or s:FindFirstChild("ShakePan") if c then return c,sh end end end return nil,nil
+        local chars = workspace:FindFirstChild("Characters")
+        local my = chars and chars:FindFirstChild(LocalPlayer.Name)
+        if not my then return nil,nil end
+        for _,tool in ipairs(my:GetChildren()) do
+            local s = tool:FindFirstChild("Scripts")
+            if s then
+                local collect = s:FindFirstChild("Collect")
+                local shake = s:FindFirstChild("Shake") or s:FindFirstChild("ShakePan")
+                if collect then return collect, shake end
+            end
+        end
+        return nil,nil
     end
     local function getPanChar()
-        local chars=workspace:FindFirstChild("Characters") local my=chars and chars:FindFirstChild(LocalPlayer.Name) if not my then return nil end
-        for _,tool in ipairs(my:GetChildren()) do if tool.Name:lower():find("pan") then local sc=tool:FindFirstChild("Scripts") local pan=sc and sc:FindFirstChild("Pan") if pan then return pan end end end return nil
+        local chars = workspace:FindFirstChild("Characters")
+        local my = chars and chars:FindFirstChild(LocalPlayer.Name)
+        if not my then return nil end
+        for _,tool in ipairs(my:GetChildren()) do
+            if tool.Name:lower():find("pan") then
+                local sc = tool:FindFirstChild("Scripts")
+                local pan = sc and sc:FindFirstChild("Pan")
+                if pan then return pan end
+            end
+        end
+        return nil
     end
     local function getInventory()
-        local pg=LocalPlayer:FindFirstChild("PlayerGui") local bg=pg and pg:FindFirstChild("BackpackGui") if not bg then return nil end
-        for _,v in ipairs(bg:GetDescendants()) do if v:IsA("TextLabel") and v.Text:find("/") then local cur,max=v.Text:match("(%d+)%s*/%s*(%d+)") if cur and max then cur=tonumber(cur) max=tonumber(max) if max>=50 and max<=10000 then return cur,max,v.Text end end end end return nil
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        local bg = pg and pg:FindFirstChild("BackpackGui")
+        if not bg then return nil end
+        for _,v in ipairs(bg:GetDescendants()) do
+            if v:IsA("TextLabel") and v.Text:find("/") then
+                local cur,max = v.Text:match("(%d+)%s*/%s*(%d+)")
+                if cur and max then cur=tonumber(cur) max=tonumber(max) if max>=50 and max<=10000 then return cur,max,v.Text end end
+            end
+        end
+        return nil
     end
-    local function getBar() local pg=LocalPlayer:FindFirstChild("PlayerGui") local toolUI=pg and pg:FindFirstChild("ToolUI") local filling=toolUI and toolUI:FindFirstChild("FillingPan") return filling and filling:FindFirstChild("Bar") end
+    local function getBar()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        local toolUI = pg and pg:FindFirstChild("ToolUI")
+        local filling = toolUI and toolUI:FindFirstChild("FillingPan")
+        return filling and filling:FindFirstChild("Bar")
+    end
     local function lockTo(pos) local hrp=getHRP() if hrp then hrp.Anchored=true hrp.CFrame=pos hrp.AssemblyLinearVelocity=Vector3.zero end end
     local function unlock() local hrp=getHRP() if hrp then hrp.Anchored=false end end
-    local noclipConn=nil local function setNoclip(state) if state then if noclipConn then return end noclipConn=RunService.Stepped:Connect(function() local char=LocalPlayer.Character if char then for _,v in ipairs(char:GetDescendants()) do if v:IsA("BasePart") and v.CanCollide then v.CanCollide=false end end end end) else if noclipConn then noclipConn:Disconnect() noclipConn=nil end end end
-    local function findMerchantPos() for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("merchant") then local p=v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart",true) if p then return p.CFrame end end end return nil end
-    local function doSell()
-        local fired=false local function try(r) if not r then return end pcall(function() if r:IsA("RemoteEvent") then r:FireServer() else r:InvokeServer() end fired=true end) end
-        local rs=ReplicatedStorage:FindFirstChild("Remotes") if rs then local shop=rs:FindFirstChild("Shop") if shop then try(shop:FindFirstChild("SellAll")) try(shop:FindFirstChild("Sell")) try(shop:FindFirstChild("SellAllItems")) end end
-        pcall(function() ReplicatedStorage.Remotes.Shop.SellAll:FireServer() fired=true end) pcall(function() ReplicatedStorage.Remotes.Shop.SellAll:InvokeServer() fired=true end)
-        local hrp=getHRP() if hrp then for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("BasePart") and (v.Parent.Position-hrp.Position).Magnitude<20 then pcall(function() fireproximityprompt(v) fired=true end) end end end return fired
+    local noclipConn=nil
+    local function setNoclip(state)
+        if state then
+            if noclipConn then return end
+            noclipConn=RunService.Stepped:Connect(function()
+                local char=LocalPlayer.Character
+                if char then for _,v in ipairs(char:GetDescendants()) do if v:IsA("BasePart") and v.CanCollide then v.CanCollide=false end end end
+            end)
+        else if noclipConn then noclipConn:Disconnect() noclipConn=nil end end
     end
+    local function findMerchantPos()
+        for _,v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and v.Name:lower():find("merchant") then
+                local p=v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart",true)
+                if p then return p.CFrame end
+            end
+        end
+        return nil
+    end
+    local function doSell()
+        local fired=false
+        local function try(r) if not r then return end pcall(function() if r:IsA("RemoteEvent") then r:FireServer() else r:InvokeServer() end fired=true end) end
+        local rs=ReplicatedStorage:FindFirstChild("Remotes")
+        if rs then
+            local shop=rs:FindFirstChild("Shop")
+            if shop then try(shop:FindFirstChild("SellAll")) try(shop:FindFirstChild("Sell")) try(shop:FindFirstChild("SellAllItems")) end
+        end
+        pcall(function() ReplicatedStorage.Remotes.Shop.SellAll:FireServer() fired=true end)
+        pcall(function() ReplicatedStorage.Remotes.Shop.SellAll:InvokeServer() fired=true end)
+        local hrp=getHRP()
+        if hrp then
+            for _,v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("BasePart") and (v.Parent.Position-hrp.Position).Magnitude<20 then
+                    pcall(function() fireproximityprompt(v) fired=true end)
+                end
+            end
+        end
+        return fired
+    end
+
+    -- LOGIC FARM - BAR BERKURANG LANGSUNG BALIK SAND TAPI TETEP SHAKE
     local function farmLoop()
         while autoFarm do
+            -- SAND PHASE - COLLECT 2x / 0.01
             local hrp=getHRP()
-            if hrp and sandPos then hrp.Anchored=false hrp.CFrame=sandPos task.wait(0.15) hrp.Anchored=true local sandStart=tick() local lastBar=0 repeat if not autoFarm then break end local curHRP=getHRP() if curHRP and (curHRP.Position - sandPos.Position).Magnitude>25 then curHRP.Anchored=false curHRP.CFrame=sandPos task.wait(0.15) curHRP.Anchored=true end local collect=select(1,getRemotes()) if collect then pcall(function() for _=1,2 do if collect:IsA("RemoteFunction") then collect:InvokeServer(1,false) else collect:FireServer(1,false) end end end) end lockTo(sandPos) task.wait(0.01) local bar=getBar() if bar then local scale=bar.Size.X.Scale if scale>=0.98 then break end if math.abs(scale-lastBar)<0.01 then if tick()-sandStart>3 then break end else lastBar=scale sandStart=tick() end else if tick()-sandStart>2 then break end end if tick()-sandStart>8 then break end until not autoFarm end
+            if hrp and sandPos then
+                hrp.Anchored=false
+                hrp.CFrame=sandPos
+                task.wait(0.15)
+                hrp.Anchored=true
+                local sandStart=tick()
+                local lastBar=0
+                repeat
+                    if not autoFarm then break end
+                    local curHRP=getHRP()
+                    if curHRP and (curHRP.Position - sandPos.Position).Magnitude > 25 then
+                        curHRP.Anchored=false
+                        curHRP.CFrame=sandPos
+                        task.wait(0.15)
+                        curHRP.Anchored=true
+                    end
+                    local collect=select(1,getRemotes())
+                    if collect then
+                        pcall(function()
+                            for _=1,2 do
+                                if collect:IsA("RemoteFunction") then collect:InvokeServer(1,false) else collect:FireServer(1,false) end
+                            end
+                        end)
+                    end
+                    lockTo(sandPos)
+                    task.wait(0.01)
+                    local bar=getBar()
+                    if bar then
+                        local scale=bar.Size.X.Scale
+                        if scale>=0.98 then break end
+                        if math.abs(scale-lastBar) < 0.01 then
+                            if tick()-sandStart > 3 then break end
+                        else
+                            lastBar=scale
+                            sandStart=tick()
+                        end
+                    else
+                        if tick()-sandStart > 2 then break end
+                    end
+                    if tick()-sandStart > 8 then break end
+                until not autoFarm
+            end
             if not autoFarm then break end
-            if getHRP() and waterPos then local hrp2=getHRP() hrp2.Anchored=false hrp2.CFrame=waterPos task.wait(0.15) hrp2.Anchored=true task.wait(0.05) local panRemote=getPanChar() if panRemote then for i=1,3 do if not autoFarm then break end pcall(function() for _=1,2 do if panRemote:IsA("RemoteFunction") then panRemote:InvokeServer() else panRemote:FireServer() end end end) task.wait(0.05) end end local decreased,movedToSand=false,false repeat if not autoFarm then break end local _,shakeRemote=getRemotes() local bar=getBar() if bar then local scale=bar.Size.X.Scale if not decreased and scale<0.9 then decreased=true end if decreased and not movedToSand then movedToSand=true local hrpBack=getHRP() if hrpBack and sandPos then hrpBack.Anchored=false hrpBack.CFrame=sandPos task.wait(0.15) hrpBack.Anchored=true end end if decreased and scale<=0.02 then break end end if shakeRemote then pcall(function() for _=1,2 do if shakeRemote:IsA("RemoteFunction") then shakeRemote:InvokeServer() else shakeRemote:FireServer() end end end) end if movedToSand then lockTo(sandPos) else lockTo(waterPos) end task.wait(0.01) until not autoFarm end
-        end unlock() setNoclip(false)
+            -- WATER PHASE + BALIK SAND PAS BAR BERKURANG
+            if getHRP() and waterPos then
+                local hrp2=getHRP()
+                hrp2.Anchored=false
+                hrp2.CFrame=waterPos
+                task.wait(0.15)
+                hrp2.Anchored=true
+                task.wait(0.05)
+                -- PAN 2x / 0.05
+                local panRemote=getPanChar()
+                if panRemote then
+                    for i=1,3 do
+                        if not autoFarm then break end
+                        pcall(function()
+                            for _=1,2 do
+                                if panRemote:IsA("RemoteFunction") then panRemote:InvokeServer() else panRemote:FireServer() end
+                            end
+                        end)
+                        task.wait(0.05)
+                    end
+                end
+                -- SHAKE 2x / 0.01, KALO BAR UDAH BERKURANG LANGSUNG BALIK SAND TAPI TETEP SHAKE SAMPE 0
+                local decreased=false
+                local movedToSand=false
+                repeat
+                    if not autoFarm then break end
+                    local _,shakeRemote=getRemotes()
+                    local bar=getBar()
+                    if bar then
+                        local scale=bar.Size.X.Scale
+                        if not decreased and scale < 0.9 then
+                            decreased=true
+                        end
+                        -- BAR UDAH BERKURANG -> LANGSUNG BALIK SAND
+                        if decreased and not movedToSand then
+                            movedToSand=true
+                            local hrpBack=getHRP()
+                            if hrpBack and sandPos then
+                                hrpBack.Anchored=false
+                                hrpBack.CFrame=sandPos
+                                task.wait(0.15)
+                                hrpBack.Anchored=true
+                            end
+                        end
+                        if decreased and scale<=0.02 then break end
+                    end
+                    if shakeRemote then
+                        pcall(function()
+                            for _=1,2 do
+                                if shakeRemote:IsA("RemoteFunction") then
+                                    shakeRemote:InvokeServer()
+                                else
+                                    shakeRemote:FireServer()
+                                end
+                            end
+                        end)
+                    end
+                    if movedToSand then
+                        lockTo(sandPos)
+                    else
+                        lockTo(waterPos)
+                    end
+                    task.wait(0.01)
+                until not autoFarm
+            end
+        end
+        unlock()
+        setNoclip(false)
     end
+
     local function sellWithTween()
-        local hrp=getHRP() if not hrp then return doSell() end local wasFarming=autoFarm local lastPos=hrp.CFrame if wasFarming then autoFarm=false task.wait(0.2) end unlock() setNoclip(true) local target=merchantPos or findMerchantPos() if target then if typeof(target)=="Vector3" then target=CFrame.new(target) end hrp.Anchored=false hrp.CFrame=target+Vector3.new(0,3,0) task.wait(0.5) for i=1,5 do doSell() task.wait(0.2) end task.wait(0.3) hrp.CFrame=lastPos task.wait(0.2) else Window.Notify("MERCHANT","SET MERCHANT dulu bro",Color3.fromRGB(200,60,60),2) for i=1,5 do doSell() task.wait(0.2) end end setNoclip(false) unlock() if wasFarming then autoFarm=true task.spawn(farmLoop) end return true
+        local hrp=getHRP() if not hrp then return doSell() end
+        local wasFarming = autoFarm
+        local lastPos=hrp.CFrame
+        if wasFarming then autoFarm=false task.wait(0.2) end
+        unlock() setNoclip(true)
+        local target=merchantPos or findMerchantPos()
+        if target then
+            if typeof(target)=="Vector3" then target=CFrame.new(target) end
+            hrp.Anchored=false
+            hrp.CFrame=target + Vector3.new(0,3,0)
+            task.wait(0.5)
+            for i=1,5 do doSell() task.wait(0.2) end
+            task.wait(0.3)
+            hrp.CFrame=lastPos
+            task.wait(0.2)
+        else
+            Window.Notify("MERCHANT","SET MERCHANT dulu anj",Color3.fromRGB(200,60,60),2)
+            for i=1,5 do doSell() task.wait(0.2) end
+        end
+        setNoclip(false) unlock()
+        -- RESUME FARM KALO TADI ON
+        if wasFarming then
+            autoFarm=true
+            task.spawn(farmLoop)
+        end
+        return true
     end
+
     local function getWaypoints() local map=workspace:FindFirstChild("Map") local wp=map and map:FindFirstChild("Waypoints") if not wp then return {} end return wp:GetChildren() end
-    local function getClosestWaypoint() local hrp=getHRP() if not hrp then return nil end local folder=workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Waypoints") if not folder then return nil end local closest,distMin=nil,math.huge for _,wp in ipairs(folder:GetChildren()) do local pos if wp:IsA("BasePart") then pos=wp.Position elseif wp:IsA("Model") then pos=wp:GetPivot().Position else local p=wp:FindFirstChildWhichIsA("BasePart",true) if p then pos=p.Position end end if pos then local d=(pos-hrp.Position).Magnitude if d<distMin then distMin=d closest=wp end end end return closest end
+    local function getClosestWaypoint()
+        local hrp=getHRP() if not hrp then return nil end
+        local folder=workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Waypoints") if not folder then return nil end
+        local closest,distMin=nil,math.huge
+        for _,wp in ipairs(folder:GetChildren()) do
+            local pos if wp:IsA("BasePart") then pos=wp.Position elseif wp:IsA("Model") then pos=wp:GetPivot().Position else local p=wp:FindFirstChildWhichIsA("BasePart",true) if p then pos=p.Position end end
+            if pos then local d=(pos-hrp.Position).Magnitude if d<distMin then distMin=d closest=wp end end
+        end
+        return closest
+    end
     local function doFastTravel(dest) local curr=getClosestWaypoint() if not curr then curr=dest end pcall(function() ReplicatedStorage.Remotes.Misc.FastTravel:FireServer(curr,dest) end) end
-    local function getPrice(model) local function toNum(v) if typeof(v)=="number" then return v end return tonumber(v) or 0 end local shopItem=model:FindFirstChild("ShopItem") if shopItem then local attr=shopItem:GetAttribute("Price") if attr~=nil then return toNum(attr) end if shopItem:IsA("NumberValue") or shopItem:IsA("IntValue") then return toNum(shopItem.Value) end end local attr2=model:GetAttribute("Price") if attr2~=nil then return toNum(attr2) end return 0 end
-    local function getShopItems() local list={} local purchasable=workspace:FindFirstChild("Purchasable") if not purchasable then return list end for _,folder in ipairs(purchasable:GetChildren()) do if folder:IsA("Folder") then for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and (m.Name:lower():find("pan") or m.Name:lower():find("shovel")) then local shopItem=m:FindFirstChild("ShopItem") if shopItem then table.insert(list,{model=m, shopItem=shopItem, name=m.Name, price=getPrice(m), folderName=folder.Name}) end end end end end table.sort(list,function(a,b) return (tonumber(a.price) or 0)>(tonumber(b.price) or 0) end) return list end
+    local function getPrice(model)
+        local function toNum(v) if typeof(v)=="number" then return v end return tonumber(v) or 0 end
+        local shopItem = model:FindFirstChild("ShopItem")
+        if shopItem then
+            local attr = shopItem:GetAttribute("Price")
+            if attr ~= nil then return toNum(attr) end
+            if shopItem:IsA("NumberValue") or shopItem:IsA("IntValue") then return toNum(shopItem.Value) end
+        end
+        local attr2 = model:GetAttribute("Price")
+        if attr2 ~= nil then return toNum(attr2) end
+        return 0
+    end
+    local function getShopItems()
+        local list = {}
+        local purchasable = workspace:FindFirstChild("Purchasable")
+        if not purchasable then return list end
+        for _,folder in ipairs(purchasable:GetChildren()) do
+            if folder:IsA("Folder") then
+                for _,m in ipairs(folder:GetChildren()) do
+                    if m:IsA("Model") and (m.Name:lower():find("pan") or m.Name:lower():find("shovel")) then
+                        local shopItem = m:FindFirstChild("ShopItem")
+                        if shopItem then
+                            local price = getPrice(m)
+                            table.insert(list, {model=m, shopItem=shopItem, name=m.Name, price=price, folderName=folder.Name})
+                        end
+                    end
+                end
+            end
+        end
+        table.sort(list, function(a,b) return (tonumber(a.price) or 0) > (tonumber(b.price) or 0) end)
+        return list
+    end
     local function getModelPos(model) if model.PrimaryPart then return model.PrimaryPart.Position end local ok,cf=pcall(function() return model:GetPivot() end) if ok then return cf.Position end local p=model:FindFirstChildWhichIsA("BasePart",true) if p then return p.Position end return nil end
 
-    -- SORU UI KIT (Instance.new)
-    local function createAccordion(parent, opts)
-        local accent=opts.Accent or T.accent
-        local container=New("Frame",{Size=UDim2.new(1,0,0,68), BackgroundColor3=T.card, BackgroundTransparency=0.08, ClipsDescendants=true, LayoutOrder=opts.Order or 1}, parent) Corner(container,18) local s=Stroke(container,accent,1.4,0.5)
-        New("UIGradient",{Color=ColorSequence.new{ColorSequenceKeypoint.new(0,accent),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))}, Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,0.85)}, Rotation=90}, s)
-        local glow=New("Frame",{Size=UDim2.new(1,0,1,0), BackgroundColor3=accent, BackgroundTransparency=0.93, ZIndex=0}, container) Corner(glow,18)
-        local header=New("TextButton",{Size=UDim2.new(1,0,0,68), BackgroundTransparency=1, Text="", ZIndex=5, AutoButtonColor=false}, container)
-        local iconBg=New("Frame",{Size=UDim2.fromOffset(44,44), Position=UDim2.new(0,14,0.5,-22), BackgroundColor3=accent, ZIndex=6}, header) Corner(iconBg,12) New("UIGradient",{Color=ColorSequence.new(accent, Color3.fromRGB(accent.R*0.6*255, accent.G*0.6*255, accent.B*0.95*255)), Rotation=45}, iconBg)
-        New("TextLabel",{Text=opts.Icon or "✦", Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=20, TextColor3=Color3.new(1,1,1), ZIndex=7}, iconBg)
-        New("TextLabel",{Text=opts.Title, Position=UDim2.new(0,72,0,14), Size=UDim2.new(1,-125,0,20), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=15, TextColor3=T.text, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=6}, header)
-        New("TextLabel",{Text=opts.Sub or "", Position=UDim2.new(0,72,0,36), Size=UDim2.new(1,-125,0,14), BackgroundTransparency=1, Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.dim, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=6}, header)
-        local arrowBg=New("Frame",{Size=UDim2.fromOffset(32,32), Position=UDim2.new(1,-46,0.5,-16), BackgroundColor3=Color3.fromRGB(32,30,55), ZIndex=6}, header) Corner(arrowBg,10) Stroke(arrowBg,accent,1,0.6)
-        local arrow=New("TextLabel",{Text="▼", Size=UDim2.new(1,0,1,0), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=12, TextColor3=T.text, ZIndex=7}, arrowBg)
-        local content=New("Frame",{Position=UDim2.new(0,0,0,68), BackgroundTransparency=1, AutomaticSize=Enum.AutomaticSize.Y, Size=UDim2.new(1,0,0,0), ZIndex=2}, container)
-        local list=New("UIListLayout",{Padding=UDim.new(0,10), SortOrder=Enum.SortOrder.LayoutOrder}, content) New("UIPadding",{PaddingTop=UDim.new(0,12), PaddingBottom=UDim.new(0,18), PaddingLeft=UDim.new(0,14), PaddingRight=UDim.new(0,14)}, content)
-        header.MouseEnter:Connect(function() PlayObj(s,{Transparency=0.15},0.2) PlayObj(iconBg,{Size=UDim2.fromOffset(46,46)},0.2,Enum.EasingStyle.Back) end)
-        header.MouseLeave:Connect(function() PlayObj(s,{Transparency=0.5},0.2) PlayObj(iconBg,{Size=UDim2.fromOffset(44,44)},0.2) end)
-        return container,header,content,list,arrow
+    task.wait(0.8)
+
+    local travelGui=Instance.new("ScreenGui") travelGui.Name="SoruTravelPanel" travelGui.Parent=LocalPlayer:WaitForChild("PlayerGui") travelGui.ResetOnSpawn=false travelGui.Enabled=false
+    local travelPanel=Instance.new("Frame") travelPanel.Size=UDim2.new(0,230,0,0) travelPanel.Position=UDim2.new(0.5,-115,0.4,0) travelPanel.BackgroundColor3=Color3.fromRGB(20,18,32) travelPanel.AutomaticSize=Enum.AutomaticSize.Y travelPanel.Parent=travelGui Instance.new("UICorner",travelPanel).CornerRadius=UDim.new(0,16) Instance.new("UIStroke",travelPanel).Color=Color3.fromRGB(99,102,241)
+    local titleBar=Instance.new("Frame",travelPanel) titleBar.Size=UDim2.new(1,0,0,38) titleBar.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",titleBar).CornerRadius=UDim.new(0,16)
+    local tpTitle=Instance.new("TextLabel",titleBar) tpTitle.Text="Travel - Waypoints" tpTitle.Size=UDim2.new(1,-50,1,0) tpTitle.Position=UDim2.new(0,14,0,0) tpTitle.BackgroundTransparency=1 tpTitle.Font=Enum.Font.GothamBold tpTitle.TextSize=12 tpTitle.TextColor3=Color3.new(1,1,1) tpTitle.TextXAlignment=Enum.TextXAlignment.Left
+    local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(28,28) closeBtn.Position=UDim2.new(1,-32,0.5,-14) closeBtn.Text="X" closeBtn.Font=Enum.Font.GothamBold closeBtn.TextSize=10 closeBtn.TextColor3=Color3.new(1,1,1) closeBtn.BackgroundColor3=Color3.fromRGB(55,55,70) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(0,8) closeBtn.MouseButton1Click:Connect(function() travelGui.Enabled=false end)
+    local scroll=Instance.new("ScrollingFrame",travelPanel) scroll.Size=UDim2.new(1,0,0,120) scroll.Position=UDim2.new(0,0,0,42) scroll.BackgroundTransparency=1 scroll.ScrollBarThickness=3 scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+    local scrollList=Instance.new("UIListLayout",scroll) scrollList.Padding=UDim.new(0,6)
+    local function makeDraggable(frame,handle) local dragging,dragInput,dragStart,startPos handle.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPos=frame.Position end end) handle.InputChanged:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch then dragInput=input end end) UserInputService.InputChanged:Connect(function(input) if input==dragInput and dragging then local delta=input.Position-dragStart frame.Position=UDim2.new(startPos.X.Scale,startPos.X.Offset+delta.X,startPos.Y.Scale,startPos.Y.Offset+delta.Y) end end) end
+    makeDraggable(travelPanel,titleBar)
+    local function refreshWaypoints() for _,c in ipairs(scroll:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end local wps=getWaypoints() table.sort(wps,function(a,b) return a.Name<b.Name end) for _,wp in ipairs(wps) do local btn=Instance.new("TextButton") btn.Size=UDim2.new(1,0,0,34) btn.Text=wp.Name btn.Font=Enum.Font.GothamMedium btn.TextSize=11 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=Color3.fromRGB(32,28,50) btn.Parent=scroll Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10) btn.MouseButton1Click:Connect(function() doFastTravel(wp) end) end end
+
+local function createCoolAccordion(parent,titleText,subText,accent,icon)
+        local container=Instance.new("Frame")
+        container.Size=UDim2.new(1,0,0,68)
+        container.BackgroundColor3=Color3.fromRGB(16,14,28)
+        container.ClipsDescendants=true
+        container.Parent=parent
+        Instance.new("UICorner",container).CornerRadius=UDim.new(0,22)
+        local stroke=Instance.new("UIStroke",container)
+        stroke.Color=accent
+        stroke.Thickness=1.8
+        stroke.Transparency=0.55
+        stroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
+        local strokeGrad=Instance.new("UIGradient",stroke)
+        strokeGrad.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,accent),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,255,255))}
+        strokeGrad.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.2),NumberSequenceKeypoint.new(1,0.85)}
+        strokeGrad.Rotation=90
+        local glow=Instance.new("Frame",container)
+        glow.Size=UDim2.new(1,0,1,0)
+        glow.BackgroundColor3=accent
+        glow.BackgroundTransparency=0.92
+        glow.ZIndex=0
+        Instance.new("UICorner",glow).CornerRadius=UDim.new(0,22)
+        local inner=Instance.new("Frame",container)
+        inner.Size=UDim2.new(1,0,1,0)
+        inner.BackgroundColor3=Color3.fromRGB(22,20,38)
+        inner.BackgroundTransparency=0.12
+        inner.ZIndex=1
+        Instance.new("UICorner",inner).CornerRadius=UDim.new(0,22)
+        local header=Instance.new("TextButton",container)
+        header.Size=UDim2.new(1,0,0,68)
+        header.BackgroundTransparency=1
+        header.Text=""
+        header.ZIndex=5
+        local iconBg=Instance.new("Frame",header)
+        iconBg.Size=UDim2.fromOffset(44,44)
+        iconBg.Position=UDim2.new(0,14,0.5,-22)
+        iconBg.BackgroundColor3=accent
+        iconBg.ZIndex=6
+        Instance.new("UICorner",iconBg).CornerRadius=UDim.new(0,14)
+        local iconGrad=Instance.new("UIGradient",iconBg)
+        iconGrad.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,accent),ColorSequenceKeypoint.new(1,Color3.fromRGB(accent.R*0.55, accent.G*0.55, accent.B*0.9))}
+        iconGrad.Rotation=45
+        local iconStroke=Instance.new("UIStroke",iconBg)
+        iconStroke.Color=accent
+        iconStroke.Thickness=1
+        iconStroke.Transparency=0.3
+        local iconLbl=Instance.new("TextLabel",iconBg)
+        iconLbl.Text=icon or "✦"
+        iconLbl.Size=UDim2.new(1,0,1,0)
+        iconLbl.BackgroundTransparency=1
+        iconLbl.Font=Enum.Font.GothamBold
+        iconLbl.TextSize=22
+        iconLbl.TextColor3=Color3.new(1,1,1)
+        iconLbl.ZIndex=7
+        local t=Instance.new("TextLabel",header)
+        t.Text=titleText
+        t.Position=UDim2.new(0,72,0,14)
+        t.Size=UDim2.new(1,-125,0,20)
+        t.BackgroundTransparency=1
+        t.Font=Enum.Font.GothamBold
+        t.TextSize=15
+        t.TextColor3=Color3.new(1,1,1)
+        t.TextXAlignment=Enum.TextXAlignment.Left
+        t.ZIndex=6
+        local s=Instance.new("TextLabel",header)
+        s.Text=subText
+        s.Position=UDim2.new(0,72,0,36)
+        s.Size=UDim2.new(1,-125,0,14)
+        s.BackgroundTransparency=1
+        s.Font=Enum.Font.GothamMedium
+        s.TextSize=11
+        s.TextColor3=Color3.fromRGB(185,180,215)
+        s.TextXAlignment=Enum.TextXAlignment.Left
+        s.ZIndex=6
+        local arrowBg=Instance.new("Frame",header)
+        arrowBg.Size=UDim2.fromOffset(36,36)
+        arrowBg.Position=UDim2.new(1,-50,0.5,-18)
+        arrowBg.BackgroundColor3=Color3.fromRGB(28,26,45)
+        arrowBg.ZIndex=6
+        Instance.new("UICorner",arrowBg).CornerRadius=UDim.new(0,12)
+        local abStroke=Instance.new("UIStroke",arrowBg)
+        abStroke.Color=accent
+        abStroke.Transparency=0.65
+        abStroke.Thickness=1.2
+        local arrow=Instance.new("TextLabel",arrowBg)
+        arrow.Text="▼"
+        arrow.Size=UDim2.new(1,0,1,0)
+        arrow.BackgroundTransparency=1
+        arrow.Font=Enum.Font.GothamBold
+        arrow.TextSize=14
+        arrow.TextColor3=Color3.new(1,1,1)
+        arrow.Rotation=0
+        arrow.ZIndex=7
+        local content=Instance.new("Frame",container)
+        content.Position=UDim2.new(0,0,0,72)
+        content.BackgroundTransparency=1
+        content.AutomaticSize=Enum.AutomaticSize.Y
+        content.Size=UDim2.new(1,0,0,0)
+        content.ZIndex=2
+        local list=Instance.new("UIListLayout",content)
+        list.Padding=UDim.new(0,14)
+        local pad=Instance.new("UIPadding",content)
+        pad.PaddingTop=UDim.new(0,14)
+        pad.PaddingBottom=UDim.new(0,22)
+        pad.PaddingLeft=UDim.new(0,16)
+        pad.PaddingRight=UDim.new(0,16)
+        header.MouseEnter:Connect(function()
+            TweenService:Create(stroke,TweenInfo.new(0.2,Enum.EasingStyle.Quad),{Transparency=0.15}):Play()
+            TweenService:Create(iconBg,TweenInfo.new(0.2,Enum.EasingStyle.Back),{Size=UDim2.fromOffset(46,46)}):Play()
+            TweenService:Create(glow,TweenInfo.new(0.2),{BackgroundTransparency=0.85}):Play()
+        end)
+        header.MouseLeave:Connect(function()
+            TweenService:Create(stroke,TweenInfo.new(0.2),{Transparency=0.55}):Play()
+            TweenService:Create(iconBg,TweenInfo.new(0.2),{Size=UDim2.fromOffset(44,44)}):Play()
+            TweenService:Create(glow,TweenInfo.new(0.2),{BackgroundTransparency=0.92}):Play()
+        end)
+        return container,header,content,list,arrow,arrowBg
     end
-    local function createToggle(parent, title, desc, accent, order)
-        local f=New("Frame",{Size=UDim2.new(1,0,0,62), BackgroundColor3=Color3.fromRGB(20,18,34), LayoutOrder=order or 1}, parent) Corner(f,14) local st=Stroke(f,T.stroke,1,0.45)
-        local glow=New("Frame",{Size=UDim2.new(1,0,1,0), BackgroundColor3=accent, BackgroundTransparency=1, ZIndex=0}, f) Corner(glow,14)
-        New("TextLabel",{Text=title, Position=UDim2.new(0,16,0,10), Size=UDim2.new(1,-90,0,18), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=13, TextColor3=T.text, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=2}, f)
-        New("TextLabel",{Text=desc, Position=UDim2.new(0,16,0,30), Size=UDim2.new(1,-90,0,16), BackgroundTransparency=1, Font=Enum.Font.GothamMedium, TextSize=10, TextColor3=T.dim, TextXAlignment=Enum.TextXAlignment.Left, ZIndex=2}, f)
-        local btn=New("TextButton",{Size=UDim2.fromOffset(52,30), Position=UDim2.new(1,-68,0.5,-15), BackgroundColor3=Color3.fromRGB(42,40,62), Text="", AutoButtonColor=false, ZIndex=3}, f) Corner(btn,100)
-        local dot=New("Frame",{Size=UDim2.fromOffset(22,22), Position=UDim2.new(0,4,0.5,-11), BackgroundColor3=Color3.new(1,1,1), ZIndex=4}, btn) Corner(dot,100)
-        return f,btn,dot,glow,st
+local function createCoolToggle(parent, title, sub, accent)
+        local f=Instance.new("Frame",parent)
+        f.Size=UDim2.new(1,0,0,68)
+        f.BackgroundColor3=Color3.fromRGB(20,18,34)
+        f.Parent=parent
+        Instance.new("UICorner",f).CornerRadius=UDim.new(0,18)
+        local stroke=Instance.new("UIStroke",f)
+        stroke.Color=Color3.fromRGB(55,53,80)
+        stroke.Thickness=1.3
+        stroke.Transparency=0.35
+        local glow=Instance.new("Frame",f)
+        glow.Size=UDim2.new(1,0,1,0)
+        glow.BackgroundColor3=accent
+        glow.BackgroundTransparency=1
+        glow.ZIndex=0
+        Instance.new("UICorner",glow).CornerRadius=UDim.new(0,18)
+        local tl=Instance.new("TextLabel",f)
+        tl.Text=title
+        tl.Position=UDim2.new(0,18,0,12)
+        tl.Size=UDim2.new(1,-92,0,18)
+        tl.BackgroundTransparency=1
+        tl.Font=Enum.Font.GothamBold
+        tl.TextSize=14
+        tl.TextColor3=Color3.new(1,1,1)
+        tl.TextXAlignment=Enum.TextXAlignment.Left
+        tl.ZIndex=2
+        local sl=Instance.new("TextLabel",f)
+        sl.Text=sub
+        sl.Position=UDim2.new(0,18,0,34)
+        sl.Size=UDim2.new(1,-92,0,16)
+        sl.BackgroundTransparency=1
+        sl.Font=Enum.Font.GothamMedium
+        sl.TextSize=10
+        sl.TextColor3=Color3.fromRGB(170,165,195)
+        sl.TextXAlignment=Enum.TextXAlignment.Left
+        sl.ZIndex=2
+        local btn=Instance.new("TextButton",f)
+        btn.Size=UDim2.fromOffset(58,34)
+        btn.Position=UDim2.new(1,-74,0.5,-17)
+        btn.Text=""
+        btn.BackgroundColor3=Color3.fromRGB(42,40,62)
+        btn.ZIndex=3
+        Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0)
+        local bStroke=Instance.new("UIStroke",btn)
+        bStroke.Color=Color3.fromRGB(70,68,90)
+        bStroke.Thickness=1
+        bStroke.Transparency=0.2
+        local dot=Instance.new("Frame",btn)
+        dot.Size=UDim2.fromOffset(26,26)
+        dot.Position=UDim2.new(0,4,0.5,-13)
+        dot.BackgroundColor3=Color3.new(1,1,1)
+        dot.ZIndex=4
+        Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
+        local dShadow=Instance.new("Frame",dot)
+        dShadow.Size=UDim2.new(1,0,1,0)
+        dShadow.BackgroundColor3=Color3.new(0,0,0)
+        dShadow.BackgroundTransparency=0.65
+        dShadow.Position=UDim2.new(0,2,0,2)
+        dShadow.ZIndex=3
+        Instance.new("UICorner",dShadow).CornerRadius=UDim.new(1,0)
+        f.MouseEnter:Connect(function()
+            TweenService:Create(stroke,TweenInfo.new(0.2),{Transparency=0.1}):Play()
+        end)
+        f.MouseLeave:Connect(function()
+            TweenService:Create(stroke,TweenInfo.new(0.2),{Transparency=0.35}):Play()
+        end)
+        return f,btn,dot,glow,stroke,bStroke
     end
-    local function createButton(parent, text, accent, primary, order)
-        local b=New("TextButton",{Size=UDim2.new(1,0,0,44), BackgroundColor3=primary and accent or Color3.fromRGB(32,30,55), Text=text, Font=Enum.Font.GothamBold, TextSize=12, TextColor3=primary and Color3.fromRGB(15,12,25) or T.text, AutoButtonColor=false, LayoutOrder=order or 1}, parent) Corner(b,12) local s=Stroke(b,accent,primary and 0 or 1.2, primary and 1 or 0.35)
-        b.MouseEnter:Connect(function() PlayObj(b,{BackgroundColor3=primary and accent or T.cardHover},0.15) PlayObj(s,{Transparency=0.1},0.15) end) b.MouseLeave:Connect(function() PlayObj(b,{BackgroundColor3=primary and accent or Color3.fromRGB(32,30,55)},0.2) PlayObj(s,{Transparency=primary and 1 or 0.35},0.2) end) return b
+
+    local mainFrame=Window.Tabs["Main"].frame mainFrame:ClearAllChildren()
+    local mainScroll=Instance.new("ScrollingFrame") mainScroll.Size=UDim2.new(1,0,1,0) mainScroll.BackgroundTransparency=1 mainScroll.ScrollBarThickness=0 mainScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y mainScroll.Parent=mainFrame
+    local mainList=Instance.new("UIListLayout",mainScroll) mainList.Padding=UDim.new(0,14)
+    local mainPad=Instance.new("UIPadding",mainScroll) mainPad.PaddingTop=UDim.new(0,14) mainPad.PaddingBottom=UDim.new(0,14) mainPad.PaddingLeft=UDim.new(0,12) mainPad.PaddingRight=UDim.new(0,12)
+
+    local playContainer,header,content,cList,arrow,arrowBg=createCoolAccordion(mainScroll,"Main","",Color3.fromRGB(139,92,246),"🪣")
+    local function updateSize() local h=cList.AbsoluteContentSize.Y+26 TweenService:Create(playContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isPlayOpen and 68+h or 68)}):Play() end
+    cList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSize) header.MouseButton1Click:Connect(function() isPlayOpen=not isPlayOpen TweenService:Create(arrow,TweenInfo.new(0.25),{Rotation=isPlayOpen and 180 or 0}):Play() updateSize() end)
+    local info=Instance.new("TextLabel",content) info.Size=UDim2.new(1,0,0,40) info.BackgroundColor3=Color3.fromRGB(28,26,45) info.Font=Enum.Font.GothamMedium info.TextSize=11 info.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",info).CornerRadius=UDim.new(0,12)
+    task.spawn(function() while true do local bar=getBar() local b=bar and string.format("%.2f",bar.Size.X.Scale) or "N/A" info.Text=" ⚡ Bar: "..b task.wait(0.3) end end)
+    local row=Instance.new("Frame",content) row.Size=UDim2.new(1,0,0,46) row.BackgroundTransparency=1 local rowList=Instance.new("UIListLayout",row) rowList.FillDirection=Enum.FillDirection.Horizontal rowList.Padding=UDim.new(0,10)
+    local function makeBtn(txt,cb,col) local b=Instance.new("TextButton") b.Size=UDim2.new(0.5,-5,1,0) b.Text=txt b.Font=Enum.Font.GothamBold b.TextSize=11 b.TextColor3=Color3.new(1,1,1) b.BackgroundColor3=Color3.fromRGB(32,30,55) b.Parent=row Instance.new("UICorner",b).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",b).Color=col b.MouseButton1Click:Connect(cb) return b end
+    makeBtn("SET SAND",function() local hrp=getHRP() if not hrp then return end sandPos=hrp.CFrame getgenv().SoruProspecting.sandPos=sandPos end,Color3.fromRGB(139,92,246))
+    makeBtn("SET WATER",function() local hrp=getHRP() if not hrp then return end waterPos=hrp.CFrame getgenv().SoruProspecting.waterPos=waterPos end,Color3.fromRGB(99,102,241))
+    local shakeOnly = false
+    local function getShakeActionTitle()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then return nil end
+        local toolUI = pg:FindFirstChild("ToolUI")
+        if not toolUI then return nil end
+        local md1 = toolUI:FindFirstChild("MobileDig")
+        local digBtn = nil
+        if md1 then
+            local md2 = md1:FindFirstChild("MobileDig")
+            if md2 then digBtn = md2:FindFirstChild("DigButton") end
+            if not digBtn then digBtn = md1:FindFirstChild("DigButton", true) or md1:FindFirstChild("DigButton") end
+        end
+        if not digBtn then digBtn = toolUI:FindFirstChild("DigButton", true) end
+        if not digBtn then return nil end
+        local actionTitle = digBtn:FindFirstChild("ActionTitle")
+        if not actionTitle then
+            for _,c in ipairs(digBtn:GetDescendants()) do
+                if c:IsA("TextLabel") and c.Name:lower():find("action") then actionTitle=c break end
+            end
+            if not actionTitle then actionTitle = digBtn:FindFirstChildWhichIsA("TextLabel") end
+        end
+        if actionTitle and actionTitle:IsA("TextLabel") then return actionTitle.Text end
+        return nil
     end
-    local function createInfo(parent, order) local f=New("Frame",{Size=UDim2.new(1,0,0,44), BackgroundColor3=Color3.fromRGB(24,22,40), LayoutOrder=order or 1}, parent) Corner(f,12) Stroke(f,T.stroke,1,0.6) local lbl=New("TextLabel",{Text="...", Size=UDim2.new(1,-20,1,0), Position=UDim2.new(0,10,0,0), BackgroundTransparency=1, Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.text, TextXAlignment=Enum.TextXAlignment.Left}, f) return f,lbl end
-    local function createDropdown(parent, placeholder, accent, order)
-        local container=New("Frame",{Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=order or 1}, parent) New("UIListLayout",{Padding=UDim.new(0,8)}, container)
-        local main=New("Frame",{Size=UDim2.new(1,0,0,46), BackgroundColor3=Color3.fromRGB(32,30,55), LayoutOrder=1}, container) Corner(main,12) Stroke(main,accent,1.2,0.4)
-        local btn=New("TextButton",{Size=UDim2.new(1,-40,1,0), Text=placeholder, Font=Enum.Font.GothamBold, TextSize=12, TextColor3=T.text, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, AutoButtonColor=false}, main)
-        local arr=New("TextLabel",{Text="▼", Size=UDim2.fromOffset(30,30), Position=UDim2.new(1,-38,0.5,-15), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=12, TextColor3=T.text}, main)
-        local listFrame=New("ScrollingFrame",{Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, Visible=false, BackgroundColor3=Color3.fromRGB(22,20,38), ScrollBarThickness=3, ScrollBarImageColor3=accent, CanvasSize=UDim2.new(), LayoutOrder=2}, container) Corner(listFrame,12) New("UIListLayout",{Padding=UDim.new(0,6)}, listFrame) New("UIPadding",{PaddingTop=UDim.new(0,8), PaddingBottom=UDim.new(0,8), PaddingLeft=UDim.new(0,8), PaddingRight=UDim.new(0,8)}, listFrame)
-        return container,main,btn,arr,listFrame
+    local function shakeOnlyLoop()
+        while shakeOnly do
+            local txt = nil
+            pcall(function() txt = getShakeActionTitle() end)
+            local shouldShake = false
+            if txt then
+                if txt:lower():find("shake") then shouldShake = true end
+            else
+                shouldShake = true
+            end
+            if shouldShake then
+                local _,shakeRemote = getRemotes()
+                if shakeRemote then
+                    pcall(function()
+                        for _=1,2 do
+                            if shakeRemote:IsA("RemoteFunction") then shakeRemote:InvokeServer() else shakeRemote:FireServer() end
+                        end
+                    end)
+                end
+            end
+            task.wait(0.01)
+        end
     end
-    local function makeRow(parent, order) local row=New("Frame",{Size=UDim2.new(1,0,0,46), BackgroundTransparency=1, LayoutOrder=order or 1}, parent) New("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,10)}, row) return row end
 
-    -- ========== ISI TAB MAIN (PAKE SCROLL BAWAAN LIB) ==========
-    local mainScroll = GetTabScroll("Main")
-    local playC,playH,playContent,playList,playArrow = createAccordion(mainScroll,{Title="Main Farm", Sub="Sand → Water → Shake Loop", Accent=T.accent, Icon="🪣", Order=1})
-    local function updPlay() local h=playList.AbsoluteContentSize.Y+18 PlayObj(playC,{Size=UDim2.new(1,0,0,isPlayOpen and 68+h or 68)},0.35,Enum.EasingStyle.Quint) end
-    playList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updPlay) playH.MouseButton1Click:Connect(function() isPlayOpen=not isPlayOpen PlayObj(playArrow,{Rotation=isPlayOpen and 180 or 0},0.25,Enum.EasingStyle.Back) updPlay() end)
-    local _,barLbl=createInfo(playContent,1) task.spawn(function() while true do local bar=getBar() local b=bar and string.format("%.2f",bar.Size.X.Scale) or "N/A" barLbl.Text=" ⚡ Bar: "..b.." • "..(autoFarm and "FARMING" or "IDLE") task.wait(0.25) end end)
-    local row1=makeRow(playContent,2) local setSand=createButton(row1,"SET SAND",T.accent,false,1) setSand.Size=UDim2.new(0.5,-5,1,0) local setWater=createButton(row1,"SET WATER",T.accent2,false,2) setWater.Size=UDim2.new(0.5,-5,1,0)
-    setSand.MouseButton1Click:Connect(function() local hrp=getHRP() if not hrp then return end sandPos=hrp.CFrame getgenv().SoruProspecting.sandPos=sandPos Window.Notify("SAND","Saved",T.accent,2) end)
-    setWater.MouseButton1Click:Connect(function() local hrp=getHRP() if not hrp then return end waterPos=hrp.CFrame getgenv().SoruProspecting.waterPos=waterPos Window.Notify("WATER","Saved",T.accent2,2) end)
-    local shakeOnly=false local function getShakeTitle() local pg=LocalPlayer:FindFirstChild("PlayerGui") if not pg then return nil end local toolUI=pg:FindFirstChild("ToolUI") if not toolUI then return nil end local md1=toolUI:FindFirstChild("MobileDig") local digBtn=nil if md1 then local md2=md1:FindFirstChild("MobileDig") if md2 then digBtn=md2:FindFirstChild("DigButton") end if not digBtn then digBtn=md1:FindFirstChild("DigButton",true) end end if not digBtn then digBtn=toolUI:FindFirstChild("DigButton",true) end if not digBtn then return nil end local at=digBtn:FindFirstChild("ActionTitle") if not at then for _,c in ipairs(digBtn:GetDescendants()) do if c:IsA("TextLabel") and c.Name:lower():find("action") then at=c break end end if not at then at=digBtn:FindFirstChildWhichIsA("TextLabel") end end if at and at:IsA("TextLabel") then return at.Text end return nil end
-    local function shakeOnlyLoop() while shakeOnly do local txt=nil pcall(function() txt=getShakeTitle() end) local should=true if txt then should=txt:lower():find("shake")~=nil end if should then local _,shake=getRemotes() if shake then pcall(function() for _=1,2 do if shake:IsA("RemoteFunction") then shake:InvokeServer() else shake:FireServer() end end end) end end task.wait(0.01) end end
-    local _,tBtn,tDot,tGlow=createToggle(playContent,"AUTO FARM","Collect 2x + Pan 2x + Shake 2x",T.accent,3)
-    local _,sBtn,sDot,sGlow=createToggle(playContent,"SHAKE ONLY","Spam shake saat ActionTitle Shake",T.cyan,4)
-    tBtn.Parent.MouseButton1Click:Connect(function() if not sandPos or not waterPos then Window.Notify("FARM","Set SAND & WATER dulu",T.bad,2) return end autoFarm=not autoFarm if autoFarm then if shakeOnly then shakeOnly=false PlayObj(sBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(sDot,{Position=UDim2.new(0,4,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(sGlow,{BackgroundTransparency=1},0.2) end PlayObj(tBtn,{BackgroundColor3=T.accent},0.2) PlayObj(tDot,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(tGlow,{BackgroundTransparency=0.82},0.25) task.spawn(farmLoop) else PlayObj(tBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(tDot,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(tGlow,{BackgroundTransparency=1},0.2) unlock() end end)
-    sBtn.Parent.MouseButton1Click:Connect(function() shakeOnly=not shakeOnly if shakeOnly then if autoFarm then autoFarm=false PlayObj(tBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(tDot,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(tGlow,{BackgroundTransparency=1},0.2) end PlayObj(sBtn,{BackgroundColor3=T.cyan},0.2) PlayObj(sDot,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(sGlow,{BackgroundTransparency=0.82},0.25) task.spawn(shakeOnlyLoop) else PlayObj(sBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(sDot,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(sGlow,{BackgroundTransparency=1},0.2) end end)
+    local toggleFrame,tBtn,tDot=createCoolToggle(content,"AUTO FARM","",Color3.fromRGB(139,92,246))
+    tBtn.MouseButton1Click:Connect(function()
+        if not sandPos or not waterPos then return end
+        autoFarm=not autoFarm
+        if autoFarm then
+            if shakeOnly then
+                shakeOnly=false
+                if shakeBtn then
+                    TweenService:Create(shakeBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play()
+                    TweenService:Create(shakeDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play()
+                end
+            end
+            TweenService:Create(tBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(139,92,246)}):Play()
+            TweenService:Create(tDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+            task.spawn(farmLoop)
+        else
+            TweenService:Create(tBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play()
+            TweenService:Create(tDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play()
+            unlock()
+        end
+    end)
+    local shakeFrame,shakeBtn,shakeDot=createCoolToggle(content,"SHAKE ONLY","",Color3.fromRGB(80,200,255))
+    shakeBtn.MouseButton1Click:Connect(function()
+        shakeOnly=not shakeOnly
+        if shakeOnly then
+            if autoFarm then
+                autoFarm=false
+                TweenService:Create(tBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play()
+                TweenService:Create(tDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play()
+            end
+            TweenService:Create(shakeBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(80,200,255)}):Play()
+            TweenService:Create(shakeDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+            task.spawn(shakeOnlyLoop)
+        else
+            TweenService:Create(shakeBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play()
+            TweenService:Create(shakeDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play()
+        end
+    end)
 
-    local sellC,sellH,sellContent,sellList,sellArrow=createAccordion(mainScroll,{Title="Auto Sell", Sub="Full → TP Merchant", Accent=T.ok, Icon="💰", Order=2})
-    local function updSell() local h=sellList.AbsoluteContentSize.Y+18 PlayObj(sellC,{Size=UDim2.new(1,0,0,isSellOpen and 68+h or 68)},0.35) end sellList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updSell) sellH.MouseButton1Click:Connect(function() isSellOpen=not isSellOpen PlayObj(sellArrow,{Rotation=isSellOpen and 180 or 0},0.25) updSell() end)
-    local _,sellInfo=createInfo(sellContent,1) task.spawn(function() while true do local cur,max,txt=getInventory() if cur and max then sellInfo.Text=" 🎒 "..(txt or cur.."/"..max).." • Merchant: "..(merchantPos and "SET" or (findMerchantPos() and "AUTO" or "NO")) else sellInfo.Text=" 🎒 Scanning..." end task.wait(0.5) end end)
-    local mRow=makeRow(sellContent,2) local setMerch=createButton(mRow,"SET MERCHANT",T.ok,false,1) setMerch.Size=UDim2.new(0.5,-5,1,0) local tpSell=createButton(mRow,"TP SELL",T.accent2,true,2) tpSell.Size=UDim2.new(0.5,-5,1,0)
-    setMerch.MouseButton1Click:Connect(function() local hrp=getHRP() if not hrp then return end merchantPos=hrp.CFrame getgenv().SoruProspecting.merchantPos=merchantPos Window.Notify("MERCHANT","Saved",T.ok,2) end) tpSell.MouseButton1Click:Connect(function() task.spawn(sellWithTween) end)
-    local _,sellBtn,sellDot,sellGlow=createToggle(sellContent,"AUTO SELL","Jual pas full",T.ok,3) local manual=createButton(sellContent,"SELL NOW [TWEEN]",T.ok,false,4) manual.MouseButton1Click:Connect(function() task.spawn(sellWithTween) end)
-    sellBtn.Parent.MouseButton1Click:Connect(function() autoSell=not autoSell if autoSell then PlayObj(sellBtn,{BackgroundColor3=T.ok},0.2) PlayObj(sellDot,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(sellGlow,{BackgroundTransparency=0.82},0.25) task.spawn(function() while autoSell do local cur,max=getInventory() if cur and max and cur>=max then sellWithTween() task.wait(4) end task.wait(0.5) end end) else PlayObj(sellBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(sellDot,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(sellGlow,{BackgroundTransparency=1},0.2) setNoclip(false) end end)
+    local sellContainer,sellHeader,sellContent,sellList,sellArrow,sellArrowBg=createCoolAccordion(mainScroll,"Auto Sell","",Color3.fromRGB(80,220,120),"💰")
+    local function updateSellSize() local h=sellList.AbsoluteContentSize.Y+26 TweenService:Create(sellContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isSellOpen and 68+h or 68)}):Play() end
+    sellList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateSellSize) sellHeader.MouseButton1Click:Connect(function() isSellOpen=not isSellOpen TweenService:Create(sellArrow,TweenInfo.new(0.25),{Rotation=isSellOpen and 180 or 0}):Play() updateSellSize() end)
+    local sellInfo=Instance.new("TextLabel",sellContent) sellInfo.Size=UDim2.new(1,0,0,42) sellInfo.BackgroundColor3=Color3.fromRGB(28,26,45) sellInfo.Font=Enum.Font.GothamMedium sellInfo.TextSize=10 sellInfo.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",sellInfo).CornerRadius=UDim.new(0,12) sellInfo.Text="Inv:..."
+    local merchantRow=Instance.new("Frame",sellContent) merchantRow.Size=UDim2.new(1,0,0,48) merchantRow.BackgroundTransparency=1 local mList=Instance.new("UIListLayout",merchantRow) mList.FillDirection=Enum.FillDirection.Horizontal mList.Padding=UDim.new(0,10)
+    local function makeSellBtn(txt,cb,col) local b=Instance.new("TextButton") b.Size=UDim2.new(0.5,-5,1,0) b.Text=txt b.Font=Enum.Font.GothamBold b.TextSize=11 b.TextColor3=Color3.new(1,1,1) b.BackgroundColor3=Color3.fromRGB(32,30,55) b.Parent=merchantRow Instance.new("UICorner",b).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",b).Color=col b.MouseButton1Click:Connect(cb) return b end
+    makeSellBtn("SET MERCHANT",function() local hrp=getHRP() if not hrp then return end merchantPos=hrp.CFrame getgenv().SoruProspecting.merchantPos=merchantPos end,Color3.fromRGB(80,220,120))
+    makeSellBtn("TP SELL",function() if not merchantPos and not findMerchantPos() then return end task.spawn(function() sellWithTween() end) end,Color3.fromRGB(99,102,241))
+    local sellToggleFrame,sellBtn,sellDot=createCoolToggle(sellContent,"AUTO SELL","",Color3.fromRGB(80,220,120))
+    local manualBtn=Instance.new("TextButton",sellContent) manualBtn.Size=UDim2.new(1,0,0,40) manualBtn.Text="SELL NOW" manualBtn.Font=Enum.Font.GothamBold manualBtn.TextSize=11 manualBtn.TextColor3=Color3.new(1,1,1) manualBtn.BackgroundColor3=Color3.fromRGB(32,30,55) Instance.new("UICorner",manualBtn).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",manualBtn).Color=Color3.fromRGB(80,220,120) manualBtn.MouseButton1Click:Connect(function() task.spawn(sellWithTween) end)
+    sellBtn.MouseButton1Click:Connect(function()
+        autoSell=not autoSell
+        if autoSell then TweenService:Create(sellBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(80,220,120)}):Play() TweenService:Create(sellDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+            task.spawn(function() while autoSell do local cur,max,txt=getInventory() if cur and max then sellInfo.Text=" "..txt.." | Merchant: "..(merchantPos and "SET" or (findMerchantPos() and "AUTO" or "NO")) if cur>=max then sellWithTween() task.wait(4) end end task.wait(0.5) end end)
+        else TweenService:Create(sellBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play() TweenService:Create(sellDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play() setNoclip(false) end
+    end)
 
-    local function getGeodes() local list={} local folders={workspace:FindFirstChild("Geode"), workspace:FindFirstChild("Geodes")} for _,folder in ipairs(folders) do if folder then for _,v in ipairs(folder:GetChildren()) do if v:IsA("Model") or v:IsA("BasePart") then table.insert(list,v) end end end end if #list==0 then for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("geode") then table.insert(list,v) end end end return list end
-    local function getGeodePos(g) if g.PrimaryPart then return g.PrimaryPart.Position end local ok,cf=pcall(function() return g:GetPivot() end) if ok then return cf.Position end local p=g:FindFirstChildWhichIsA("BasePart",true) if p then return p.Position end return nil end
-    local autoGeode=false local function geodeLoop() while autoGeode do local geodes=getGeodes() if #geodes==0 then task.wait(1) else for _,geo in ipairs(geodes) do if not autoGeode then break end local pos=getGeodePos(geo) if pos then local hrp=getHRP() if hrp then setNoclip(true) hrp.Anchored=false hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0)) task.wait(0.35) for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("BasePart") and (v.Parent.Position-pos).Magnitude<12 then pcall(function() fireproximityprompt(v) end) end end task.wait(0.6) end end end end task.wait(0.5) end setNoclip(false) unlock() end
-    local geoC,geoH,geoContent,geoList,geoArrow=createAccordion(mainScroll,{Title="Geode Farm", Sub="TP 1 per 1 workspace.Geode", Accent=T.cyan, Icon="💎", Order=3})
-    local function updGeo() local h=geoList.AbsoluteContentSize.Y+18 PlayObj(geoC,{Size=UDim2.new(1,0,0,isGeodeOpen and 68+h or 68)},0.4,Enum.EasingStyle.Expo) end geoList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updGeo) geoH.MouseButton1Click:Connect(function() isGeodeOpen=not isGeodeOpen PlayObj(geoArrow,{Rotation=isGeodeOpen and 180 or 0},0.3,Enum.EasingStyle.Back) updGeo() end)
-    local _,geoInfo=createInfo(geoContent,1) task.spawn(function() while true do local g=getGeodes() geoInfo.Text=" 💎 Found: "..#g.." geodes" task.wait(1) end end)
-    local _,geoBtn,geoDot,geoGlow=createToggle(geoContent,"COLLECT GEODE","TP ke semua geode",T.cyan,2) geoBtn.Parent.MouseButton1Click:Connect(function() autoGeode=not autoGeode if autoGeode then PlayObj(geoBtn,{BackgroundColor3=T.cyan},0.25) PlayObj(geoDot,{Position=UDim2.new(1,-26,0.5,-11)},0.3,Enum.EasingStyle.Back) PlayObj(geoGlow,{BackgroundTransparency=0.78},0.25) task.spawn(geodeLoop) else PlayObj(geoBtn,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.25) PlayObj(geoDot,{Position=UDim2.new(0,4,0.5,-11)},0.3) PlayObj(geoGlow,{BackgroundTransparency=1},0.25) end end)
 
-    -- TRAVEL TAB (BAWAAN LIB)
-    local travelScroll=GetTabScroll("Travel")
-    local tC,tH,tContent,tList,tArrow=createAccordion(travelScroll,{Title="Travel", Sub="FastTravel via Waypoints", Accent=T.accent2, Icon="✈️", Order=1})
-    local function updTravel() local h=tList.AbsoluteContentSize.Y+18 PlayObj(tC,{Size=UDim2.new(1,0,0,isTravelOpen and 68+h or 68)},0.35) end tList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updTravel) tH.MouseButton1Click:Connect(function() isTravelOpen=not isTravelOpen PlayObj(tArrow,{Rotation=isTravelOpen and 180 or 0},0.25) updTravel() end)
-    local _,travelInfo=createInfo(tContent,1) local _,_,ddBtn,ddArr,ddList=createDropdown(tContent," Pilih Waypoint...",T.accent2,2)
-    local function refreshWP() for _,c in ipairs(ddList:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end local wps=getWaypoints() table.sort(wps,function(a,b) return a.Name<b.Name end) travelInfo.Text=" 📍 Waypoints: "..#wps for _,wp in ipairs(wps) do local b=New("TextButton",{Size=UDim2.new(1,0,0,36), Text=" "..wp.Name, Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.text, BackgroundColor3=Color3.fromRGB(32,30,55)}, ddList) Corner(b,10) b.MouseButton1Click:Connect(function() selectedWaypoint=wp ddBtn.Text=" "..wp.Name ddList.Visible=false ddList.Size=UDim2.new(1,0,0,0) PlayObj(ddArr,{Rotation=0},0.2) updTravel() end) end end
-    ddBtn.MouseButton1Click:Connect(function() ddList.Visible=not ddList.Visible if ddList.Visible then refreshWP() ddList.Size=UDim2.new(1,0,0,140) PlayObj(ddArr,{Rotation=180},0.2) else ddList.Size=UDim2.new(1,0,0,0) PlayObj(ddArr,{Rotation=0},0.2) end updTravel() end)
-    local tRow=makeRow(tContent,3) local refBtn=createButton(tRow,"REFRESH",T.accent2,false,1) refBtn.Size=UDim2.new(0.5,-5,1,0) local tpBtn=createButton(tRow,"TELEPORT",T.accent2,true,2) tpBtn.Size=UDim2.new(0.5,-5,1,0)
-    refBtn.MouseButton1Click:Connect(function() refreshWP() ddList.Visible=true ddList.Size=UDim2.new(1,0,0,140) updTravel() end) tpBtn.MouseButton1Click:Connect(function() if not selectedWaypoint then Window.Notify("TRAVEL","Pilih waypoint dulu",T.bad,2) return end doFastTravel(selectedWaypoint) end)
+    -- GEODE ACCORDION
+    local isGeodeOpen = false
+    local autoGeode = false
+    local function getGeodes()
+        local list={}
+        local folders = {workspace:FindFirstChild("Geode"), workspace:FindFirstChild("Geodes")}
+        for _,folder in ipairs(folders) do
+            if folder then
+                for _,v in ipairs(folder:GetChildren()) do
+                    if v:IsA("Model") or v:IsA("BasePart") then table.insert(list, v) end
+                end
+            end
+        end
+        if #list==0 then
+            for _,v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and v.Name:lower():find("geode") then
+                    table.insert(list, v)
+                end
+            end
+        end
+        return list
+    end
+    local function getGeodePos(g)
+        if g.PrimaryPart then return g.PrimaryPart.Position end
+        local ok,cf=pcall(function() return g:GetPivot() end)
+        if ok then return cf.Position end
+        local p=g:FindFirstChildWhichIsA("BasePart", true)
+        if p then return p.Position end
+        return nil
+    end
+    local function geodeLoop()
+        while autoGeode do
+            local geodes=getGeodes()
+            if #geodes==0 then task.wait(1) else
+                for _,geo in ipairs(geodes) do
+                    if not autoGeode then break end
+                    local pos=getGeodePos(geo)
+                    if pos then
+                        local hrp=getHRP()
+                        if hrp then
+                            setNoclip(true)
+                            hrp.Anchored=false
+                            hrp.CFrame=CFrame.new(pos + Vector3.new(0,5,0))
+                            task.wait(0.35)
+                            for _,v in ipairs(workspace:GetDescendants()) do
+                                if v:IsA("ProximityPrompt") and v.Parent and v.Parent:IsA("BasePart") then
+                                    if (v.Parent.Position - pos).Magnitude < 12 then
+                                        pcall(function() fireproximityprompt(v) end)
+                                    end
+                                end
+                            end
+                            pcall(function()
+                                local rem=ReplicatedStorage:FindFirstChild("Remotes")
+                                if rem then
+                                    local misc=rem:FindFirstChild("Misc") or rem:FindFirstChild("Geode")
+                                    if misc then
+                                        for _,r in ipairs(misc:GetChildren()) do
+                                            if r.Name:lower():find("geode") or r.Name:lower():find("collect") then
+                                                if r:IsA("RemoteEvent") then r:FireServer(geo) else pcall(function() r:InvokeServer(geo) end) end
+                                            end
+                                        end
+                                    end
+                                end
+                            end)
+                            task.wait(0.6)
+                        end
+                    end
+                end
+            end
+            task.wait(0.5)
+        end
+        setNoclip(false)
+        unlock()
+    end
 
-    -- SHOP TAB (BAWAAN LIB)
-    local shopScroll=GetTabScroll("Shop")
-    local sC,sH,sContent,sList,sArrow=createAccordion(shopScroll,{Title="Pan & Shovel", Sub="Fast hand needed!", Accent=T.warn, Icon="🛒", Order=1})
-    local function updShop() local h=sList.AbsoluteContentSize.Y+18 PlayObj(sC,{Size=UDim2.new(1,0,0,isShopOpen and 68+h or 68)},0.35) end sList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updShop) sH.MouseButton1Click:Connect(function() isShopOpen=not isShopOpen PlayObj(sArrow,{Rotation=isShopOpen and 180 or 0},0.25) updShop() end)
-    local _,shopInfo=createInfo(sContent,1) local _,_,shopTxt,shopArr,shopListF=createDropdown(sContent," Pilih Pan / Shovel...",T.warn,2)
-    local function refreshShop() for _,c in ipairs(shopListF:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end local items=getShopItems() shopInfo.Text=" 🛍️ Found "..#items.." | Mahal → Murah" for _,data in ipairs(items) do local b=New("TextButton",{Size=UDim2.new(1,0,0,38), Text=" "..data.name.." | $"..data.price, Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.text, BackgroundColor3=Color3.fromRGB(32,30,55)}, shopListF) Corner(b,10) b.MouseButton1Click:Connect(function() selectedShopData=data shopTxt.Text=" "..data.name.." - $"..data.price shopListF.Visible=false shopListF.Size=UDim2.new(1,0,0,0) PlayObj(shopArr,{Rotation=0},0.2) updShop() end) end end
-    shopTxt.MouseButton1Click:Connect(function() shopListF.Visible=not shopListF.Visible if shopListF.Visible then refreshShop() shopListF.Size=UDim2.new(1,0,0,160) PlayObj(shopArr,{Rotation=180},0.2) else shopListF.Size=UDim2.new(1,0,0,0) PlayObj(shopArr,{Rotation=0},0.2) end updShop() end)
-    local sRow=makeRow(sContent,3) local sRef=createButton(sRow,"REFRESH",T.warn,false,1) sRef.Size=UDim2.new(0.5,-5,1,0) local sGo=createButton(sRow,"TP + HOLD 3S",T.warn,true,2) sGo.Size=UDim2.new(0.5,-5,1,0)
-    sRef.MouseButton1Click:Connect(function() refreshShop() shopListF.Visible=true shopListF.Size=UDim2.new(1,0,0,160) updShop() end)
-    sGo.MouseButton1Click:Connect(function() if not selectedShopData then Window.Notify("SHOP","Pilih item dulu",T.bad,2) return end local pos=getModelPos(selectedShopData.model) if not pos then return end task.spawn(function() setNoclip(true) local hrp=getHRP() if hrp then hrp.Anchored=false hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0)) task.wait(0.1) hrp.Anchored=true task.wait(3) hrp.Anchored=false end setNoclip(false) end) end)
+    local geodeContainer,geodeHeader,geodeContent,geodeCList,geodeArrow,geodeArrowBg=createCoolAccordion(mainScroll,"Geode Farm","TP 1 per 1 - workspace.Geode",Color3.fromRGB(120,200,255),"💎")
+    local function updateGeodeSize() local h=geodeCList.AbsoluteContentSize.Y+26 TweenService:Create(geodeContainer,TweenInfo.new(0.4,Enum.EasingStyle.Expo),{Size=UDim2.new(1,0,0,isGeodeOpen and 68+h or 68)}):Play() end
+    geodeCList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateGeodeSize) geodeHeader.MouseButton1Click:Connect(function() isGeodeOpen=not isGeodeOpen TweenService:Create(geodeArrow,TweenInfo.new(0.3,Enum.EasingStyle.Back),{Rotation=isGeodeOpen and 180 or 0}):Play() updateGeodeSize() end)
+    local geodeInfo=Instance.new("TextLabel",geodeContent) geodeInfo.Size=UDim2.new(1,0,0,42) geodeInfo.BackgroundColor3=Color3.fromRGB(28,26,45) geodeInfo.Font=Enum.Font.GothamMedium geodeInfo.TextSize=11 geodeInfo.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",geodeInfo).CornerRadius=UDim.new(0,14) geodeInfo.Text=" Geodes: ..."
+    task.spawn(function() while true do local g=getGeodes() geodeInfo.Text=" 💎 Found: "..#g.." geodes in workspace" task.wait(1) end end)
+    local geodeToggleFrame,geodeBtn,geodeDot,geodeGlow,geodeStroke,geodeBStroke=createCoolToggle(geodeContent,"COLLECT GEODE","TP 1 per 1 ke workspace.Geode",Color3.fromRGB(120,200,255))
+    geodeBtn.MouseButton1Click:Connect(function()
+        autoGeode=not autoGeode
+        if autoGeode then
+            TweenService:Create(geodeBtn,TweenInfo.new(0.25,Enum.EasingStyle.Back),{BackgroundColor3=Color3.fromRGB(120,200,255)}):Play()
+            TweenService:Create(geodeDot,TweenInfo.new(0.3,Enum.EasingStyle.Back),{Position=UDim2.new(1,-30,0.5,-13)}):Play()
+            TweenService:Create(geodeGlow,TweenInfo.new(0.25),{BackgroundTransparency=0.75}):Play()
+            TweenService:Create(geodeStroke,TweenInfo.new(0.25),{Color=Color3.fromRGB(120,200,255), Transparency=0.1}):Play()
+            TweenService:Create(geodeBStroke,TweenInfo.new(0.25),{BackgroundColor3=Color3.fromRGB(120,200,255)}):Play()
+            task.spawn(geodeLoop)
+        else
+            TweenService:Create(geodeBtn,TweenInfo.new(0.25),{BackgroundColor3=Color3.fromRGB(42,40,62)}):Play()
+            TweenService:Create(geodeDot,TweenInfo.new(0.3,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-13)}):Play()
+            TweenService:Create(geodeGlow,TweenInfo.new(0.25),{BackgroundTransparency=1}):Play()
+            TweenService:Create(geodeStroke,TweenInfo.new(0.25),{Color=Color3.fromRGB(55,53,80), Transparency=0.35}):Play()
+        end
+    end)
 
-    -- MISC TAB (BAWAAN LIB)
-    local miscScroll=GetTabScroll("Misc")
-    local pC,pH,pContent,pList,pArrow=createAccordion(miscScroll,{Title="Player", Sub="Movement", Accent=T.accent2, Icon="🏃", Order=1})
-    local function updP() local h=pList.AbsoluteContentSize.Y+18 PlayObj(pC,{Size=UDim2.new(1,0,0,isPlayerOpen and 68+h or 68)},0.35) end pList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updP) pH.MouseButton1Click:Connect(function() isPlayerOpen=not isPlayerOpen PlayObj(pArrow,{Rotation=isPlayerOpen and 180 or 0},0.25) updP() end)
-    local currentWalkSpeed=16
-    local sliderC=New("Frame",{Size=UDim2.new(1,0,0,78), BackgroundColor3=Color3.fromRGB(20,18,34), LayoutOrder=1}, pContent) Corner(sliderC,14) Stroke(sliderC,T.stroke,1,0.45)
-    New("TextLabel",{Text="WALKSPEED", Position=UDim2.new(0,14,0,10), Size=UDim2.new(0.6,0,0,18), BackgroundTransparency=1, Font=Enum.Font.GothamBold, TextSize=13, TextColor3=T.text, TextXAlignment=Enum.TextXAlignment.Left}, sliderC)
-    local valLbl=New("TextLabel",{Text="16", Position=UDim2.new(1,-60,0,12), Size=UDim2.new(0,46,0,24), BackgroundColor3=T.accent2, BackgroundTransparency=0.15, Font=Enum.Font.GothamBold, TextSize=12, TextColor3=T.text}, sliderC) Corner(valLbl,8)
-    local track=New("Frame",{Size=UDim2.new(1,-28,0,6), Position=UDim2.new(0,14,0,58), BackgroundColor3=Color3.fromRGB(44,41,66)}, sliderC) Corner(track,100)
-    local fill=New("Frame",{Size=UDim2.new(0,0,1,0), BackgroundColor3=T.accent2}, track) Corner(fill,100) New("UIGradient",{Color=ColorSequence.new(T.accent2, T.cyan)}, fill)
-    local thumb=New("Frame",{Size=UDim2.fromOffset(16,16), AnchorPoint=Vector2.new(0.5,0.5), Position=UDim2.new(0,0,0.5,0), BackgroundColor3=Color3.new(1,1,1)}, track) Corner(thumb,100) Stroke(thumb,T.accent2,2,0)
-    local dragging=false local function updPerc(p) p=math.clamp(p,0,1) local v=math.floor(16+(200-16)*p) currentWalkSpeed=v valLbl.Text=tostring(v) fill.Size=UDim2.new(p,0,1,0) thumb.Position=UDim2.new(p,0,0.5,0) end
-    local function getPerc(input) local aw=track.AbsoluteSize.X if aw<=0 then return 0 end return math.clamp((input.Position.X-track.AbsolutePosition.X)/aw,0,1) end
-    track.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=true updPerc(getPerc(i)) PlayObj(thumb,{Size=UDim2.fromOffset(20,20)},0.12) end end)
-    UserInputService.InputEnded:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then dragging=false PlayObj(thumb,{Size=UDim2.fromOffset(16,16)},0.2) end end)
-    UserInputService.InputChanged:Connect(function(i) if dragging and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then updPerc(getPerc(i)) end end)
-    task.spawn(function() while true do local hum=LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") if hum and hum.WalkSpeed~=currentWalkSpeed then hum.WalkSpeed=currentWalkSpeed end task.wait(0.15) end end)
 
-    local sC2,sH2,sContent2,sList2,sArr2=createAccordion(miscScroll,{Title="Screen", Sub="Performance", Accent=T.ok, Icon="🖥️", Order=2})
-    local function updS() local h=sList2.AbsoluteContentSize.Y+18 PlayObj(sC2,{Size=UDim2.new(1,0,0,isScreenOpen and 68+h or 68)},0.35) end sList2:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updS) sH2.MouseButton1Click:Connect(function() isScreenOpen=not isScreenOpen PlayObj(sArr2,{Rotation=isScreenOpen and 180 or 0},0.25) updS() end)
-    local fpsEnabled,noTexEnabled,disable3DEnabled=false,false,false
-    local function applyFPSBoost(state) pcall(function() local lighting=game:GetService("Lighting") if state then settings().Rendering.QualityLevel=Enum.QualityLevel.Level01 lighting.GlobalShadows=false lighting.FogEnd=9e9 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("BasePart") then v.Material=Enum.Material.SmoothPlastic v.Reflectance=0 elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then v.Enabled=false elseif v:IsA("MeshPart") then v.RenderFidelity=Enum.RenderFidelity.Performance end end else lighting.GlobalShadows=true lighting.FogEnd=100000 end end) end
-    local function applyNoTexture(state) pcall(function() for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Decal") or v:IsA("Texture") then v.Transparency=state and 1 or 0 end end end) end
-    local function applyDisable3D(state) pcall(function() RunService:Set3dRenderingEnabled(not state) end) end
-    local _,fpsB,fpsD,fpsG=createToggle(sContent2,"FPS BOOST","Low quality + no shadow",T.ok,1)
-    local _,texB,texD,texG=createToggle(sContent2,"NO TEXTURE","Hide decal",T.warn,2)
-    local _,d3B,d3D,d3G=createToggle(sContent2,"DISABLE 3D","Black screen",T.bad,3)
-    fpsB.Parent.MouseButton1Click:Connect(function() fpsEnabled=not fpsEnabled if fpsEnabled then PlayObj(fpsB,{BackgroundColor3=T.ok},0.2) PlayObj(fpsD,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(fpsG,{BackgroundTransparency=0.8},0.2) else PlayObj(fpsB,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(fpsD,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(fpsG,{BackgroundTransparency=1},0.2) end applyFPSBoost(fpsEnabled) end)
-    texB.Parent.MouseButton1Click:Connect(function() noTexEnabled=not noTexEnabled if noTexEnabled then PlayObj(texB,{BackgroundColor3=T.warn},0.2) PlayObj(texD,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(texG,{BackgroundTransparency=0.8},0.2) else PlayObj(texB,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(texD,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(texG,{BackgroundTransparency=1},0.2) end applyNoTexture(noTexEnabled) end)
-    d3B.Parent.MouseButton1Click:Connect(function() disable3DEnabled=not disable3DEnabled if disable3DEnabled then PlayObj(d3B,{BackgroundColor3=T.bad},0.2) PlayObj(d3D,{Position=UDim2.new(1,-26,0.5,-11)},0.25,Enum.EasingStyle.Back) PlayObj(d3G,{BackgroundTransparency=0.8},0.2) else PlayObj(d3B,{BackgroundColor3=Color3.fromRGB(42,40,62)},0.2) PlayObj(d3D,{Position=UDim2.new(0,4,0.5,-11)},0.25) PlayObj(d3G,{BackgroundTransparency=1},0.2) end applyDisable3D(disable3DEnabled) end)
+    local travelFrame=Window.Tabs["Travel"].frame travelFrame:ClearAllChildren()
+    local travelScroll=Instance.new("ScrollingFrame") travelScroll.Size=UDim2.new(1,0,1,0) travelScroll.BackgroundTransparency=1 travelScroll.ScrollBarThickness=0 travelScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y travelScroll.Parent=travelFrame
+    local travelList=Instance.new("UIListLayout",travelScroll) travelList.Padding=UDim.new(0,14)
+    local travelPad=Instance.new("UIPadding",travelScroll) travelPad.PaddingTop=UDim.new(0,14) travelPad.PaddingBottom=UDim.new(0,14) travelPad.PaddingLeft=UDim.new(0,12) travelPad.PaddingRight=UDim.new(0,12)
+    local travelContainer,travelHeader,travelContent,travelContentList,travelArrow,travelArrowBg=createCoolAccordion(travelScroll,"Travel","Select & teleport - no panel",Color3.fromRGB(99,102,241),"✈️")
+    local function updateTravelSize() local h=travelContentList.AbsoluteContentSize.Y+26 TweenService:Create(travelContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isTravelOpen and 68+h or 68)}):Play() end
+    travelContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateTravelSize) travelHeader.MouseButton1Click:Connect(function() isTravelOpen=not isTravelOpen TweenService:Create(travelArrow,TweenInfo.new(0.25),{Rotation=isTravelOpen and 180 or 0}):Play() updateTravelSize() end)
+    local travelInfo=Instance.new("TextLabel",travelContent) travelInfo.Size=UDim2.new(1,0,0,38) travelInfo.BackgroundColor3=Color3.fromRGB(28,26,45) travelInfo.Font=Enum.Font.GothamMedium travelInfo.TextSize=11 travelInfo.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",travelInfo).CornerRadius=UDim.new(0,12) travelInfo.Text=" Waypoints: 0"
+    local selectedWaypoint=nil
+    -- DROPDOWN WAYPOINTS
+    local dropdownContainer=Instance.new("Frame",travelContent) dropdownContainer.Size=UDim2.new(1,0,0,0) dropdownContainer.AutomaticSize=Enum.AutomaticSize.Y dropdownContainer.BackgroundTransparency=1
+    local dropLayout=Instance.new("UIListLayout",dropdownContainer) dropLayout.Padding=UDim.new(0,8)
+    local dropdownMain=Instance.new("Frame",dropdownContainer) dropdownMain.Size=UDim2.new(1,0,0,46) dropdownMain.LayoutOrder=1 dropdownMain.BackgroundColor3=Color3.fromRGB(32,30,55) Instance.new("UICorner",dropdownMain).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",dropdownMain).Color=Color3.fromRGB(99,102,241)
+    local dropBtn=Instance.new("TextButton",dropdownMain) dropBtn.Size=UDim2.new(1,-40,1,0) dropBtn.Text=" Pilih Waypoint..." dropBtn.Font=Enum.Font.GothamBold dropBtn.TextSize=12 dropBtn.TextColor3=Color3.new(1,1,1) dropBtn.BackgroundTransparency=1 dropBtn.TextXAlignment=Enum.TextXAlignment.Left
+    local dropArrow=Instance.new("TextLabel",dropdownMain) dropArrow.Text="▼" dropArrow.Size=UDim2.fromOffset(30,30) dropArrow.Position=UDim2.new(1,-38,0.5,-15) dropArrow.BackgroundTransparency=1 dropArrow.Font=Enum.Font.GothamBold dropArrow.TextSize=12 dropArrow.TextColor3=Color3.new(1,1,1)
+    local dropListFrame=Instance.new("ScrollingFrame",dropdownContainer) dropListFrame.LayoutOrder=2 dropListFrame.Size=UDim2.new(1,0,0,0) dropListFrame.AutomaticSize=Enum.AutomaticSize.Y dropListFrame.Visible=false dropListFrame.BackgroundColor3=Color3.fromRGB(22,20,38) dropListFrame.ScrollBarThickness=3 Instance.new("UICorner",dropListFrame).CornerRadius=UDim.new(0,12)
+    local dropListLayout=Instance.new("UIListLayout",dropListFrame) dropListLayout.Padding=UDim.new(0,8)
+    local dropPad=Instance.new("UIPadding",dropListFrame) dropPad.PaddingTop=UDim.new(0,8) dropPad.PaddingBottom=UDim.new(0,8) dropPad.PaddingLeft=UDim.new(0,8) dropPad.PaddingRight=UDim.new(0,8)
+    local function refreshWaypointsDropdown()
+        for _,c in ipairs(dropListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        local wps=getWaypoints()
+        table.sort(wps,function(a,b) return a.Name<b.Name end)
+        travelInfo.Text=" Waypoints: "..#wps.." | Select & TP"
+        for _,wp in ipairs(wps) do
+            local btn=Instance.new("TextButton") btn.Size=UDim2.new(1,0,0,36) btn.Text=" "..wp.Name btn.Font=Enum.Font.GothamMedium btn.TextSize=11 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=Color3.fromRGB(32,30,55) btn.Parent=dropListFrame Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
+            btn.MouseButton1Click:Connect(function()
+                selectedWaypoint=wp
+                dropBtn.Text=" "..wp.Name
+                dropListFrame.Visible=false
+                dropListFrame.Size=UDim2.new(1,0,0,0)
+                TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=0}):Play()
+                updateTravelSize()
+            end)
+        end
+    end
+    dropBtn.MouseButton1Click:Connect(function()
+        dropListFrame.Visible=not dropListFrame.Visible
+        if dropListFrame.Visible then refreshWaypointsDropdown() dropListFrame.Size=UDim2.new(1,0,0,140) TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=180}):Play() else dropListFrame.Size=UDim2.new(1,0,0,0) TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=0}):Play() end
+        updateTravelSize()
+    end)
+    local travelBtnRow=Instance.new("Frame",travelContent) travelBtnRow.Size=UDim2.new(1,0,0,46) travelBtnRow.BackgroundTransparency=1
+    local travelBtnLayout=Instance.new("UIListLayout",travelBtnRow) travelBtnLayout.FillDirection=Enum.FillDirection.Horizontal travelBtnLayout.Padding=UDim.new(0,10)
+    local refreshTravelBtn=Instance.new("TextButton",travelBtnRow) refreshTravelBtn.Size=UDim2.new(0.5,-5,1,0) refreshTravelBtn.Text="REFRESH" refreshTravelBtn.Font=Enum.Font.GothamBold refreshTravelBtn.TextSize=12 refreshTravelBtn.TextColor3=Color3.new(1,1,1) refreshTravelBtn.BackgroundColor3=Color3.fromRGB(32,30,55) Instance.new("UICorner",refreshTravelBtn).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",refreshTravelBtn).Color=Color3.fromRGB(99,102,241) refreshTravelBtn.MouseButton1Click:Connect(function() refreshWaypointsDropdown() dropListFrame.Visible=true dropListFrame.Size=UDim2.new(1,0,0,140) updateTravelSize() end)
+    local tpTravelBtn=Instance.new("TextButton",travelBtnRow) tpTravelBtn.Size=UDim2.new(0.5,-5,1,0) tpTravelBtn.Text="TELEPORT" tpTravelBtn.Font=Enum.Font.GothamBold tpTravelBtn.TextSize=12 tpTravelBtn.TextColor3=Color3.fromRGB(20,18,30) tpTravelBtn.BackgroundColor3=Color3.fromRGB(99,102,241) Instance.new("UICorner",tpTravelBtn).CornerRadius=UDim.new(0,12)
+    tpTravelBtn.MouseButton1Click:Connect(function()
+        if not selectedWaypoint then Window.Notify("TRAVEL","Pilih waypoint dulu",Color3.fromRGB(200,60,60),2) return end
+        doFastTravel(selectedWaypoint)
+    end)
 
-    task.wait(0.3) updPlay() updSell() updGeo() updTravel() updShop() updP() updS()
-end--(%--&_>@)
+
+
+    local shopFrame=Window.Tabs["Shop"].frame shopFrame:ClearAllChildren()
+    local shopScroll=Instance.new("ScrollingFrame") shopScroll.Size=UDim2.new(1,0,1,0) shopScroll.BackgroundTransparency=1 shopScroll.ScrollBarThickness=0 shopScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y shopScroll.Parent=shopFrame
+    local shopListLayout=Instance.new("UIListLayout",shopScroll) shopListLayout.Padding=UDim.new(0,14)
+    local shopPad=Instance.new("UIPadding",shopScroll) shopPad.PaddingTop=UDim.new(0,14) shopPad.PaddingBottom=UDim.new(0,14) shopPad.PaddingLeft=UDim.new(0,12) shopPad.PaddingRight=UDim.new(0,12)
+    local shopContainer,shopHeader,shopContent,shopContentList,shopArrow,shopArrowBg=createCoolAccordion(shopScroll,"Pan & Shovel","You need fast hand to buy!!",Color3.fromRGB(255,180,50),"🛒")
+    local function updateShopSize() local h=shopContentList.AbsoluteContentSize.Y+26 TweenService:Create(shopContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isShopOpen and 68+h or 68)}):Play() end
+    shopContentList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateShopSize) shopHeader.MouseButton1Click:Connect(function() isShopOpen=not isShopOpen TweenService:Create(shopArrow,TweenInfo.new(0.25),{Rotation=isShopOpen and 180 or 0}):Play() updateShopSize() end)
+    local shopInfo=Instance.new("TextLabel",shopContent) shopInfo.Size=UDim2.new(1,0,0,38) shopInfo.BackgroundColor3=Color3.fromRGB(28,26,45) shopInfo.Font=Enum.Font.GothamMedium shopInfo.TextSize=11 shopInfo.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",shopInfo).CornerRadius=UDim.new(0,12) shopInfo.Text=" Scanning..."
+    local dropdownContainer=Instance.new("Frame",shopContent) dropdownContainer.Size=UDim2.new(1,0,0,0) dropdownContainer.AutomaticSize=Enum.AutomaticSize.Y dropdownContainer.BackgroundTransparency=1
+    local dropLayout=Instance.new("UIListLayout",dropdownContainer) dropLayout.Padding=UDim.new(0,8)
+    local dropdownMain=Instance.new("Frame",dropdownContainer) dropdownMain.Size=UDim2.new(1,0,0,46) dropdownMain.LayoutOrder=1 dropdownMain.BackgroundColor3=Color3.fromRGB(32,30,55) Instance.new("UICorner",dropdownMain).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",dropdownMain).Color=Color3.fromRGB(255,180,50)
+    local dropBtn=Instance.new("TextButton",dropdownMain) dropBtn.Size=UDim2.new(1,-40,1,0) dropBtn.Text=" Pilih Pan / Shovel..." dropBtn.Font=Enum.Font.GothamBold dropBtn.TextSize=12 dropBtn.TextColor3=Color3.new(1,1,1) dropBtn.BackgroundTransparency=1 dropBtn.TextXAlignment=Enum.TextXAlignment.Left
+    local dropArrow=Instance.new("TextLabel",dropdownMain) dropArrow.Text="▼" dropArrow.Size=UDim2.fromOffset(30,30) dropArrow.Position=UDim2.new(1,-38,0.5,-15) dropArrow.BackgroundTransparency=1 dropArrow.Font=Enum.Font.GothamBold dropArrow.TextSize=12 dropArrow.TextColor3=Color3.new(1,1,1)
+    local dropListFrame=Instance.new("ScrollingFrame",dropdownContainer) dropListFrame.LayoutOrder=2 dropListFrame.Size=UDim2.new(1,0,0,0) dropListFrame.AutomaticSize=Enum.AutomaticSize.Y dropListFrame.Visible=false dropListFrame.BackgroundColor3=Color3.fromRGB(22,20,38) dropListFrame.ScrollBarThickness=3 Instance.new("UICorner",dropListFrame).CornerRadius=UDim.new(0,12)
+    local dropListLayout=Instance.new("UIListLayout",dropListFrame) dropListLayout.Padding=UDim.new(0,8)
+    local dropPad=Instance.new("UIPadding",dropListFrame) dropPad.PaddingTop=UDim.new(0,8) dropPad.PaddingBottom=UDim.new(0,8) dropPad.PaddingLeft=UDim.new(0,8) dropPad.PaddingRight=UDim.new(0,8)
+    local function refreshShop()
+        for _,c in ipairs(dropListFrame:GetChildren()) do if c:IsA("TextButton") then c:Destroy() end end
+        local items=getShopItems()
+        shopInfo.Text=" Found "..#items.." | Mahal -> Murah"
+        for _,data in ipairs(items) do
+            local btn=Instance.new("TextButton") btn.Size=UDim2.new(1,0,0,38) btn.Text=" "..data.name.." | $"..data.price.." ("..data.folderName..")" btn.Font=Enum.Font.GothamMedium btn.TextSize=11 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=Color3.fromRGB(32,30,55) btn.Parent=dropListFrame Instance.new("UICorner",btn).CornerRadius=UDim.new(0,10)
+            btn.MouseButton1Click:Connect(function()
+                selectedShopData=data dropBtn.Text=" "..data.name.." - $"..data.price
+                dropListFrame.Visible=false dropListFrame.Size=UDim2.new(1,0,0,0) TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=0}):Play() updateShopSize()
+            end)
+        end
+    end
+    dropBtn.MouseButton1Click:Connect(function()
+        dropListFrame.Visible=not dropListFrame.Visible
+        if dropListFrame.Visible then refreshShop() dropListFrame.Size=UDim2.new(1,0,0,140) TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=180}):Play() else dropListFrame.Size=UDim2.new(1,0,0,0) TweenService:Create(dropArrow,TweenInfo.new(0.2),{Rotation=0}):Play() end
+        updateShopSize()
+    end)
+    local shopBtnRow=Instance.new("Frame",shopContent) shopBtnRow.Size=UDim2.new(1,0,0,48) shopBtnRow.BackgroundTransparency=1
+    local shopBtnLayout=Instance.new("UIListLayout",shopBtnRow) shopBtnLayout.FillDirection=Enum.FillDirection.Horizontal shopBtnLayout.Padding=UDim.new(0,10)
+    local refreshShopBtn=Instance.new("TextButton",shopBtnRow) refreshShopBtn.Size=UDim2.new(0.5,-5,1,0) refreshShopBtn.Text="REFRESH" refreshShopBtn.Font=Enum.Font.GothamBold refreshShopBtn.TextSize=12 refreshShopBtn.TextColor3=Color3.new(1,1,1) refreshShopBtn.BackgroundColor3=Color3.fromRGB(32,30,55) Instance.new("UICorner",refreshShopBtn).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",refreshShopBtn).Color=Color3.fromRGB(255,180,50) refreshShopBtn.MouseButton1Click:Connect(function() refreshShop() dropListFrame.Visible=true dropListFrame.Size=UDim2.new(1,0,0,140) updateShopSize() end)
+    local tpShopBtn=Instance.new("TextButton",shopBtnRow) tpShopBtn.Size=UDim2.new(0.5,-5,1,0) tpShopBtn.Text="" tpShopBtn.Font=Enum.Font.GothamBold tpShopBtn.TextSize=11 tpShopBtn.TextColor3=Color3.fromRGB(20,18,30) tpShopBtn.BackgroundColor3=Color3.fromRGB(255,180,50) Instance.new("UICorner",tpShopBtn).CornerRadius=UDim.new(0,12)
+    tpShopBtn.MouseButton1Click:Connect(function()
+        if not selectedShopData then Window.Notify("SHOP","Pilih item dulu",Color3.fromRGB(200,60,60),2) return end
+        local pos=getModelPos(selectedShopData.model) if not pos then return end
+        task.spawn(function()
+            setNoclip(true)
+            local hrp=getHRP()
+            if hrp then
+                hrp.Anchored=false
+                hrp.CFrame=CFrame.new(pos + Vector3.new(0,5,0))
+                task.wait(0.1)
+                hrp.Anchored=true
+                task.wait(3)
+                hrp.Anchored=false
+            end
+            setNoclip(false)
+        end)
+    end)
+
+
+    -- MISC TAB
+    local miscFrame=Window.Tabs["Misc"].frame miscFrame:ClearAllChildren()
+    local miscScroll=Instance.new("ScrollingFrame") miscScroll.Size=UDim2.new(1,0,1,0) miscScroll.BackgroundTransparency=1 miscScroll.ScrollBarThickness=0 miscScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y miscScroll.Parent=miscFrame
+    local miscList=Instance.new("UIListLayout",miscScroll) miscList.Padding=UDim.new(0,14)
+    local miscPad=Instance.new("UIPadding",miscScroll) miscPad.PaddingTop=UDim.new(0,14) miscPad.PaddingBottom=UDim.new(0,14) miscPad.PaddingLeft=UDim.new(0,12) miscPad.PaddingRight=UDim.new(0,12)
+    local isPlayerOpen = false
+    local isScreenOpen = false
+    local currentWalkSpeed = 16
+    local function createModernSlider(parent, titleText, subText, min, max, default, accent)
+        local container=Instance.new("Frame") container.Size=UDim2.new(1,0,0,90) container.BackgroundColor3=Color3.fromRGB(28,26,45) container.Parent=parent Instance.new("UICorner",container).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",container).Color=Color3.fromRGB(60,58,85)
+        local t=Instance.new("TextLabel",container) t.Text=titleText t.Position=UDim2.new(0,14,0,10) t.Size=UDim2.new(0.6,0,0,18) t.BackgroundTransparency=1 t.Font=Enum.Font.GothamBold t.TextSize=13 t.TextColor3=Color3.new(1,1,1) t.TextXAlignment=Enum.TextXAlignment.Left
+        local s=Instance.new("TextLabel",container) s.Text=subText s.Position=UDim2.new(0,14,0,30) s.Size=UDim2.new(0.6,0,0,14) s.BackgroundTransparency=1 s.Font=Enum.Font.GothamMedium s.TextSize=9 s.TextColor3=Color3.fromRGB(165,160,190) s.TextXAlignment=Enum.TextXAlignment.Left
+        local valLabel=Instance.new("TextLabel",container) valLabel.Text=tostring(default) valLabel.Position=UDim2.new(1,-60,0,12) valLabel.Size=UDim2.new(0,48,0,24) valLabel.BackgroundColor3=accent valLabel.BackgroundTransparency=0.85 valLabel.Font=Enum.Font.GothamBold valLabel.TextSize=12 valLabel.TextColor3=Color3.new(1,1,1) Instance.new("UICorner",valLabel).CornerRadius=UDim.new(0,8)
+        local track=Instance.new("Frame",container) track.Size=UDim2.new(1,-28,0,8) track.Position=UDim2.new(0,14,0,62) track.BackgroundColor3=Color3.fromRGB(45,43,65) track.BorderSizePixel=0 Instance.new("UICorner",track).CornerRadius=UDim.new(1,0)
+        local fill=Instance.new("Frame",track) fill.Size=UDim2.new(0,0,1,0) fill.BackgroundColor3=accent fill.BorderSizePixel=0 Instance.new("UICorner",fill).CornerRadius=UDim.new(1,0)
+        local thumb=Instance.new("Frame",track) thumb.Size=UDim2.fromOffset(20,20) thumb.AnchorPoint=Vector2.new(0.5,0.5) thumb.Position=UDim2.new(0,0,0.5,0) thumb.BackgroundColor3=Color3.new(1,1,1) thumb.BorderSizePixel=0 Instance.new("UICorner",thumb).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",thumb).Color=accent
+        local dragging=false
+        local currentValue=default
+        local callback=nil
+        local function updateFromPercent(p)
+            p=math.clamp(p,0,1)
+            local v = math.floor(min + (max-min)*p)
+            currentValue=v
+            valLabel.Text=tostring(v)
+            fill.Size=UDim2.new(p,0,1,0)
+            thumb.Position=UDim2.new(p,0,0.5,0)
+            if callback then callback(v) end
+        end
+        local function getPercentFromInput(input)
+            local pos = input.Position.X
+            local tPos = track.AbsolutePosition.X
+            local tSize = track.AbsoluteSize.X
+            if tSize==0 then return 0 end
+            return (pos - tPos)/tSize
+        end
+        thumb.InputBegan:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true end
+        end)
+        track.InputBegan:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+                dragging=true
+                updateFromPercent(getPercentFromInput(input))
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+                updateFromPercent(getPercentFromInput(input))
+            end
+        end)
+        task.wait()
+        updateFromPercent((default-min)/(max-min))
+        return container, function(cb) callback=cb end, function() return currentValue end, updateFromPercent
+    end
+    local playerContainer,playerHeader,playerContent,playerCList,playerArrow,playerArrowBg=createCoolAccordion(miscScroll,"Player","",Color3.fromRGB(99,102,241),"")
+    local function updatePlayerSize() local h=playerCList.AbsoluteContentSize.Y+26 TweenService:Create(playerContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isPlayerOpen and 68+h or 68)}):Play() end
+    playerCList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updatePlayerSize) playerHeader.MouseButton1Click:Connect(function() isPlayerOpen=not isPlayerOpen TweenService:Create(playerArrow,TweenInfo.new(0.25),{Rotation=isPlayerOpen and 180 or 0}):Play() updatePlayerSize() end)
+    local sliderContainer, setSliderCallback, getSliderValue = createModernSlider(playerContent, "WALKSPEED", "", 16, 200, 16, Color3.fromRGB(99,102,241))
+    setSliderCallback(function(v) currentWalkSpeed=v end)
+    task.spawn(function()
+        while true do
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.WalkSpeed ~= currentWalkSpeed then hum.WalkSpeed = currentWalkSpeed end
+            task.wait(0.15)
+        end
+    end)
+    local screenContainer,screenHeader,screenContent,screenCList,screenArrow,screenArrowBg=createCoolAccordion(miscScroll,"Screen","",Color3.fromRGB(80,220,120),"")
+    local function updateScreenSize() local h=screenCList.AbsoluteContentSize.Y+26 TweenService:Create(screenContainer,TweenInfo.new(0.35),{Size=UDim2.new(1,0,0,isScreenOpen and 68+h or 68)}):Play() end
+    screenCList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateScreenSize) screenHeader.MouseButton1Click:Connect(function() isScreenOpen=not isScreenOpen TweenService:Create(screenArrow,TweenInfo.new(0.25),{Rotation=isScreenOpen and 180 or 0}):Play() updateScreenSize() end)
+    local fpsEnabled=false
+    local noTexEnabled=false
+    local disable3DEnabled=false
+    local function applyFPSBoost(state)
+        pcall(function()
+            local lighting = game:GetService("Lighting")
+            if state then
+                settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+                lighting.GlobalShadows=false
+                lighting.FogEnd=9e9
+                lighting.Brightness=1
+                for _,v in ipairs(workspace:GetDescendants()) do
+                    if v:IsA("BasePart") then v.Material=Enum.Material.SmoothPlastic v.Reflectance=0
+                    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then v.Enabled=false
+                    elseif v:IsA("MeshPart") then v.RenderFidelity=Enum.RenderFidelity.Performance end
+                end
+            else
+                lighting.GlobalShadows=true
+                lighting.FogEnd=100000
+            end
+        end)
+    end
+    local function applyNoTexture(state)
+        pcall(function()
+            for _,v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Decal") or v:IsA("Texture") then v.Transparency = state and 1 or 0 end
+            end
+        end)
+    end
+    local function applyDisable3D(state)
+        pcall(function() RunService:Set3dRenderingEnabled(not state) end)
+    end
+    local fpsFrame,fpsBtn,fpsDot=createCoolToggle(screenContent,"FPS BOOST","",Color3.fromRGB(80,220,120))
+    local noTexFrame,noTexBtn,noTexDot=createCoolToggle(screenContent,"NO TEXTURE","",Color3.fromRGB(255,180,50))
+    local dis3DFrame,dis3DBtn,dis3DDot=createCoolToggle(screenContent,"DISABLE 3D RENDERING","",Color3.fromRGB(255,90,90))
+    fpsBtn.MouseButton1Click:Connect(function()
+        fpsEnabled=not fpsEnabled
+        if fpsEnabled then TweenService:Create(fpsBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(80,220,120)}):Play() TweenService:Create(fpsDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+        else TweenService:Create(fpsBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play() TweenService:Create(fpsDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play() end
+        applyFPSBoost(fpsEnabled)
+    end)
+    noTexBtn.MouseButton1Click:Connect(function()
+        noTexEnabled=not noTexEnabled
+        if noTexEnabled then TweenService:Create(noTexBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(255,180,50)}):Play() TweenService:Create(noTexDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+        else TweenService:Create(noTexBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play() TweenService:Create(noTexDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play() end
+        applyNoTexture(noTexEnabled)
+    end)
+    dis3DBtn.MouseButton1Click:Connect(function()
+        disable3DEnabled=not disable3DEnabled
+        if disable3DEnabled then TweenService:Create(dis3DBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(255,90,90)}):Play() TweenService:Create(dis3DDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-26,0.5,-11)}):Play()
+        else TweenService:Create(dis3DBtn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(55,55,75)}):Play() TweenService:Create(dis3DDot,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,4,0.5,-11)}):Play() end
+        applyDisable3D(disable3DEnabled)
+    end)
+
+    task.wait(0.3)
+    updateSize() updateSellSize() updateGeodeSize() updateTravelSize() updateShopSize() updatePlayerSize() updateScreenSize() refreshWaypoints() refreshShop()
+end
+
+--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
