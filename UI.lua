@@ -1,8 +1,17 @@
 --[[
-    SORU HUB UI v3.1  (API 100% kompatibel dengan v2.x / v3.0)
+    SORU HUB UI v4.0  (API 100% kompatibel dengan v2.x / v3.x)
 
-    Komponen: Button, Toggle, Slider, Textbox, Dropdown (single/multi + search), Keybind,
-              ColorPicker, Accordion (nested), Paragraph, Divider, Section, Label
+    BARU DI v4.0  (redesign visual + animasi)
+      Tema      : preset warna Violet / Ocean / Crimson / Emerald / Sunset (Dashboard > Interface > Theme), tersimpan di config
+      Spotlight : cahaya lembut di kartu yang mengikuti kursor, glint saat window dibuka
+      Neon      : glow bernapas di sekeliling window, background parallax mengikuti mouse
+      Motion    : window miring halus saat di-drag lalu memantul, sidebar + konten masuk bergantian, tab pindah dengan zoom
+      Komponen  : toggle glow + centang, slider glow trail, keybind berdenyut saat listening,
+                  judul section bergradien, toast baru (shine, ring, klik untuk tutup), boot dengan shockwave
+
+    BARU DI v3.1
+      Accordion : Tab:Accordion({Title, Desc, Open}) -> isinya komponen apa saja (Acc:Toggle, Acc:Button, Acc:Slider, dst)
+      Sound     : suara khas SORU, disintesis sendiri (tanpa asset id), diatur di Dashboard > Sound
 
     API
       local Window = SORU:CreateWindow({
@@ -19,9 +28,8 @@
       Tab:Dropdown({Title, Flag, Options = {}, Default, Multi, Callback = function(value|array) end})  -- :Set(v) :Get() :Refresh(opts)
       Tab:Keybind({Title, Flag, Default = Enum.KeyCode.X, Callback = function(key) end, OnChange = function(key) end})
       Tab:ColorPicker({Title, Flag, Default = Color3, Callback = function(color) end})
+      Tab:Accordion({Title, Desc, Open}) -> berisi komponen di atas
       Tab:Paragraph({Title, Desc})
-      Tab:Accordion({Title, Desc, Icon, Open})  -> Acc:Toggle(...) Acc:Slider(...) dst (nested), Acc:SetOpen(bool)
-      Suara: SORU.Sounds.click = "rbxassetid://..." untuk ganti suara; toggle & volume ada di Dashboard > Sound
       Tab:Section("Judul") / Tab:Divider() / Tab:Label("Teks")
 ]]
 
@@ -61,34 +69,127 @@ local ICON = getAsset("SORU_S_ICON_1024.png", URLS.ICON)
 local BG = getAsset("SORU_THEME_1024.png", URLS.BG)
 
 ----------------------------------------------------------------------
+-- SOUND KHAS SORU (disintesis sendiri -> .wav -> getcustomasset, tanpa asset id)
+----------------------------------------------------------------------
+local sfxFn = function() end
+local function sfx(...) return sfxFn(...) end
+-- bagian: {mulai, durasi, freq0, freq1, volume, jenis, peluruhan}
+local SFX_DEFS = {
+    boot     = {1.6, {{0, 0.7, 440, 440, 0.45, "bell", 5}, {0.12, 0.7, 659.3, 659.3, 0.42, "bell", 5}, {0.24, 0.8, 880, 880, 0.42, "bell", 4.5}, {0.36, 0.9, 1108.7, 1108.7, 0.4, "bell", 4}, {0.5, 1.1, 1318.5, 1318.5, 0.5, "bell", 3.2}}},
+    open     = {0.8, {{0, 0.5, 880, 880, 0.5, "bell", 8}, {0.07, 0.5, 1108.7, 1108.7, 0.45, "bell", 8}, {0.14, 0.6, 1318.5, 1318.5, 0.5, "bell", 7}}},
+    close    = {0.6, {{0, 0.4, 1318.5, 1318.5, 0.45, "bell", 10}, {0.08, 0.5, 880, 880, 0.5, "bell", 9}}},
+    click    = {0.12, {{0, 0.1, 1500, 650, 0.6, "sine", 38}, {0, 0.05, 3000, 3000, 0.18, "bell", 70}}},
+    hover    = {0.06, {{0, 0.05, 2600, 2600, 0.14, "sine", 70}}},
+    on       = {0.4, {{0, 0.25, 880, 880, 0.5, "bell", 16}, {0.07, 0.3, 1318.5, 1318.5, 0.5, "bell", 14}}},
+    off      = {0.4, {{0, 0.25, 740, 740, 0.45, "bell", 16}, {0.07, 0.3, 554.4, 554.4, 0.45, "bell", 14}}},
+    tab      = {0.3, {{0, 0.14, 500, 900, 0.45, "sine", 22}, {0.02, 0.22, 1760, 1760, 0.2, "bell", 30}}},
+    tick     = {0.05, {{0, 0.035, 1800, 1800, 0.45, "sine", 90}}},
+    pop      = {0.3, {{0, 0.12, 700, 1100, 0.5, "sine", 28}, {0.03, 0.22, 1568, 1568, 0.22, "bell", 25}}},
+    expand   = {0.3, {{0, 0.16, 420, 850, 0.4, "sine", 18}, {0.03, 0.22, 1568, 1568, 0.2, "bell", 24}}},
+    collapse = {0.3, {{0, 0.16, 850, 420, 0.4, "sine", 18}, {0.03, 0.22, 1174.7, 1174.7, 0.2, "bell", 24}}},
+    notify   = {0.9, {{0, 0.5, 1174.7, 1174.7, 0.5, "bell", 8}, {0.1, 0.6, 1568, 1568, 0.5, "bell", 7}}},
+    error    = {0.5, {{0, 0.28, 196, 150, 0.45, "buzz", 8}, {0.13, 0.3, 185, 140, 0.45, "buzz", 8}}},
+}
+local function buildSfx()
+    local out = {}
+    if not (writefile and isfile and getcustomasset) then return out end
+    local RATE, TAU = 22050, math.pi * 2
+    local function le(x, n)
+        local t = {}
+        for i = 1, n do t[i] = string.char(x % 256) x = math.floor(x / 256) end
+        return table.concat(t)
+    end
+    for name, def in pairs(SFX_DEFS) do
+        pcall(function()
+            local file = CFG.."/sfx_k1_"..name..".wav"
+            if not isfile(file) then
+                local n = math.floor(def[1] * RATE)
+                local buf = table.create(n, 0)
+                for _, p in ipairs(def[2]) do
+                    local s0, cnt = math.floor(p[1] * RATE), math.floor(p[2] * RATE)
+                    local f0, f1, vol, kind, dec = p[3], p[4], p[5], p[6], p[7]
+                    local ph = 0
+                    for i = 0, cnt - 1 do
+                        local idx = s0 + i + 1
+                        if idx > n then break end
+                        local tt = i / RATE
+                        ph = ph + TAU * (f0 + (f1 - f0) * i / cnt) / RATE
+                        local env = math.min(1, tt / 0.004) * math.exp(-tt * dec) * math.min(1, (cnt - i) / (0.008 * RATE))
+                        local v
+                        if kind == "bell" then
+                            v = math.sin(ph) + 0.4 * math.sin(ph * 2.76) * math.exp(-tt * dec * 1.5) + 0.18 * math.sin(ph * 5.4) * math.exp(-tt * dec * 3)
+                        elseif kind == "buzz" then
+                            v = math.clamp(math.sin(ph) * 2.2, -1, 1) * 0.7
+                        else
+                            v = math.sin(ph)
+                        end
+                        buf[idx] = buf[idx] + v * env * vol
+                    end
+                end
+                local bytes = table.create(n)
+                for i = 1, n do
+                    local v = math.floor(math.clamp(buf[i], -1, 1) * 30000)
+                    if v < 0 then v = v + 65536 end
+                    bytes[i] = string.char(v % 256, math.floor(v / 256))
+                end
+                local data = table.concat(bytes)
+                writefile(file, "RIFF"..le(36 + #data, 4).."WAVEfmt "..le(16, 4)..le(1, 2)..le(1, 2)..le(RATE, 4)..le(RATE * 2, 4)..le(2, 2)..le(16, 2).."data"..le(#data, 4)..data)
+            end
+            out[name] = {id = getcustomasset(file), dur = def[1]}
+        end)
+    end
+    return out
+end
+
+----------------------------------------------------------------------
 -- THEME
 ----------------------------------------------------------------------
 local T = {
-    ink       = Color3.fromRGB(10, 9, 17),
-    panel     = Color3.fromRGB(18, 16, 30),
-    card      = Color3.fromRGB(26, 23, 42),
-    cardHover = Color3.fromRGB(38, 34, 62),
-    cardDown  = Color3.fromRGB(56, 46, 102),
-    stroke    = Color3.fromRGB(64, 58, 98),
-    text      = Color3.fromRGB(244, 242, 255),
-    dim       = Color3.fromRGB(148, 140, 180),
-    accent    = Color3.fromRGB(139, 92, 246),
-    accent2   = Color3.fromRGB(99, 102, 241),
-    cyan      = Color3.fromRGB(56, 189, 248),
-    pink      = Color3.fromRGB(236, 72, 153),
+    ink       = Color3.fromRGB(8, 7, 15),
+    panel     = Color3.fromRGB(16, 14, 28),
+    card      = Color3.fromRGB(25, 22, 41),
+    cardHover = Color3.fromRGB(38, 33, 66),
+    cardDown  = Color3.fromRGB(58, 46, 108),
+    stroke    = Color3.fromRGB(68, 61, 106),
+    text      = Color3.fromRGB(246, 244, 255),
+    dim       = Color3.fromRGB(150, 142, 186),
+    accent    = Color3.fromRGB(145, 96, 255),
+    accent2   = Color3.fromRGB(94, 106, 255),
+    cyan      = Color3.fromRGB(56, 200, 255),
+    pink      = Color3.fromRGB(245, 80, 165),
     ok        = Color3.fromRGB(74, 222, 128),
     warn      = Color3.fromRGB(250, 204, 21),
     bad       = Color3.fromRGB(248, 113, 113),
     off       = Color3.fromRGB(52, 50, 74),
-    input     = Color3.fromRGB(14, 12, 24),
+    input     = Color3.fromRGB(13, 11, 23),
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "3.1"
-local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow tidak muncul
+local VERSION = "4.0"
+local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
 local RING2 = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.accent)}
+
+-- preset warna: {accent, accent2, cyan, pink}
+local THEMES = {
+    Violet  = {Color3.fromRGB(145, 96, 255), Color3.fromRGB(94, 106, 255), Color3.fromRGB(56, 200, 255), Color3.fromRGB(245, 80, 165)},
+    Ocean   = {Color3.fromRGB(40, 160, 255), Color3.fromRGB(56, 112, 255), Color3.fromRGB(45, 230, 205), Color3.fromRGB(120, 130, 255)},
+    Crimson = {Color3.fromRGB(255, 70, 100), Color3.fromRGB(220, 38, 80), Color3.fromRGB(255, 160, 70), Color3.fromRGB(255, 90, 170)},
+    Emerald = {Color3.fromRGB(45, 212, 150), Color3.fromRGB(16, 170, 120), Color3.fromRGB(60, 190, 255), Color3.fromRGB(190, 235, 80)},
+    Sunset  = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(240, 70, 90), Color3.fromRGB(255, 205, 70), Color3.fromRGB(255, 90, 170)},
+}
+local THEME_ORDER = {"Violet", "Ocean", "Crimson", "Emerald", "Sunset"}
+local function applyPalette(name)
+    local p = THEMES[name]
+    if not p then return nil end
+    local old = {T.accent, T.accent2, T.cyan, T.pink}
+    T.accent, T.accent2, T.cyan, T.pink = p[1], p[2], p[3], p[4]
+    ACCENT, ACCENT2 = p[1], p[2]
+    RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
+    RING2 = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.accent)}
+    return old
+end
 
 ----------------------------------------------------------------------
 -- HELPERS
@@ -123,6 +224,12 @@ local function label(parent, props)
     return new("TextLabel", d, parent)
 end
 
+-- kilau kaca: garis highlight tipis di sisi atas kartu
+local function gloss(f)
+    local hl = new("Frame", {Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, f)
+    new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.78), NumberSequenceKeypoint.new(1, 1)}}, hl)
+end
+
 local function tw(o, p, t, s, d)
     return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quint, d or Enum.EasingDirection.Out), p)
 end
@@ -150,65 +257,14 @@ local function textW(txt, size, font)
     return w
 end
 
-local SoundService = game:GetService("SoundService")
--- Sumber suara bawaan Roblox (rbxasset) + pitch di-shift per aksi. Ganti ID di sini kalau mau suara custom:
--- SORU.Sounds.click = "rbxassetid://123"
-SORU.Sounds = {
-    ping  = "rbxasset://sounds/electronicpingshort.wav",
-    click = "rbxasset://sounds/switch.wav",
-    soft  = "rbxasset://sounds/button.wav",
-}
-local SFX_ON, SFX_VOL = true, 0.7
-local SFX = { -- {sumber, pitch, volume, jeda minimum}
-    hover  = {"ping", 2.8, 0.07, 0.06},
-    click  = {"click", 1.5, 0.8},
-    on     = {"ping", 1.7, 0.6},
-    off    = {"ping", 1.05, 0.55},
-    open   = {"soft", 1.35, 0.7},
-    close  = {"soft", 0.95, 0.6},
-    select = {"ping", 2.0, 0.55},
-    tab    = {"click", 1.2, 0.7},
-    tick   = {"ping", 2.2, 0.2, 0.035},
-    focus  = {"ping", 1.9, 0.35},
-    chime  = {"ping", 1.0, 0.6, 0.03},
-    warn   = {"ping", 0.7, 0.8},
-}
-local sfxLast = {}
-local function sfx(name, mul)
-    if not SFX_ON then return end
-    local p = SFX[name]
-    if not p then return end
-    local now = os.clock()
-    if sfxLast[name] and now - sfxLast[name] < (p[4] or 0.04) then return end
-    sfxLast[name] = now
-    local id = SORU.Sounds[p[1]]
-    if not id or id == "" then return end
-    pcall(function()
-        local s = Instance.new("Sound")
-        s.SoundId = id
-        s.Volume = p[3] * SFX_VOL
-        s.PlaybackSpeed = math.clamp(p[2] * (mul or 1), 0.2, 6)
-        s.Parent = SoundService
-        s.Ended:Connect(function() s:Destroy() end)
-        s:Play()
-        task.delay(4, function() if s.Parent then s:Destroy() end end)
-    end)
-end
--- arpeggio: urutan nada (rasio pitch) berjeda
-local function arp(notes, gap, name)
-    for i, r in ipairs(notes) do
-        task.delay((i - 1) * (gap or 0.07), function() sfx(name or "chime", r) end)
-    end
-end
-
-local function hover(b, s, hoverC, downC, mute)
+local function hover(b, s, hoverC, downC)
     local bg0 = b.BackgroundColor3
     hoverC = hoverC or T.cardHover
     downC = downC or T.cardDown
     local c0, t0 = nil, nil
     if s then c0, t0 = s.Color, s.Transparency end
     b.MouseEnter:Connect(function()
-        if not mute then sfx("hover") end
+        sfx("hover")
         play(b, {BackgroundColor3 = hoverC}, 0.18)
         if s then play(s, {Color = ACCENT, Transparency = 0.25}, 0.18) end
     end)
@@ -216,7 +272,7 @@ local function hover(b, s, hoverC, downC, mute)
         play(b, {BackgroundColor3 = bg0}, 0.22)
         if s then play(s, {Color = c0, Transparency = t0}, 0.22) end
     end)
-    b.MouseButton1Down:Connect(function() if not mute then sfx("click") end play(b, {BackgroundColor3 = downC}, 0.08) end)
+    b.MouseButton1Down:Connect(function() play(b, {BackgroundColor3 = downC}, 0.08) end)
     b.MouseButton1Up:Connect(function() play(b, {BackgroundColor3 = hoverC}, 0.2) end)
 end
 
@@ -282,12 +338,43 @@ function SORU:CreateWindow(C)
     end
     end)
 
+    -- tema tersimpan dipakai sebelum UI dibuat
+    local curTheme = "Violet"
+    do
+        local th = Data.Features["UITheme"]
+        if type(th) == "string" and THEMES[th] then curTheme = th applyPalette(th) end
+    end
+
     local toggleKey = C.ToggleKey or Enum.KeyCode.RightShift
     do local mk = Data.Features["MenuKey"] if type(mk) == "string" then toggleKey = toKey(mk) or toggleKey end end
     local binding = false
-    SFX_ON = (Data.Features["UISound"] ~= false)
-    SFX_VOL = ((tonumber(Data.Features["UIVol"]) or 70)) / 100
     local booting = false
+
+    -- SOUND
+    local sndOn = (Data.Features["UISound"] ~= false)
+    local sndVol = (type(Data.Features["UIVol"]) == "number") and math.clamp(Data.Features["UIVol"], 0, 100) / 100 or 0.6
+    local sndBase, sndLast = {}, {}
+    pcall(function()
+        for name, def in pairs(buildSfx()) do
+            local s = Instance.new("Sound")
+            s.Name = name s.SoundId = def.id s.Volume = 1 s.Parent = gui
+            sndBase[name] = {snd = s, dur = def.dur}
+        end
+    end)
+    sfxFn = function(name, speed, vol)
+        local b = sndBase[name]
+        if not sndOn or not b then return end
+        local now = os.clock()
+        local gap = (name == "hover" or name == "tick") and 0.045 or 0.03
+        if sndLast[name] and now - sndLast[name] < gap then return end
+        sndLast[name] = now
+        local c = b.snd:Clone()
+        c.Volume = sndVol * 1.5 * (vol or 1)
+        c.PlaybackSpeed = speed or 1
+        c.Parent = gui
+        c:Play()
+        task.delay(b.dur / math.max(speed or 1, 0.3) + 0.4, function() c:Destroy() end)
+    end
 
     local gameName = "Unknown"
     pcall(function() local i = Market:GetProductInfo(placeId) if i and i.Name then gameName = i.Name end end)
@@ -368,6 +455,7 @@ function SORU:CreateWindow(C)
         color = color or ACCENT
         dur = dur or 3
         toastN = toastN + 1
+        sfx(color == T.bad and "error" or "notify")
         local glyph = "i"
         if color == T.ok then glyph = "✓" elseif color == T.bad then glyph = "✕" elseif color == T.warn then glyph = "!" end
         local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 66), BackgroundTransparency = 1, LayoutOrder = toastN, ZIndex = 201}, toastHolder)
@@ -384,11 +472,16 @@ function SORU:CreateWindow(C)
         label(f, {Text = tostring(msg or ""), Position = UDim2.fromOffset(52, 27), Size = UDim2.new(1, -62, 0, 28), TextSize = 11, TextColor3 = DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 203})
         local prog = new("Frame", {Size = UDim2.new(1, -24, 0, 2), Position = UDim2.new(0, 12, 1, -5), BackgroundColor3 = color, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 203}, f)
         corner(prog, FULL)
-        if color == T.ok then arp({1.26, 1.68}) elseif color == T.bad then arp({0.85, 0.6}) elseif color == T.warn then sfx("warn") else sfx("select") end
-        play(f, {Position = UDim2.fromOffset(0, 0)}, 0.55, Enum.EasingStyle.Back)
-        task.delay(0.2, function() if ic.Parent then play(icS, {Scale = 1}, 0.45, Enum.EasingStyle.Back) end end)
-        play(prog, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
-        task.delay(dur, function()
+        -- shine + ring pulse saat muncul
+        local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 56, 2.4, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 202}, f)
+        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.84), NumberSequenceKeypoint.new(1, 1)}}, shine)
+        local pr = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 203}, ic)
+        corner(pr, FULL)
+        local prs = stroke(pr, color, 1.5, 0.2)
+        local gone = false
+        local function leave()
+            if gone then return end
+            gone = true
             if not f.Parent then return end
             play(f, {Position = UDim2.fromOffset(350, 0)}, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
             task.wait(0.28)
@@ -396,7 +489,17 @@ function SORU:CreateWindow(C)
             play(wrap, {Size = UDim2.new(1, 0, 0, 0)}, 0.22)
             task.wait(0.24)
             wrap:Destroy()
+        end
+        local hit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 210}, f)
+        hit.MouseButton1Click:Connect(leave)
+        play(f, {Position = UDim2.fromOffset(0, 0)}, 0.55, Enum.EasingStyle.Back)
+        task.delay(0.2, function() if ic.Parent then play(icS, {Scale = 1}, 0.45, Enum.EasingStyle.Back) end end)
+        task.delay(0.3, function()
+            if shine.Parent then play(shine, {Position = UDim2.new(1.2, 0, 0.5, 0)}, 0.7, Enum.EasingStyle.Quad) end
+            if pr.Parent then play(pr, {Size = UDim2.fromScale(2.3, 2.3)}, 0.8) play(prs, {Transparency = 1}, 0.8) end
         end)
+        play(prog, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
+        task.delay(dur, leave)
     end
 
     local function showNotSupportedBadge(kickAfter)
@@ -421,7 +524,12 @@ function SORU:CreateWindow(C)
     local isOpen = false
     local openTok = 0
     local transTargets = {}
-    local function regTrans(inst, off) transTargets[#transTargets + 1] = {inst = inst, off = off or 0} end
+    local curTrans = (type(Data.Features["UITrans"]) == "number") and Data.Features["UITrans"] or 0.15
+    local function regTrans(inst, off)
+        off = off or 0
+        transTargets[#transTargets + 1] = {inst = inst, off = off}
+        inst.BackgroundTransparency = math.clamp(curTrans + off, 0, 1)
+    end
 
     local tabs = {}
     local cur = "Dashboard"
@@ -446,6 +554,12 @@ function SORU:CreateWindow(C)
     local shadow = nil
     if SHADOW_ID ~= "" then
         shadow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(1, 64, 1, 64), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
+    end
+    -- neon: bayangan berwarna aksen yang "bernapas"
+    local neon = nil
+    if SHADOW_ID ~= "" then
+        neon = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 30, 1, 30), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = T.accent, ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
+        TweenService:Create(neon, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Size = UDim2.new(1, 58, 1, 58)}):Play()
     end
 
     local win = new("CanvasGroup", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 2}, shell)
@@ -518,6 +632,7 @@ function SORU:CreateWindow(C)
 
     local function applyTrans(t)
         t = math.clamp(t, 0, 0.7)
+        curTrans = t
         for _, e in ipairs(transTargets) do
             if e.inst and e.inst.Parent then e.inst.BackgroundTransparency = math.clamp(t + e.off, 0, 1) end
         end
@@ -525,8 +640,41 @@ function SORU:CreateWindow(C)
     end
 
     ------------------------------------------------------------------
-    -- RIPPLE
+    -- RIPPLE + SPOTLIGHT
     ------------------------------------------------------------------
+    -- spotlight: cahaya lembut yang mengikuti kursor di dalam kartu
+    local function spotlight(f, src)
+        src = src or f
+        local box, layers
+        local function build()
+            box = new("Frame", {Name = "Spot", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(180, 180), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0}, f)
+            layers = {}
+            for i = 1, 4 do
+                local z = 1 - (i - 1) * 0.22
+                local c = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(z, z), BackgroundColor3 = (i % 2 == 0) and T.cyan or T.accent, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0}, box)
+                corner(c, FULL)
+                layers[i] = c
+            end
+        end
+        local function follow()
+            if not box then return end
+            local m = UIS:GetMouseLocation()
+            local s = math.max(rootScale.Scale * winScale.Scale, 0.01)
+            local ap = f.AbsolutePosition
+            box.Position = UDim2.fromOffset((m.X - ap.X) / s, (m.Y - ap.Y) / s)
+        end
+        src.MouseEnter:Connect(function()
+            if not box then build() end
+            follow()
+            for _, c in ipairs(layers) do play(c, {BackgroundTransparency = 0.955}, 0.3) end
+        end)
+        src.MouseMoved:Connect(follow)
+        src.MouseLeave:Connect(function()
+            if not layers then return end
+            for _, c in ipairs(layers) do play(c, {BackgroundTransparency = 1}, 0.35) end
+        end)
+    end
+
     local function ripple(btn, col)
         btn.ClipsDescendants = true
         btn.MouseButton1Down:Connect(function()
@@ -587,6 +735,13 @@ function SORU:CreateWindow(C)
     local lIcon = new("ImageLabel", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(0.5, -16, 0.5, -16), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 100}, launcher)
     local iScale = new("UIScale", {Scale = 1}, lIcon)
     TweenService:Create(iScale, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Scale = 1.1}):Play()
+    -- dua titik kecil mengorbit launcher
+    for k = 1, 2 do
+        local oh = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(LAUNCH + 12, LAUNCH + 12), BackgroundTransparency = 1, BorderSizePixel = 0, Rotation = (k - 1) * 180, ZIndex = 101}, launcher)
+        local od = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = (k == 1) and T.cyan or T.pink, BorderSizePixel = 0, ZIndex = 101}, oh)
+        corner(od, FULL)
+        spin(oh, 5)
+    end
     local lScale = new("UIScale", {Scale = 1}, launcher)
     layoutLauncher = function()
         if not launchPos then launchPos = Vector2.new(14, math.floor(virt.Y / 2 - LAUNCH / 2)) end
@@ -619,11 +774,12 @@ function SORU:CreateWindow(C)
         return Vector2.new(lp.X + LAUNCH / 2 - sc.X, lp.Y + LAUNCH / 2 - sc.Y)
     end
 
-    local function openA()
+    local openFx = nil -- diisi setelah sidebar + konten dibuat
+    local function openA(quiet)
         if isOpen then return end
         isOpen = true
         openTok = openTok + 1
-        arp({1, 1.26, 1.5, 2}, 0.065)
+        if not quiet then sfx("open") end
         layoutWin(false)
         local off = launcherOffset()
         shell.Visible = true
@@ -635,6 +791,8 @@ function SORU:CreateWindow(C)
         play(winScale, {Scale = 1}, 0.65, Enum.EasingStyle.Back)
         play(win, {GroupTransparency = 0}, 0.3)
         if shadow then play(shadow, {ImageTransparency = 0.55}, 0.45) end
+        if neon then play(neon, {ImageTransparency = 0.72}, 0.6) end
+        if openFx then openFx() end
         updateBlur()
         local t = tabs[cur]
         if t then task.delay(0.15, function() if isOpen then entrance(t.scroll) end end) end
@@ -642,20 +800,21 @@ function SORU:CreateWindow(C)
     local function closeA()
         if not isOpen then return end
         isOpen = false
+        sfx("close")
         local tok = openTok
-        arp({1.5, 1.26, 1}, 0.06)
         local off = launcherOffset()
         pulse.Visible = true
         play(win, {Position = UDim2.new(0.5, off.X, 0.5, off.Y)}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         play(winScale, {Scale = 0.12}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         if shadow then play(shadow, {ImageTransparency = 1}, 0.22) end
+        if neon then play(neon, {ImageTransparency = 1}, 0.25) end
         updateBlur()
         task.delay(0.45, function() if not isOpen and tok == openTok then shell.Visible = false end end)
     end
     local function toggleWin() if booting then return end if isOpen then closeA() else openA() end end
 
-    launcher.MouseEnter:Connect(function() sfx("hover") play(lScale, {Scale = 1.07}, 0.2) end)
+    launcher.MouseEnter:Connect(function() play(lScale, {Scale = 1.07}, 0.2) end)
     launcher.MouseLeave:Connect(function() play(lScale, {Scale = 1}, 0.2) end)
     track(launcher,
         function() play(lScale, {Scale = 0.9}, 0.12) return launchPos end,
@@ -741,10 +900,30 @@ function SORU:CreateWindow(C)
     rh.MouseEnter:Connect(function() play(rhL, {TextColor3 = ACCENT}, 0.15) end)
     rh.MouseLeave:Connect(function() play(rhL, {TextColor3 = Color3.fromRGB(100, 94, 130)}, 0.2) end)
 
+    -- animasi masuk: header turun, sidebar + konten menyusul, glint menyapu window
+    openFx = function()
+        side.Position = UDim2.fromOffset(-30, 58)
+        content.Position = UDim2.new(0, SIDE_W + 50, 0, 58)
+        tb.Position = UDim2.fromOffset(0, -16)
+        play(tb, {Position = UDim2.fromOffset(0, 0)}, 0.6, Enum.EasingStyle.Back)
+        play(side, {Position = UDim2.fromOffset(10, 58)}, 0.75, Enum.EasingStyle.Back)
+        task.delay(0.07, function() play(content, {Position = UDim2.new(0, SIDE_W + 20, 0, 58)}, 0.75, Enum.EasingStyle.Back) end)
+        local gl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 110, 2.4, 0), Position = UDim2.new(-0.3, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 40}, win)
+        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.88), NumberSequenceKeypoint.new(1, 1)}}, gl)
+        task.delay(0.25, function() play(gl, {Position = UDim2.new(1.3, 0, 0.5, 0)}, 0.9, Enum.EasingStyle.Quad) end)
+        task.delay(1.3, function() gl:Destroy() end)
+    end
+
+    -- drag window: miring halus mengikuti arah gerak, lalu memantul balik
+    local dragging, lastDX = false, 0
+    bind(RunService.RenderStepped, function()
+        if dragging and win.Rotation ~= 0 then win.Rotation = win.Rotation * 0.9 end
+    end)
     track(tb,
         function()
             winPos = curPos
-            if isOpen then play(winScale, {Scale = 1.012}, 0.18) end
+            dragging, lastDX = true, 0
+            if isOpen then play(winScale, {Scale = 1.015}, 0.18) end
             return curPos
         end,
         function(dx, dy, st, moved)
@@ -752,9 +931,18 @@ function SORU:CreateWindow(C)
                 local s = rootScale.Scale
                 winPos = Vector2.new(st.X + dx / s, st.Y + dy / s)
                 layoutWin(false)
+                local vx = (dx - lastDX) / s
+                lastDX = dx
+                win.Rotation = math.clamp(win.Rotation + vx * 0.12, -2.4, 2.4)
             end
         end,
-        function() if isOpen then play(winScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back) end end)
+        function()
+            dragging = false
+            if isOpen then
+                play(winScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back)
+                play(win, {Rotation = 0}, 0.8, Enum.EasingStyle.Elastic)
+            end
+        end)
     track(rh,
         function() winPos = curPos return effSize() end,
         function(dx, dy, st, moved)
@@ -793,22 +981,27 @@ function SORU:CreateWindow(C)
         local old = tabs[oldName]
         local ne = tabs[n]
         local dir = (ne.index > (old and old.index or 0)) and 1 or -1
-        sfx("tab", 0.9 + ne.index * 0.07)
         cur = n
+        sfx("tab")
         if old then
             play(old.label, {TextColor3 = DIM}, 0.2)
             play(old.badge, {BackgroundTransparency = 0.82}, 0.2)
-            play(old.frame, {GroupTransparency = 1, Position = UDim2.fromOffset(0, -12 * dir)}, 0.18)
-            task.delay(0.19, function() if cur ~= oldName then old.frame.Visible = false end end)
+            play(old.frame, {GroupTransparency = 1, Position = UDim2.new(0.5, 0, 0.5, -14 * dir)}, 0.2)
+            play(old.zoom, {Scale = 0.96}, 0.2)
+            task.delay(0.21, function() if cur ~= oldName then old.frame.Visible = false end end)
         end
         ne.frame.Visible = true
         ne.frame.GroupTransparency = 1
-        ne.frame.Position = UDim2.fromOffset(0, 18 * dir)
-        play(ne.frame, {GroupTransparency = 0, Position = UDim2.fromOffset(0, 0)}, 0.45, Enum.EasingStyle.Quint)
+        ne.frame.Position = UDim2.new(0.5, 0, 0.5, 22 * dir)
+        ne.zoom.Scale = 1.035
+        play(ne.frame, {GroupTransparency = 0, Position = UDim2.fromScale(0.5, 0.5)}, 0.5, Enum.EasingStyle.Quint)
+        play(ne.zoom, {Scale = 1}, 0.55, Enum.EasingStyle.Quint)
         entrance(ne.scroll)
         play(ne.label, {TextColor3 = T.text}, 0.2)
         play(ne.badge, {BackgroundTransparency = 0}, 0.2)
         play(ne.btn, {BackgroundTransparency = 1}, 0.1)
+        ne.badge.Rotation = -28
+        play(ne.badge, {Rotation = 0}, 0.7, Enum.EasingStyle.Elastic)
         movePill(ne.y)
     end
 
@@ -825,16 +1018,19 @@ function SORU:CreateWindow(C)
         local tx = label(b, {Text = name, Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -46, 1, 0), Font = Enum.Font.GothamSemibold, TextColor3 = active and T.text or DIM, ZIndex = 7})
         tabList.CanvasSize = UDim2.fromOffset(0, 6 + idx * TAB_P)
 
-        local page = new("CanvasGroup", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = active, GroupTransparency = active and 0 or 1, ZIndex = 6}, content)
+        local page = new("CanvasGroup", {Name = name, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = active, GroupTransparency = active and 0 or 1, ZIndex = 6}, content)
+        local zoom = new("UIScale", {Scale = 1}, page)
         local scroll = new("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, ScrollBarImageTransparency = 0.3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 7}, page)
         new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
         new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 12)}, scroll)
 
-        tabs[name] = {btn = b, frame = page, scroll = scroll, label = tx, badge = badge, index = idx, y = y}
+        tabs[name] = {btn = b, frame = page, scroll = scroll, label = tx, badge = badge, index = idx, y = y, zoom = zoom}
         b.MouseEnter:Connect(function()
             if cur ~= name then
-                sfx("hover") play(b, {BackgroundTransparency = 0.9}, 0.15)
+                play(b, {BackgroundTransparency = 0.9}, 0.15)
                 play(tx, {Position = UDim2.fromOffset(45, 0)}, 0.2)
+                badge.Rotation = -16
+                play(badge, {Rotation = 0}, 0.6, Enum.EasingStyle.Elastic)
             end
         end)
         b.MouseLeave:Connect(function()
@@ -848,113 +1044,85 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- KOMPONEN
     ------------------------------------------------------------------
-    local function uiS() return math.max(rootScale.Scale * winScale.Scale, 0.01) end
-
-    local function buildComponents(scroll, parent, nested)
-        parent = parent or scroll
+    local function buildComponents(scroll, container, nested)
+        container = container or scroll
         local K = {}
         local order = 0
         local list = {}
         if not nested then entranceLists[scroll] = list end
-        local TO = nested and 0.22 or 0
+        K._kids = list
         local function nextOrder() order = order + 1 return order end
         K._next = nextOrder
 
         local function holder(h, auto)
-            local hf = new("Frame", {Name = "Holder", Size = UDim2.new(1, 0, 0, h or 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextOrder()}, parent)
+            local hf = new("Frame", {Name = "Holder", Size = UDim2.new(1, 0, 0, h or 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextOrder()}, container)
             if auto then hf.AutomaticSize = Enum.AutomaticSize.Y end
             return hf
         end
-        local function enter(body) if not nested then list[#list + 1] = body end end
+        local function enter(body) list[#list + 1] = body end
         K._holder, K._enter = holder, enter
 
-        local function mouseX(o)
-            local m, ap = UIS:GetMouseLocation(), o.AbsolutePosition
-            return (m.X - ap.X) / uiS()
-        end
-
-        -- kartu: glass + spotlight yang ikut kursor + rail neon di kiri
-        -- return: body, stroke, holder, light(target)
-        local function card(h, clickable, manual)
+        local function card(h, clickable)
             local hf = holder(h)
-            local f = new(clickable and "TextButton" or "Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.card, BackgroundTransparency = 0.15, BorderSizePixel = 0, ClipsDescendants = true})
+            local f = new(clickable and "TextButton" or "Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.card, BackgroundTransparency = 0.15, BorderSizePixel = 0})
             if clickable then f.Text = "" f.AutoButtonColor = false end
             f.Parent = hf
-            corner(f, 14)
-            local s = stroke(f, T.stroke, 1, 0.55)
+            corner(f, nested and 10 or 14)
+            local s = stroke(f, T.stroke, 1, 0.5)
+            new("UIGradient", {Transparency = NumberSequence.new(0, 0.6), Rotation = 90}, s)
             grad(f, WHITE, Color3.fromRGB(196, 192, 222), 90)
-            regTrans(f, TO)
+            if nested then f.BackgroundTransparency = 0.4 end
+            gloss(f)
+            regTrans(f, nested and 0.25 or 0)
             enter(f)
-            local spot = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 170, 1.4, 0), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1}, f)
-            new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.84), NumberSequenceKeypoint.new(1, 1)}}, spot)
-            local rail = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.28, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55, BorderSizePixel = 0}, f)
-            corner(rail, FULL) grad(rail, T.cyan, T.accent, 90)
-            local hov, c0, t0, bg0 = false, T.stroke, 0.55, T.card
-            local function light(t)
-                t.MouseEnter:Connect(function()
-                    if hov then return end
-                    hov = true
-                    sfx("hover")
-                    bg0 = f.BackgroundColor3
-                    play(spot, {BackgroundTransparency = 0}, 0.25)
-                    play(rail, {Size = UDim2.new(0, 3, 0.62, 0), BackgroundTransparency = 0}, 0.3, Enum.EasingStyle.Back)
-                    play(f, {BackgroundColor3 = T.cardHover}, 0.2)
-                    if not f:GetAttribute("open") then
-                        c0, t0 = s.Color, s.Transparency
-                        play(s, {Color = ACCENT, Transparency = 0.3}, 0.2)
-                    end
-                end)
-                t.MouseLeave:Connect(function()
-                    if not hov then return end
-                    hov = false
-                    play(spot, {BackgroundTransparency = 1}, 0.3)
-                    play(rail, {Size = UDim2.new(0, 3, 0.28, 0), BackgroundTransparency = 0.55}, 0.25)
-                    play(f, {BackgroundColor3 = bg0}, 0.25)
-                    if not f:GetAttribute("open") then play(s, {Color = c0, Transparency = t0}, 0.25) end
-                end)
-                t.MouseMoved:Connect(function()
-                    play(spot, {Position = UDim2.new(0, mouseX(f), 0.5, 0)}, 0.12, Enum.EasingStyle.Sine)
-                end)
-            end
             if clickable then
                 ripple(f)
+                spotlight(f)
+                local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
+                corner(bar, FULL)
+                grad(bar, T.cyan, T.accent, 90)
                 local sc = new("UIScale", {Scale = 1}, f)
-                f.MouseButton1Down:Connect(function() play(sc, {Scale = 0.985}, 0.08) end)
-                f.MouseButton1Up:Connect(function() play(sc, {Scale = 1}, 0.35, Enum.EasingStyle.Back) end)
-                f.MouseLeave:Connect(function() play(sc, {Scale = 1}, 0.2) end)
+                local hov = false
+                local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, f)
+                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
+                f.MouseEnter:Connect(function()
+                    hov = true
+                    play(bar, {Size = UDim2.new(0, 3, 0.55, 0)}, 0.25, Enum.EasingStyle.Back)
+                    play(sc, {Scale = 1.012}, 0.3, Enum.EasingStyle.Back)
+                    shine.Position = UDim2.new(-0.15, 0, 0.5, 0)
+                    play(shine, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.6, Enum.EasingStyle.Quad)
+                end)
+                f.MouseLeave:Connect(function()
+                    hov = false
+                    play(bar, {Size = UDim2.new(0, 3, 0, 0)}, 0.2)
+                    play(sc, {Scale = 1}, 0.25)
+                end)
+                f.MouseButton1Down:Connect(function() play(sc, {Scale = 0.98}, 0.08) end)
+                f.MouseButton1Up:Connect(function() play(sc, {Scale = hov and 1.012 or 1}, 0.35, Enum.EasingStyle.Back) end)
             end
-            if not manual then light(f) end
-            return f, s, hf, light
+            return f, s, hf
         end
         K._card = card
 
-        -- input kecil: kotak gelap + ikon + underline fokus
-        local function inputBox(par, props)
-            local wrap = new("Frame", {BackgroundColor3 = T.input, BorderSizePixel = 0, ClipsDescendants = true}, par)
+        -- input kecil: kotak gelap dengan underline fokus
+        local function inputBox(parent, props)
+            local wrap = new("Frame", {BackgroundColor3 = T.input, BorderSizePixel = 0, ClipsDescendants = true}, parent)
             for k, v in pairs(props.wrap or {}) do wrap[k] = v end
-            corner(wrap, 9)
+            corner(wrap, 8)
             local ws = stroke(wrap, T.stroke, 1, 0.4)
-            local ix, ic = 8, nil
-            if props.icon then
-                ic = label(wrap, {Text = props.icon, Position = UDim2.fromOffset(9, 0), Size = UDim2.new(0, 22, 1, 0), Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = Color3.fromRGB(100, 94, 130), TextTruncate = Enum.TextTruncate.None})
-                ix = 30
-            end
-            local box = new("TextBox", {Size = UDim2.new(1, -(ix + 8), 1, 0), Position = UDim2.fromOffset(ix, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = props.text or "", PlaceholderText = props.placeholder or "", PlaceholderColor3 = Color3.fromRGB(100, 94, 130), TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = props.clear or false, ClipsDescendants = true}, wrap)
+            local box = new("TextBox", {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = props.text or "", PlaceholderText = props.placeholder or "", PlaceholderColor3 = Color3.fromRGB(100, 94, 130), TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = props.clear or false, ClipsDescendants = true}, wrap)
             local ul = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0}, wrap)
             grad(ul, T.accent, T.cyan, 0)
             box.Focused:Connect(function()
-                sfx("focus")
+                sfx("tick", 1.4)
                 play(ws, {Color = ACCENT, Transparency = 0.1, Thickness = 1.5}, 0.2)
                 play(ul, {Size = UDim2.new(1, 0, 0, 2)}, 0.35)
                 play(wrap, {BackgroundColor3 = Color3.fromRGB(22, 19, 38)}, 0.2)
-                if ic then play(ic, {TextColor3 = T.cyan}, 0.2) end
             end)
-            box.FocusLost:Connect(function(ent)
-                sfx(ent and "on" or "close")
+            box.FocusLost:Connect(function()
                 play(ws, {Color = T.stroke, Transparency = 0.4, Thickness = 1}, 0.25)
                 play(ul, {Size = UDim2.new(0, 0, 0, 2)}, 0.25)
                 play(wrap, {BackgroundColor3 = T.input}, 0.25)
-                if ic then play(ic, {TextColor3 = Color3.fromRGB(100, 94, 130)}, 0.25) end
             end)
             return wrap, box
         end
@@ -963,14 +1131,16 @@ function SORU:CreateWindow(C)
         function K:Section(text)
             if type(text) == "table" then text = text.Title or text.Text end
             text = string.upper(tostring(text or ""))
-            local hf = holder(26)
+            local hf = holder(24)
             local f = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
             enter(f)
-            local dot = new("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.fromOffset(6, 10), BackgroundColor3 = WHITE, BorderSizePixel = 0, Rotation = 45}, f)
-            corner(dot, 2) grad(dot, T.accent, T.cyan, 45)
-            local w = textW(text, 11) + 6
-            label(f, {Text = text, Position = UDim2.fromOffset(20, 5), Size = UDim2.fromOffset(w, 16), Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Color3.fromRGB(196, 176, 255), TextTruncate = Enum.TextTruncate.None})
-            local lx = 20 + w + 10
+            local dot = new("Frame", {Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(6, 10), BackgroundColor3 = WHITE, BorderSizePixel = 0, Rotation = 45}, f)
+            grad(dot, T.accent, T.cyan, 45)
+            TweenService:Create(dot, TweenInfo.new(1.3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.55}):Play()
+            local w = textW(text, 12)
+            local sl = label(f, {Text = text, Position = UDim2.fromOffset(18, 4), Size = UDim2.fromOffset(w + 4, 16), Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None})
+            new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(232, 224, 255), T.cyan)}, sl)
+            local lx = 18 + w + 14
             local line = new("Frame", {Position = UDim2.new(0, lx, 0, 12), Size = UDim2.new(1, -(lx + 6), 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
             new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.3, 1)}, line)
             return f
@@ -988,10 +1158,8 @@ function SORU:CreateWindow(C)
             if type(text) == "table" then text = text.Text or text.Title end
             local hf = holder(0, true)
             local f = new("Frame", {Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BackgroundTransparency = 0.35, BorderSizePixel = 0}, hf)
-            corner(f, 12) regTrans(f, 0.2 + TO) enter(f)
-            new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 38), PaddingRight = UDim.new(0, 12)}, f)
-            local g = label(f, {Text = "i", Position = UDim2.fromOffset(-26, -1), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 0.78, BackgroundColor3 = ACCENT, TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = T.cyan, TextTruncate = Enum.TextTruncate.None})
-            corner(g, FULL)
+            corner(f, 12) regTrans(f, 0.2) enter(f)
+            new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12)}, f)
             local t = label(f, {Text = tostring(text or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 12, TextColor3 = DIM, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.None})
             return {Set = function(_, s) t.Text = tostring(s) end}
         end
@@ -1000,60 +1168,51 @@ function SORU:CreateWindow(C)
             o = o or {}
             local hf = holder(0, true)
             local f = new("Frame", {Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BackgroundTransparency = 0.15, BorderSizePixel = 0}, hf)
-            corner(f, 14) stroke(f, T.stroke, 1, 0.55) regTrans(f, TO) enter(f)
-            new("UIPadding", {PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14)}, f)
-            new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, f)
-            local t = label(f, {Text = tostring(o.Title or ""), Size = UDim2.new(1, 0, 0, 16), Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = Color3.fromRGB(214, 200, 255), LayoutOrder = 1})
-            local ln = new("Frame", {Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, LayoutOrder = 2}, f)
-            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.4, 1)}, ln)
-            local d = label(f, {Text = tostring(o.Desc or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 11, TextColor3 = DIM, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.None, LayoutOrder = 3})
+            corner(f, 12) stroke(f, T.stroke, 1, 0.55) regTrans(f, 0) enter(f)
+            new("UIPadding", {PaddingTop = UDim.new(0, 11), PaddingBottom = UDim.new(0, 11), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14)}, f)
+            new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, f)
+            local t = label(f, {Text = tostring(o.Title or ""), Size = UDim2.new(1, 0, 0, 16), Font = Enum.Font.GothamBold, TextSize = 13, LayoutOrder = 1})
+            local d = label(f, {Text = tostring(o.Desc or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 11, TextColor3 = DIM, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.None, LayoutOrder = 2})
             return {Set = function(_, title, desc) if title then t.Text = tostring(title) end if desc then d.Text = tostring(desc) end end}
         end
 
         function K:Button(o)
             o = o or {}
             local hasDesc = o.Desc ~= nil
-            local bt = card(hasDesc and 54 or 42, true)
-            label(bt, {Text = o.Title or "Button", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -110, 0, hasDesc and 18 or 42), Font = Enum.Font.GothamBold, TextSize = 13})
+            local h = hasDesc and 54 or 40
+            local bt, st = card(h, true)
+            label(bt, {Text = o.Title or "Button", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -52, 0, hasDesc and 18 or 40), Font = Enum.Font.GothamBold, TextSize = 13})
             if hasDesc then
-                label(bt, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -110, 0, 16), TextSize = 11, TextColor3 = DIM})
+                label(bt, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -52, 0, 16), TextSize = 11, TextColor3 = DIM})
             end
-            local txt = string.upper(tostring(o.Action or "Run"))
-            local wide = textW(txt, 10) + 36
-            local chip = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = WHITE, BorderSizePixel = 0}, bt)
-            corner(chip, FULL) grad(chip, T.accent, T.accent2, 45)
-            local ct = label(chip, {Text = txt, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -34, 1, 0), Font = Enum.Font.GothamBold, TextSize = 10, TextTransparency = 1, TextTruncate = Enum.TextTruncate.None})
-            local arrow = label(chip, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, -1), Size = UDim2.fromOffset(16, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextTruncate = Enum.TextTruncate.None})
+            local badge = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.85, BorderSizePixel = 0}, bt)
+            corner(badge, FULL)
+            local arrow = label(badge, {Text = "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = ACCENT})
+            hover(bt, st)
             bt.MouseEnter:Connect(function()
-                play(chip, {Size = UDim2.fromOffset(wide, 28)}, 0.35, Enum.EasingStyle.Back)
-                play(ct, {TextTransparency = 0}, 0.25)
+                play(badge, {BackgroundTransparency = 0.25}, 0.2)
+                play(arrow, {Position = UDim2.fromOffset(2, -1), TextColor3 = WHITE}, 0.2)
             end)
             bt.MouseLeave:Connect(function()
-                play(chip, {Size = UDim2.fromOffset(28, 28)}, 0.25)
-                play(ct, {TextTransparency = 1}, 0.15)
+                play(badge, {BackgroundTransparency = 0.85}, 0.2)
+                play(arrow, {Position = UDim2.fromOffset(0, -1), TextColor3 = ACCENT}, 0.2)
             end)
-            bt.MouseButton1Click:Connect(function()
-                sfx("click")
-                arrow.Text = "✓"
-                task.delay(0.7, function() if arrow.Parent then arrow.Text = "›" end end)
-                if o.Callback then o.Callback() end
-            end)
+            bt.MouseButton1Click:Connect(function() sfx("click") if o.Callback then o.Callback() end end)
             return bt
         end
 
         function K:Toggle(o)
-            local flag = o.Flag or o.Title
-            local def = o.Default or false
-            local curV = Data.Features[flag]
-            if curV == nil then curV = def end
+            local flag = o.Flag or o.Title local def = o.Default or false local curV = Data.Features[flag] if curV == nil then curV = def end
             local hasDesc = o.Desc ~= nil
             local h = hasDesc and 54 or 42
-            local fr = card(h, true)
-            label(fr, {Text = o.Title or flag, Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -118, 0, hasDesc and 18 or h), Font = Enum.Font.GothamBold, TextSize = 13})
+            local fr, st = card(h, true)
+            label(fr, {Text = o.Title or flag, Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -78, 0, hasDesc and 18 or h), Font = Enum.Font.GothamBold, TextSize = 13})
             if hasDesc then
-                label(fr, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -118, 0, 16), TextSize = 11, TextColor3 = DIM})
+                label(fr, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -78, 0, 16), TextSize = 11, TextColor3 = DIM})
             end
-            local stL = label(fr, {Text = curV and "ON" or "OFF", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -66, 0.5, 0), Size = UDim2.fromOffset(34, 14), TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = curV and T.cyan or DIM})
+            -- glow lembut di belakang track saat ON
+            local tglow = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -4, 0.5, 0), Size = UDim2.fromOffset(62, 36), BackgroundColor3 = T.accent, BackgroundTransparency = curV and 0.88 or 1, BorderSizePixel = 0, ZIndex = 0}, fr)
+            corner(tglow, FULL)
             local tgb = new("Frame", {Size = UDim2.fromOffset(46, 24), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), BackgroundColor3 = T.off, BorderSizePixel = 0}, fr)
             corner(tgb, FULL)
             local tst = stroke(tgb, ACCENT, 2, curV and 0.45 or 1)
@@ -1062,18 +1221,25 @@ function SORU:CreateWindow(C)
             grad(onF, T.accent, T.cyan, 0)
             local dot = new("Frame", {Size = UDim2.fromOffset(18, 18), AnchorPoint = Vector2.new(0, 0.5), Position = curV and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, tgb)
             corner(dot, FULL)
-            local dd = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = curV and ACCENT or T.off, BorderSizePixel = 0, ZIndex = 3}, dot)
-            corner(dd, FULL)
+            local tck = label(dot, {Text = "✓", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = T.accent2, TextTransparency = curV and 0 or 1, TextTruncate = Enum.TextTruncate.None, ZIndex = 3})
+            hover(fr, st)
             local function upd(v, ns)
+                if not ns then
+                    sfx(v and "on" or "off")
+                    local ring = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = v and UDim2.new(1, -12, 0.5, 0) or UDim2.new(0, 12, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, tgb)
+                    corner(ring, FULL)
+                    local rst = stroke(ring, v and T.cyan or T.dim, 2, 0.2)
+                    play(ring, {Size = UDim2.fromOffset(48, 48)}, 0.5)
+                    play(rst, {Transparency = 1}, 0.5)
+                    task.delay(0.55, function() ring:Destroy() end)
+                end
                 play(onF, {BackgroundTransparency = v and 0 or 1}, 0.25)
+                play(tglow, {BackgroundTransparency = v and 0.88 or 1}, 0.35)
+                play(tck, {TextTransparency = v and 0 or 1}, 0.25)
                 play(tst, {Transparency = v and 0.45 or 1}, 0.25)
-                play(dd, {BackgroundColor3 = v and ACCENT or T.off}, 0.25)
                 play(dot, {Position = v and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)}, 0.4, Enum.EasingStyle.Back)
-                play(dot, {Size = UDim2.fromOffset(24, 18)}, 0.1)
+                play(dot, {Size = UDim2.fromOffset(22, 18)}, 0.1)
                 task.delay(0.1, function() play(dot, {Size = UDim2.fromOffset(18, 18)}, 0.3, Enum.EasingStyle.Back) end)
-                stL.Text = v and "ON" or "OFF"
-                play(stL, {TextColor3 = v and T.cyan or DIM}, 0.25)
-                if not ns then sfx(v and "on" or "off") end
                 if not ns and not loading then Data.Features[flag] = v saveN(curName) end
                 if o.Callback and not ns then o.Callback(v) end
             end
@@ -1091,22 +1257,26 @@ function SORU:CreateWindow(C)
             local val = o.Default or mn
             if flag and type(Data.Features[flag]) == "number" then val = Data.Features[flag] end
             val = math.clamp(val, mn, mx)
-            local f = card(60)
+            local f = card(58)
             label(f, {Text = o.Title or flag or "Slider", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -110, 0, 18), Font = Enum.Font.GothamBold, TextSize = 13})
-            local chipV = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(48, 22), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.82, BorderSizePixel = 0}, f)
+            local chipV = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 7), Size = UDim2.fromOffset(48, 22), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.82, BorderSizePixel = 0}, f)
             corner(chipV, FULL) stroke(chipV, ACCENT, 1, 0.55)
             local vl = label(chipV, {Text = "", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextTruncate = Enum.TextTruncate.None})
-            local hit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 32), Size = UDim2.new(1, -16, 0, 24)}, f)
-            local bar = new("Frame", {Position = UDim2.new(0, 6, 0.5, -4), Size = UDim2.new(1, -12, 0, 8), BackgroundColor3 = Color3.fromRGB(34, 31, 56), BorderSizePixel = 0}, hit)
+            local hit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Position = UDim2.fromOffset(8, 30), Size = UDim2.new(1, -16, 0, 24)}, f)
+            local bar = new("Frame", {Position = UDim2.new(0, 6, 0.5, -3), Size = UDim2.new(1, -12, 0, 6), BackgroundColor3 = Color3.fromRGB(42, 39, 64), BorderSizePixel = 0}, hit)
             corner(bar, FULL)
             local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, bar)
             corner(fill, FULL)
-            grad(fill, T.accent, T.cyan, 0)
-            local knob = new("Frame", {Size = UDim2.fromOffset(16, 16), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, bar)
+            grad(fill, T.accent2, T.cyan, 0)
+            -- glow trail di belakang fill
+            local trail = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 0, 0, 14), BackgroundColor3 = T.cyan, BackgroundTransparency = 0.86, BorderSizePixel = 0, ZIndex = 0}, bar)
+            corner(trail, FULL)
+            local knob = new("Frame", {Size = UDim2.fromOffset(14, 14), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, bar)
             corner(knob, FULL)
-            local kd = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = ACCENT, BorderSizePixel = 0, ZIndex = 4}, knob)
-            corner(kd, FULL)
             local kst = stroke(knob, ACCENT, 0, 1)
+            local tip = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, -8), Size = UDim2.fromOffset(44, 20), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5}, knob)
+            corner(tip, 7) grad(tip, T.accent, T.cyan, 0)
+            local tipL = label(tip, {Text = "", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextTransparency = 1, TextTruncate = Enum.TextTruncate.None, ZIndex = 6})
 
             local function fmt(v)
                 local s = (v == math.floor(v)) and tostring(math.floor(v)) or tostring(v)
@@ -1116,13 +1286,17 @@ function SORU:CreateWindow(C)
                 local a = (mx == mn) and 0 or (v - mn) / (mx - mn)
                 if animate then
                     play(fill, {Size = UDim2.fromScale(a, 1)}, 0.2)
+                    play(trail, {Size = UDim2.new(a, 0, 0, 14)}, 0.2)
                     play(knob, {Position = UDim2.fromScale(a, 0.5)}, 0.2)
                 else
                     fill.Size = UDim2.fromScale(a, 1)
+                    trail.Size = UDim2.new(a, 0, 0, 14)
                     knob.Position = UDim2.fromScale(a, 0.5)
                 end
                 local txt = fmt(v)
                 vl.Text = txt
+                tipL.Text = txt
+                tip.Size = UDim2.fromOffset(math.max(40, textW(txt, 11) + 16), 20)
                 chipV.Size = UDim2.fromOffset(math.max(48, textW(txt, 11) + 22), 22)
                 chipV.BackgroundTransparency = 0.6
                 play(chipV, {BackgroundTransparency = 0.82}, 0.25)
@@ -1130,7 +1304,7 @@ function SORU:CreateWindow(C)
             local function set(v, silent, animate)
                 v = math.clamp(math.floor(v / step + 0.5) * step, mn, mx)
                 v = math.floor(v * 1000 + 0.5) / 1000
-                if not silent and v ~= val then sfx("tick", 0.7 + ((mx == mn) and 0 or (v - mn) / (mx - mn)) * 1.1) end
+                if not silent and v ~= val then sfx("tick", 0.75 + ((mx == mn) and 0 or (v - mn) / (mx - mn)) * 0.9) end
                 val = v
                 render(v, animate)
                 if not silent and o.Callback then o.Callback(v) end
@@ -1144,16 +1318,23 @@ function SORU:CreateWindow(C)
             track(hit,
                 function(pos)
                     scroll.ScrollingEnabled = false
-                    play(knob, {Size = UDim2.fromOffset(20, 20)}, 0.12)
-                    play(kst, {Thickness = 7, Transparency = 0.65}, 0.18)
+                    play(knob, {Size = UDim2.fromOffset(18, 18)}, 0.12)
+                    play(kst, {Thickness = 6, Transparency = 0.6}, 0.18)
+                    play(tip, {BackgroundTransparency = 0}, 0.15)
+                    play(tipL, {TextTransparency = 0}, 0.15)
+                    play(trail, {BackgroundTransparency = 0.7}, 0.15)
                     fromX(pos.X, true)
                     return true
                 end,
                 function(dx, dy, st, moved, pos) fromX(pos.X, false) end,
                 function()
                     scroll.ScrollingEnabled = true
-                    play(knob, {Size = UDim2.fromOffset(16, 16)}, 0.25, Enum.EasingStyle.Back)
+                    play(knob, {Size = UDim2.fromOffset(14, 14)}, 0.25, Enum.EasingStyle.Back)
                     play(kst, {Thickness = 0, Transparency = 1}, 0.25)
+                    play(tip, {BackgroundTransparency = 1}, 0.2)
+                    play(tipL, {TextTransparency = 1}, 0.2)
+                    play(trail, {BackgroundTransparency = 0.86}, 0.3)
+                    sfx("pop")
                     if flag and not loading then Data.Features[flag] = val saveN(curName) end
                     if o.OnRelease then o.OnRelease(val) end
                 end)
@@ -1165,6 +1346,8 @@ function SORU:CreateWindow(C)
         end
 
         ----------------------------------------------------------------
+        -- TEXTBOX
+        ----------------------------------------------------------------
         function K:Textbox(o)
             o = o or {}
             local flag = o.Flag or o.Title
@@ -1173,11 +1356,13 @@ function SORU:CreateWindow(C)
             local hasDesc = o.Desc ~= nil
             local h = hasDesc and 54 or 42
             local f = card(h)
+            f.ClipsDescendants = true
+            spotlight(f)
             label(f, {Text = o.Title or flag or "Textbox", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(0.55, -20, 0, hasDesc and 18 or h), Font = Enum.Font.GothamBold, TextSize = 13})
             if hasDesc then
                 label(f, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(0.55, -20, 0, 16), TextSize = 11, TextColor3 = DIM})
             end
-            local wrap, box = inputBox(f, {text = val, placeholder = o.Placeholder or "Type here...", clear = o.ClearOnFocus, icon = o.Numeric and "#" or "Aa",
+            local wrap, box = inputBox(f, {text = val, placeholder = o.Placeholder or "Type here...", clear = o.ClearOnFocus,
                 wrap = {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.new(0.42, 0, 0, 28)}})
             local function out(s) if o.Numeric then return tonumber(s) end return s end
             local function norm(s)
@@ -1202,6 +1387,7 @@ function SORU:CreateWindow(C)
                 local nv = norm(box.Text)
                 box.Text = nv
                 val = nv
+                if enterPressed then sfx("pop") end
                 if flag and not loading then Data.Features[flag] = nv saveN(curName) end
                 if o.Callback and (enterPressed or nv ~= before) and not o.Live then o.Callback(out(nv)) end
             end)
@@ -1215,6 +1401,8 @@ function SORU:CreateWindow(C)
         K.TextBox = K.Textbox
         K.Input = K.Textbox
 
+        ----------------------------------------------------------------
+        -- DROPDOWN (single / multi, search otomatis kalau opsi > 6)
         ----------------------------------------------------------------
         function K:Dropdown(o)
             o = o or {}
@@ -1249,17 +1437,17 @@ function SORU:CreateWindow(C)
             end
             local function isSel(name) if multi then return chosen[name] == true end return single == name end
 
-            local f, st, hf, light = card(H0, false, true)
-            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, H0), ZIndex = 2}, f)
-            ripple(head) light(head)
-            label(head, {Text = o.Title or flag or "Dropdown", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -190, 0, hasDesc and 18 or H0), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 3})
+            local f, st, hf = card(H0)
+            f.ClipsDescendants = true
+            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, H0)}, f)
+            ripple(head)
+            spotlight(f, head)
+            label(head, {Text = o.Title or flag or "Dropdown", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -160, 0, hasDesc and 18 or H0), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
             if hasDesc then
-                label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -190, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 3})
+                label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -160, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 2})
             end
-            local vchip = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -38, 0.5, 0), Size = UDim2.fromOffset(60, 22), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 3}, head)
-            corner(vchip, FULL) stroke(vchip, ACCENT, 1, 0.6)
-            local valL = label(vchip, {Text = "", Position = UDim2.fromOffset(7, 0), Size = UDim2.new(1, -14, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = T.cyan, ZIndex = 4})
-            local arrow = label(head, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0, H0 / 2), Size = UDim2.fromOffset(20, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = ACCENT, Rotation = 90, ZIndex = 3})
+            local valL = label(head, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -36, 0, 0), Size = UDim2.fromOffset(120, H0), TextXAlignment = Enum.TextXAlignment.Right, TextSize = 11, TextColor3 = T.cyan, ZIndex = 2})
+            local arrow = label(head, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0, H0 / 2), Size = UDim2.fromOffset(20, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = ACCENT, Rotation = 90, ZIndex = 2})
 
             local sbW, sb = inputBox(f, {placeholder = "Search...", wrap = {Size = UDim2.new(1, -16, 0, 26), Visible = false}})
             local listF = new("ScrollingFrame", {BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageColor3 = ACCENT, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, f)
@@ -1268,19 +1456,15 @@ function SORU:CreateWindow(C)
             local function paint(anim)
                 for _, r in ipairs(rows) do
                     local on = isSel(r.name)
-                    local bt = on and 0.82 or 1
-                    local ds = on and UDim2.fromOffset(multi and 10 or 8, multi and 10 or 8) or UDim2.fromOffset(0, 0)
+                    local bt = on and 0.8 or 1
                     if anim then
                         play(r.btn, {BackgroundTransparency = bt}, 0.2)
                         play(r.txt, {TextColor3 = on and T.text or DIM}, 0.2)
-                        play(r.dot, {Size = ds}, 0.3, Enum.EasingStyle.Back)
-                        play(r.cks, {Color = on and ACCENT or T.stroke, Transparency = on and 0.1 or 0.3}, 0.2)
+                        play(r.ck, {TextTransparency = on and 0 or 1}, 0.2)
                     else
                         r.btn.BackgroundTransparency = bt
                         r.txt.TextColor3 = on and T.text or DIM
-                        r.dot.Size = ds
-                        r.cks.Color = on and ACCENT or T.stroke
-                        r.cks.Transparency = on and 0.1 or 0.3
+                        r.ck.TextTransparency = on and 0 or 1
                     end
                 end
                 local txt
@@ -1291,7 +1475,6 @@ function SORU:CreateWindow(C)
                     txt = single or "Select..."
                 end
                 valL.Text = txt
-                play(vchip, {Size = UDim2.fromOffset(math.clamp(textW(txt, 10) + 20, 46, 130), 22)}, 0.25, Enum.EasingStyle.Back)
             end
             local function commit()
                 local v = getVal()
@@ -1312,13 +1495,11 @@ function SORU:CreateWindow(C)
             local setOpen
             local function pick(name)
                 if multi then
-                    local on = not chosen[name]
-                    chosen[name] = on or nil
-                    sfx(on and "on" or "off")
+                    if chosen[name] then chosen[name] = nil else chosen[name] = true end
                 else
                     single = name
-                    sfx("select")
                 end
+                sfx("pop")
                 paint(true)
                 commit()
                 if not multi then task.delay(0.12, function() setOpen(false) end) end
@@ -1329,15 +1510,11 @@ function SORU:CreateWindow(C)
                 for i, n in ipairs(opts) do
                     local name = tostring(n)
                     local b = new("TextButton", {Text = "", AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
-                    corner(b, 9)
-                    local t = label(b, {Text = name, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -36, 1, 0), TextSize = 12, TextColor3 = DIM})
-                    local ck = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundColor3 = T.input, BorderSizePixel = 0}, b)
-                    corner(ck, multi and 5 or FULL)
-                    local cks = stroke(ck, T.stroke, 1.2, 0.3)
-                    local dt = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0}, ck)
-                    corner(dt, multi and 3 or FULL) grad(dt, T.accent, T.cyan, 45)
-                    rows[i] = {btn = b, txt = t, dot = dt, cks = cks, name = name}
-                    b.MouseEnter:Connect(function() sfx("hover") if not isSel(name) then play(b, {BackgroundTransparency = 0.9}, 0.12) end end)
+                    corner(b, 8)
+                    local t = label(b, {Text = name, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -34, 1, 0), TextSize = 12, TextColor3 = DIM})
+                    local ck = label(b, {Text = "✓", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(16, 16), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.cyan, TextTransparency = 1})
+                    rows[i] = {btn = b, txt = t, ck = ck, name = name}
+                    b.MouseEnter:Connect(function() if not isSel(name) then play(b, {BackgroundTransparency = 0.9}, 0.12) end end)
                     b.MouseLeave:Connect(function() if not isSel(name) then play(b, {BackgroundTransparency = 1}, 0.15) end end)
                     b.MouseButton1Click:Connect(function() pick(name) end)
                 end
@@ -1350,8 +1527,7 @@ function SORU:CreateWindow(C)
             end)
             setOpen = function(v)
                 open = v
-                f:SetAttribute("open", v)
-                sfx(v and "open" or "close")
+                sfx(v and "expand" or "collapse")
                 play(arrow, {Rotation = v and -90 or 90}, 0.3, Enum.EasingStyle.Back)
                 play(hf, {Size = UDim2.new(1, 0, 0, v and expanded or H0)}, 0.38, Enum.EasingStyle.Quint)
                 play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.25 or 0.55}, 0.2)
@@ -1364,6 +1540,8 @@ function SORU:CreateWindow(C)
                     end
                 end
             end
+            head.MouseEnter:Connect(function() if not open then play(st, {Color = ACCENT, Transparency = 0.35}, 0.18) end end)
+            head.MouseLeave:Connect(function() if not open then play(st, {Color = T.stroke, Transparency = 0.55}, 0.22) end end)
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
 
             build()
@@ -1381,6 +1559,8 @@ function SORU:CreateWindow(C)
         end
 
         ----------------------------------------------------------------
+        -- KEYBIND
+        ----------------------------------------------------------------
         function K:Keybind(o)
             o = o or {}
             local flag = o.Flag or o.Title
@@ -1390,44 +1570,42 @@ function SORU:CreateWindow(C)
             if type(sv) == "string" then key = (sv ~= "None") and toKey(sv) or nil end
             local hasDesc = o.Desc ~= nil
             local h = hasDesc and 54 or 42
-            local fr = card(h, true)
-            label(fr, {Text = o.Title or flag or "Keybind", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -130, 0, hasDesc and 18 or h), Font = Enum.Font.GothamBold, TextSize = 13})
+            local fr, st = card(h, true)
+            label(fr, {Text = o.Title or flag or "Keybind", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -120, 0, hasDesc and 18 or h), Font = Enum.Font.GothamBold, TextSize = 13})
             if hasDesc then
-                label(fr, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -130, 0, 16), TextSize = 11, TextColor3 = DIM})
+                label(fr, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -120, 0, 16), TextSize = 11, TextColor3 = DIM})
             end
-            local cap = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(64, 26), BackgroundColor3 = Color3.fromRGB(52, 47, 84), BorderSizePixel = 0}, fr)
-            corner(cap, 8) grad(cap, WHITE, Color3.fromRGB(150, 144, 190), 90)
-            local ps = stroke(cap, ACCENT, 1, 0.7)
-            local capS = new("UIScale", {Scale = 1}, cap)
-            local kl = label(cap, {Text = "", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextTruncate = Enum.TextTruncate.None})
-            local edge = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -1), Size = UDim2.new(1, -12, 0, 2), BackgroundColor3 = T.cyan, BackgroundTransparency = 0.6, BorderSizePixel = 0}, cap)
-            corner(edge, FULL)
+            local pillF = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(64, 24), BackgroundColor3 = Color3.fromRGB(38, 34, 60), BorderSizePixel = 0}, fr)
+            corner(pillF, 8)
+            local ps = stroke(pillF, ACCENT, 1, 0.7)
+            local kl = label(pillF, {Text = "", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, TextTruncate = Enum.TextTruncate.None})
+            hover(fr, st)
             local listening = false
             local function show()
                 local txt = listening and "..." or (key and key.Name or "None")
                 kl.Text = txt
-                play(cap, {Size = UDim2.fromOffset(math.max(56, textW(txt, 11) + 24), 26)}, 0.3, Enum.EasingStyle.Back)
-                play(ps, {Transparency = listening and 0.05 or 0.7, Color = listening and T.cyan or ACCENT}, 0.2)
+                play(pillF, {Size = UDim2.fromOffset(math.max(56, textW(txt, 11) + 22), 24)}, 0.3, Enum.EasingStyle.Back)
+                play(ps, {Transparency = listening and 0.05 or 0.7}, 0.2)
                 play(kl, {TextColor3 = listening and T.cyan or T.text}, 0.2)
-                play(edge, {BackgroundTransparency = listening and 0 or 0.6}, 0.2)
-            end
-            local function bounce()
-                play(capS, {Scale = 0.86}, 0.07)
-                task.delay(0.07, function() play(capS, {Scale = 1}, 0.35, Enum.EasingStyle.Back) end)
             end
             show()
             fr.MouseButton1Click:Connect(function()
-                if listening then
-                    listening = false
-                    show()
-                    sfx("close")
-                    task.delay(0.1, function() binding = false end)
-                    return
-                end
+                if listening then return end
                 listening = true
                 binding = true
-                sfx("focus")
+                sfx("click")
                 show()
+                -- berdenyut selama menunggu tombol
+                task.spawn(function()
+                    local hi = false
+                    while listening and pillF.Parent do
+                        hi = not hi
+                        play(ps, {Transparency = hi and 0.55 or 0.05}, 0.5, Enum.EasingStyle.Sine)
+                        play(pillF, {BackgroundColor3 = hi and Color3.fromRGB(38, 34, 60) or Color3.fromRGB(52, 44, 88)}, 0.5, Enum.EasingStyle.Sine)
+                        task.wait(0.5)
+                    end
+                    play(pillF, {BackgroundColor3 = Color3.fromRGB(38, 34, 60)}, 0.2)
+                end)
             end)
             bind(UIS.InputBegan, function(i, gp)
                 if listening then
@@ -1438,20 +1616,15 @@ function SORU:CreateWindow(C)
                     elseif i.KeyCode == Enum.KeyCode.Backspace then key = nil
                     else key = i.KeyCode end
                     show()
-                    bounce()
-                    sfx(changed and "on" or "close")
                     if changed then
                         if flag and not loading then Data.Features[flag] = key and key.Name or "None" saveN(curName) end
+                        sfx("pop")
                         if o.OnChange then o.OnChange(key) end
                     end
                     task.delay(0.1, function() binding = false end)
                     return
                 end
-                if not gp and key and i.KeyCode == key and o.Callback then
-                    sfx("click")
-                    bounce()
-                    o.Callback(key)
-                end
+                if not gp and key and i.KeyCode == key and o.Callback then o.Callback(key) end
             end)
             if flag then Data.Features[flag] = key and key.Name or "None" end
             return {
@@ -1462,6 +1635,8 @@ function SORU:CreateWindow(C)
         K.Bind = K.Keybind
 
         ----------------------------------------------------------------
+        -- COLOR PICKER
+        ----------------------------------------------------------------
         function K:ColorPicker(o)
             o = o or {}
             local flag = o.Flag or o.Title
@@ -1469,29 +1644,30 @@ function SORU:CreateWindow(C)
             local sv = flag and Data.Features[flag]
             if type(sv) == "table" and #sv == 3 then col = Color3.fromRGB(sv[1], sv[2], sv[3]) end
             local hh, ss, vv = col:ToHSV()
-            local H0, PH = 42, 100
-            local EXP = H0 + 4 + PH + 8 + 18 + 12
+            local H0, EXP, PH = 42, 160, 104
             local open = false
-            local f, st, hf, light = card(H0, false, true)
-            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, H0), ZIndex = 2}, f)
-            ripple(head) light(head)
-            label(head, {Text = o.Title or flag or "Color", Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -150, 0, H0), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 3})
-            local hexL = label(head, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -50, 0, 0), Size = UDim2.fromOffset(70, H0), TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.Code, TextSize = 11, TextColor3 = DIM, ZIndex = 3})
-            local sw = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(28, 20), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 3}, head)
+            local f, st, hf = card(H0)
+            f.ClipsDescendants = true
+            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, H0)}, f)
+            ripple(head)
+            spotlight(f, head)
+            label(head, {Text = o.Title or flag or "Color", Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -140, 0, H0), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
+            local hexL = label(head, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -50, 0, 0), Size = UDim2.fromOffset(70, H0), TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.Code, TextSize = 11, TextColor3 = DIM, ZIndex = 2})
+            local sw = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(28, 20), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 2}, head)
             corner(sw, 7) stroke(sw, WHITE, 1, 0.6)
 
             local svBox = new("Frame", {Position = UDim2.fromOffset(12, H0 + 4), Size = UDim2.new(1, -52, 0, PH), BackgroundColor3 = Color3.fromHSV(hh, 1, 1), BorderSizePixel = 0}, f)
-            corner(svBox, 9)
+            corner(svBox, 8)
             local wf = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, svBox)
-            corner(wf, 9) new("UIGradient", {Transparency = NumberSequence.new(0, 1)}, wf)
+            corner(wf, 8) new("UIGradient", {Transparency = NumberSequence.new(0, 1)}, wf)
             local bf = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0}, svBox)
-            corner(bf, 9) new("UIGradient", {Transparency = NumberSequence.new(1, 0), Rotation = 90}, bf)
+            corner(bf, 8) new("UIGradient", {Transparency = NumberSequence.new(1, 0), Rotation = 90}, bf)
             local pt = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, svBox)
             corner(pt, FULL) stroke(pt, WHITE, 2, 0)
             local svHit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 4}, svBox)
 
             local hue = new("Frame", {Position = UDim2.new(1, -34, 0, H0 + 4), Size = UDim2.fromOffset(20, PH), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
-            corner(hue, 9)
+            corner(hue, 8)
             local ks = {}
             for i = 0, 6 do ks[#ks + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 1, 1)) end
             new("UIGradient", {Color = ColorSequence.new(ks), Rotation = 90}, hue)
@@ -1522,18 +1698,16 @@ function SORU:CreateWindow(C)
                 if asz.X <= 0 or asz.Y <= 0 then return end
                 ss = math.clamp((pos.X - ap.X) / asz.X, 0, 1)
                 vv = 1 - math.clamp((yOf(pos) - ap.Y) / asz.Y, 0, 1)
-                sfx("tick", 0.7 + vv * 0.9)
                 apply(false)
             end
             local function hueFrom(pos)
                 local ap, asz = hue.AbsolutePosition, hue.AbsoluteSize
                 if asz.Y <= 0 then return end
                 hh = math.clamp((yOf(pos) - ap.Y) / asz.Y, 0, 1)
-                sfx("tick", 0.7 + hh * 1.2)
                 apply(false)
             end
             track(svHit,
-                function(pos) scroll.ScrollingEnabled = false play(pt, {Size = UDim2.fromOffset(17, 17)}, 0.12) svFrom(pos) return true end,
+                function(pos) scroll.ScrollingEnabled = false play(pt, {Size = UDim2.fromOffset(16, 16)}, 0.12) svFrom(pos) return true end,
                 function(_, _, _, _, pos) svFrom(pos) end,
                 function() scroll.ScrollingEnabled = true play(pt, {Size = UDim2.fromOffset(12, 12)}, 0.25, Enum.EasingStyle.Back) persist() end)
             track(hHit,
@@ -1541,29 +1715,14 @@ function SORU:CreateWindow(C)
                 function(_, _, _, _, pos) hueFrom(pos) end,
                 function() scroll.ScrollingEnabled = true play(hp, {Size = UDim2.new(1, 6, 0, 6)}, 0.25, Enum.EasingStyle.Back) persist() end)
 
-            -- swatch cepat
-            local sx = 21
-            for i, c in ipairs({T.accent, T.cyan, T.pink, T.ok, T.warn, T.bad, WHITE}) do
-                local sb = new("TextButton", {Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(18, 18), Position = UDim2.fromOffset(sx, H0 + 4 + PH + 8 + 9), BackgroundColor3 = c, BorderSizePixel = 0}, f)
-                corner(sb, FULL) stroke(sb, WHITE, 1, 0.7)
-                sb.MouseEnter:Connect(function() sfx("hover") play(sb, {Size = UDim2.fromOffset(23, 23)}, 0.15, Enum.EasingStyle.Back) end)
-                sb.MouseLeave:Connect(function() play(sb, {Size = UDim2.fromOffset(18, 18)}, 0.15) end)
-                sb.MouseButton1Click:Connect(function()
-                    sfx("select", 0.75 + i * 0.1)
-                    hh, ss, vv = c:ToHSV()
-                    apply(true)
-                    persist()
-                end)
-                sx = sx + 28
-            end
-
             local function setOpen(v)
                 open = v
-                f:SetAttribute("open", v)
-                sfx(v and "open" or "close")
+                sfx(v and "expand" or "collapse")
                 play(hf, {Size = UDim2.new(1, 0, 0, v and EXP or H0)}, 0.4, Enum.EasingStyle.Quint)
                 play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.25 or 0.55}, 0.2)
             end
+            head.MouseEnter:Connect(function() if not open then play(st, {Color = ACCENT, Transparency = 0.35}, 0.18) end end)
+            head.MouseLeave:Connect(function() if not open then play(st, {Color = T.stroke, Transparency = 0.55}, 0.22) end end)
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
 
             apply(false, true)
@@ -1574,81 +1733,109 @@ function SORU:CreateWindow(C)
                 Get = function() return col end,
             }
         end
-        K.Color = K.ColorPicker
 
         ----------------------------------------------------------------
-        -- ACCORDION: wadah yang bisa dibuka/tutup, berisi semua komponen (bisa nested)
-        -- local Acc = Tab:Accordion({Title, Desc, Icon, Open}) ; Acc:Toggle(...) ; Acc:SetOpen(true)
+        -- ACCORDION: grup buka/tutup, isinya komponen apa saja
+        --   local A = Tab:Accordion({Title = "Farm", Desc = "opsional", Open = false})
+        --   A:Toggle({...}) A:Slider({...}) A:Button({...}) A:Dropdown({...}) dst
+        --   A:Expand() A:Collapse() A:SetOpen(bool) A:IsOpen()
         ----------------------------------------------------------------
         function K:Accordion(o)
             o = o or {}
             local hasDesc = o.Desc ~= nil
-            local HEAD = hasDesc and 54 or 42
-            local open = (o.Open == true)
-            local ttl = tostring(o.Title or "Accordion")
-            local f, st, hf, light = card(HEAD, false, true)
-            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, HEAD), ZIndex = 2}, f)
-            ripple(head) light(head)
-            local bdg = new("Frame", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(0, 12, 0.5, -13), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, head)
-            corner(bdg, 9) grad(bdg, T.accent, T.accent2, 45)
-            label(bdg, {Text = o.Icon and tostring(o.Icon) or string.upper(string.sub(ttl, 1, 1)), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 11, ZIndex = 4, TextTruncate = Enum.TextTruncate.None})
-            label(head, {Text = ttl, Position = UDim2.fromOffset(48, hasDesc and 9 or 0), Size = UDim2.new(1, -110, 0, hasDesc and 18 or HEAD), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 3})
+            local HEAD = hasDesc and 54 or 44
+            local PADT, PADB = 4, 10
+            local open, animating, tok = false, false, 0
+            local f, st, hf = card(HEAD)
+            f.ClipsDescendants = true
+            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, HEAD)}, f)
+            ripple(head)
+            spotlight(f, head)
+            local rail = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, head)
+            corner(rail, FULL) grad(rail, T.cyan, T.accent, 90)
+            label(head, {Text = o.Title or "Accordion", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -56, 0, hasDesc and 18 or HEAD), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
             if hasDesc then
-                label(head, {Text = o.Desc, Position = UDim2.fromOffset(48, 28), Size = UDim2.new(1, -110, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 3})
+                label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -56, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 2})
             end
-            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -38, 0.5, 0), Size = UDim2.fromOffset(24, 18), BackgroundColor3 = ACCENT, BackgroundTransparency = open and 0.7 or 0.85, BorderSizePixel = 0, ZIndex = 3}, head)
-            corner(cnt, FULL)
-            local cntL = label(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = T.cyan, ZIndex = 4, TextTruncate = Enum.TextTruncate.None})
-            local arrow = label(head, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(20, 20), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = ACCENT, Rotation = open and -90 or 90, ZIndex = 3})
-            local sep = new("Frame", {Position = UDim2.new(0, 10, 0, HEAD), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = open and 0 or 1, BorderSizePixel = 0, ZIndex = 2}, f)
-            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 1)}}, sep)
+            local badge = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 2}, head)
+            corner(badge, FULL)
+            local arrow = label(badge, {Text = "›", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = WHITE, Rotation = 90, ZIndex = 3})
 
-            local inner = new("Frame", {Position = UDim2.fromOffset(0, HEAD + 1), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
-            new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, inner)
-            new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, inner)
+            local body = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 1, -HEAD), BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            local tree = new("Frame", {Position = UDim2.fromOffset(14, 2), Size = UDim2.new(0, 2, 1, -10), BackgroundColor3 = WHITE, BorderSizePixel = 0}, body)
+            corner(tree, FULL)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.35, 1), Rotation = 90}, tree)
+            local inner = new("Frame", {Position = UDim2.fromOffset(24, PADT), Size = UDim2.new(1, -34, 1, -(PADT + PADB)), BackgroundTransparency = 1, BorderSizePixel = 0}, body)
+            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, inner)
             local sub = buildComponents(scroll, inner, true)
 
-            local busy, tok = false, 0
-            local function target() return HEAD + (open and ((inner.AbsoluteSize.Y / uiS()) + 1) or 0) end
-            local function setH(anim)
-                local h = target()
-                if anim then
-                    tok = tok + 1
-                    local my = tok
-                    busy = true
-                    play(hf, {Size = UDim2.new(1, 0, 0, h)}, 0.42, Enum.EasingStyle.Quint)
-                    task.delay(0.44, function() if my == tok then busy = false setH(false) end end)
-                elseif math.abs(hf.Size.Y.Offset - h) > 0.5 then
-                    hf.Size = UDim2.new(1, 0, 0, h)
-                end
+            local function contentH()
+                local fac = head.AbsoluteSize.Y / HEAD
+                if fac < 0.01 then fac = math.max(rootScale.Scale * winScale.Scale, 0.01) end
+                return math.floor(lay.AbsoluteContentSize.Y / fac + 0.5) + PADT + PADB
             end
-            inner:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() if open and not busy then setH(false) end end)
-            local function recount()
-                local n = 0
-                for _, c in ipairs(inner:GetChildren()) do if c.Name == "Holder" then n = n + 1 end end
-                cntL.Text = tostring(n)
-            end
-            inner.ChildAdded:Connect(function() task.defer(recount) end)
-
-            local function setOpen(v)
+            local function target() return UDim2.new(1, 0, 0, open and (HEAD + contentH()) or HEAD) end
+            local function setOpen(v, instant)
                 if v == open then return end
                 open = v
-                f:SetAttribute("open", v)
-                sfx(v and "open" or "close")
+                tok = tok + 1
+                local my = tok
+                if not instant then sfx(v and "expand" or "collapse") end
                 play(arrow, {Rotation = v and -90 or 90}, 0.35, Enum.EasingStyle.Back)
-                play(sep, {BackgroundTransparency = v and 0 or 1}, 0.3)
-                play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.3 or 0.55}, 0.25)
-                play(cnt, {BackgroundTransparency = v and 0.7 or 0.85}, 0.2)
-                setH(true)
+                play(badge, {BackgroundTransparency = v and 0.2 or 0.85}, 0.25)
+                play(rail, {Size = UDim2.new(0, 3, v and 0.7 or 0, 0)}, 0.3, Enum.EasingStyle.Back)
+                play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.25 or 0.55}, 0.25)
+                if instant then hf.Size = target() return end
+                animating = true
+                play(hf, {Size = target()}, 0.42, Enum.EasingStyle.Quint)
+                task.delay(0.45, function()
+                    if tok == my then
+                        animating = false
+                        if open then hf.Size = target() end
+                    end
+                end)
+                if v then
+                    for i, b in ipairs(sub._kids) do
+                        if b.Parent then
+                            b.Position = UDim2.fromOffset(-24, 0)
+                            task.delay(0.05 + math.min(i - 1, 8) * 0.045, function()
+                                if open and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.5, Enum.EasingStyle.Back) end
+                            end)
+                        end
+                    end
+                end
             end
+            lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                if open and not animating then
+                    local h = HEAD + contentH()
+                    if math.abs(hf.Size.Y.Offset - h) > 1 then hf.Size = UDim2.new(1, 0, 0, h) end
+                end
+            end)
+            head.MouseEnter:Connect(function()
+                sfx("hover")
+                if not open then
+                    play(rail, {Size = UDim2.new(0, 3, 0.55, 0)}, 0.25, Enum.EasingStyle.Back)
+                    play(st, {Color = ACCENT, Transparency = 0.35}, 0.18)
+                end
+            end)
+            head.MouseLeave:Connect(function()
+                if not open then
+                    play(rail, {Size = UDim2.new(0, 3, 0, 0)}, 0.2)
+                    play(st, {Color = T.stroke, Transparency = 0.55}, 0.22)
+                end
+            end)
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
-            f:SetAttribute("open", open)
-            if open then st.Color = ACCENT st.Transparency = 0.3 end
+
+            function sub:Expand() setOpen(true) end
+            function sub:Collapse() setOpen(false) end
             function sub:SetOpen(v) setOpen(v and true or false) end
             function sub:IsOpen() return open end
+            if o.Open then setOpen(true, true) end
             return sub
         end
         K.Group = K.Accordion
+
+        K.Color = K.ColorPicker
 
         return K
     end
@@ -1695,7 +1882,7 @@ function SORU:CreateWindow(C)
         new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -6, 1, 0), CellPadding = UDim2.fromOffset(8, 0), SortOrder = Enum.SortOrder.LayoutOrder}, row)
         local function stat(title, value, col, ord)
             local f = new("Frame", {BackgroundColor3 = T.card, BackgroundTransparency = 0.15, BorderSizePixel = 0, LayoutOrder = ord}, row)
-            corner(f, 12) stroke(f, col, 1, 0.65) regTrans(f, 0)
+            corner(f, 12) stroke(f, col, 1, 0.65) regTrans(f, 0) gloss(f)
             grad(f, WHITE, Color3.fromRGB(200, 196, 222), 90)
             local line = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0.5, 0, 0, 2), BackgroundColor3 = col, BorderSizePixel = 0}, f)
             corner(line, FULL)
@@ -1722,6 +1909,7 @@ function SORU:CreateWindow(C)
             hist[i] = 0
             local b = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new((i - 1) / N, 1, 1, 0), Size = barSize(0), BackgroundColor3 = T.off, BorderSizePixel = 0}, area)
             corner(b, 2)
+            grad(b, WHITE, Color3.fromRGB(165, 160, 200), 90)
             bars[i] = b
         end
         fpsPush = function(v)
@@ -1792,9 +1980,66 @@ function SORU:CreateWindow(C)
         end)
     end
 
-    D:Section("Settings")
-    local AccI = D:Accordion({Title = "Interface", Desc = "Scale, blur and background", Icon = "UI", Open = true})
-    local scaleSlider = AccI:Slider({
+    -- ganti warna aksen semua elemen yang sudah ada (cocokkan warna lama -> baru)
+    local function retheme(oldPal)
+        local nw = {T.accent, T.accent2, T.cyan, T.pink}
+        local function sw(c)
+            for i = 1, 4 do if c == oldPal[i] then return nw[i] end end
+            return c
+        end
+        for _, d in ipairs(gui:GetDescendants()) do
+            if d:IsA("GuiObject") then
+                local c = d.BackgroundColor3
+                local n = sw(c)
+                if n ~= c then d.BackgroundColor3 = n end
+                if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("TextBox") then
+                    c = d.TextColor3
+                    n = sw(c)
+                    if n ~= c then d.TextColor3 = n end
+                elseif d:IsA("ImageLabel") then
+                    c = d.ImageColor3
+                    n = sw(c)
+                    if n ~= c then d.ImageColor3 = n end
+                elseif d:IsA("ScrollingFrame") then
+                    c = d.ScrollBarImageColor3
+                    n = sw(c)
+                    if n ~= c then d.ScrollBarImageColor3 = n end
+                end
+            elseif d:IsA("UIStroke") then
+                local c = d.Color
+                local n = sw(c)
+                if n ~= c then d.Color = n end
+            elseif d:IsA("UIGradient") then
+                local nk, changed = {}, false
+                for i, k in ipairs(d.Color.Keypoints) do
+                    local n = sw(k.Value)
+                    if n ~= k.Value then changed = true end
+                    nk[i] = ColorSequenceKeypoint.new(k.Time, n)
+                end
+                if changed then d.Color = ColorSequence.new(nk) end
+            end
+        end
+    end
+
+    D:Section("Interface")
+    D:Dropdown({
+        Title = "Theme", Desc = "Accent color preset", Flag = "UITheme", Options = THEME_ORDER, Default = "Violet",
+        Callback = function(v)
+            if type(v) ~= "string" or v == curTheme or not THEMES[v] then return end
+            curTheme = v
+            local oldPal = applyPalette(v)
+            if not oldPal then return end
+            task.spawn(function()
+                play(win, {GroupTransparency = 0.45}, 0.12)
+                task.wait(0.12)
+                retheme(oldPal)
+                play(win, {GroupTransparency = 0}, 0.4)
+                sfx("pop")
+                notify("Theme", v, ACCENT, 1.6)
+            end)
+        end,
+    })
+    local scaleSlider = D:Slider({
         Title = "UI scale", Min = 60, Max = 150, Step = 5, Suffix = "%",
         Default = math.floor(userScale * 100 + 0.5),
         OnRelease = function(v)
@@ -1804,36 +2049,26 @@ function SORU:CreateWindow(C)
         end,
     })
     local initTrans = (type(Data.Features["UITrans"]) == "number") and Data.Features["UITrans"] or 0.15
-    AccI:Slider({
+    D:Slider({
         Title = "Panel transparency", Min = 0, Max = 60, Step = 5, Suffix = "%",
         Default = math.floor(initTrans * 100 + 0.5),
         Callback = function(v) applyTrans(v / 100) end,
         OnRelease = function(v) Data.Features["UITrans"] = v / 100 saveN(curName) end,
     })
-    AccI:Toggle({
+    D:Toggle({
         Title = "Background blur", Desc = "Blur the game behind the menu", Flag = "UIBlur", Default = true,
         Callback = function(v) blurOn = v updateBlur() end,
     })
-    AccI:Toggle({
+    D:Toggle({
         Title = "Animated background", Desc = "Aurora glow and floating particles", Flag = "UIAnim", Default = true,
         Callback = function(v) ambientOn = v ambient.Visible = v end,
     })
-    AccI:Keybind({
+    D:Keybind({
         Title = "Menu key", Desc = "Show or hide the interface", Flag = "MenuKey", Default = toggleKey,
         OnChange = function(k) if k then toggleKey = k end end,
     })
-    local AccS = D:Accordion({Title = "Sound", Desc = "Interface sound effects", Icon = "S"})
-    AccS:Toggle({
-        Title = "UI sounds", Desc = "Clicks, chimes and slider ticks", Flag = "UISound", Default = true,
-        Callback = function(v) SFX_ON = v end,
-    })
-    AccS:Slider({
-        Title = "Sound volume", Flag = "UIVol", Min = 0, Max = 100, Step = 5, Default = 70, Suffix = "%",
-        Callback = function(v) SFX_VOL = v / 100 end,
-        OnRelease = function() sfx("select") end,
-    })
     D:Button({
-        Title = "Reset UI size", Desc = "Back to the default size and scale", Action = "Reset",
+        Title = "Reset UI size", Desc = "Back to the default size and scale",
         Callback = function()
             winSize = DEFAULT_SIZE
             winPos = nil
@@ -1844,6 +2079,16 @@ function SORU:CreateWindow(C)
             saveUI()
             notify("UI reset", "Size and scale restored", ACCENT, 2)
         end,
+    })
+
+    D:Section("Sound")
+    D:Toggle({
+        Title = "UI sounds", Desc = "SORU signature sound effects", Flag = "UISound", Default = true,
+        Callback = function(v) sndOn = v end,
+    })
+    D:Slider({
+        Title = "Sound volume", Flag = "UIVol", Min = 0, Max = 100, Step = 5, Default = 60, Suffix = "%",
+        Callback = function(v) sndVol = v / 100 end,
     })
 
     do -- discord
@@ -1883,9 +2128,9 @@ function SORU:CreateWindow(C)
     corner(yes, FULL) hover(yes, nil, Color3.fromRGB(230, 78, 88), Color3.fromRGB(180, 44, 54))
 
     local function showC()
-        sfx("warn")
         modalTok = modalTok + 1
         over.Visible = true
+        sfx("expand")
         diaScale.Scale = 0.9
         dia.GroupTransparency = 1
         iw.Rotation = -18
@@ -1913,7 +2158,7 @@ function SORU:CreateWindow(C)
     yes.MouseButton1Click:Connect(delA)
 
     ------------------------------------------------------------------
-    -- LOOP LIVE (FPS, ping, koordinat) + input
+    -- LOOP LIVE (FPS, ping, koordinat, parallax) + input
     ------------------------------------------------------------------
     local fc, lfT = 0, os.clock()
     bind(RunService.RenderStepped, function()
@@ -1932,6 +2177,17 @@ function SORU:CreateWindow(C)
                 pcall(function() pingV.Text = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5).." ms" end)
             end
         end
+    end)
+    -- parallax halus: gambar background bergeser tipis mengikuti mouse
+    local pxx, pyy = 0.5, 0.5
+    bind(RunService.RenderStepped, function()
+        if not isOpen then return end
+        local sz, ap = win.AbsoluteSize, win.AbsolutePosition
+        if sz.X <= 0 or sz.Y <= 0 then return end
+        local m = UIS:GetMouseLocation()
+        pxx = pxx + (math.clamp((m.X - ap.X) / sz.X, 0, 1) - pxx) * 0.08
+        pyy = pyy + (math.clamp((m.Y - ap.Y) / sz.Y, 0, 1) - pyy) * 0.08
+        bgImg.Position = UDim2.new(0.5, (0.5 - pxx) * 22, 0.5, (0.5 - pyy) * 14)
     end)
     local acc = 0
     bind(RunService.Heartbeat, function(dt)
@@ -1957,12 +2213,22 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     local function boot(cb)
         booting = true
+        sfx("boot")
         launcher.Visible = false
         local sp = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(260, 170), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 150}, root)
         corner(sp, 20)
         local sps = stroke(sp, WHITE, 1.5, 0.3)
         spin(new("UIGradient", {Color = RING}, sps), 3)
         local sc = new("UIScale", {Scale = 0.8}, sp)
+        -- gelombang kejut saat "Ready"
+        local function shock(col)
+            local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(70, 70), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 151}, root)
+            corner(r, FULL)
+            local rs2 = stroke(r, col, 2.5, 0.1)
+            play(r, {Size = UDim2.fromOffset(440, 440)}, 0.9, Enum.EasingStyle.Quint)
+            play(rs2, {Transparency = 1, Thickness = 0.5}, 0.9)
+            task.delay(0.95, function() r:Destroy() end)
+        end
         local ringF = new("Frame", {Size = UDim2.fromOffset(60, 60), Position = UDim2.new(0.5, -30, 0, 20), BackgroundColor3 = T.panel, BorderSizePixel = 0}, sp)
         corner(ringF, FULL)
         local rs = stroke(ringF, WHITE, 2.4, 0)
@@ -1981,7 +2247,8 @@ function SORU:CreateWindow(C)
         task.spawn(function()
             local steps = {{"Loading assets...", 0.35}, {"Loading config...", 0.7}, {"Ready", 1}}
             for _, s in ipairs(steps) do
-                stL.Text = s[1] sfx("tick", 0.9 + _ * 0.25)
+                stL.Text = s[1]
+                if s[2] >= 1 then shock(T.cyan) task.delay(0.12, function() shock(T.accent) end) sfx("pop") end
                 play(barF, {Size = UDim2.fromScale(s[2], 1)}, 0.3)
                 task.wait(0.32)
             end
@@ -2019,9 +2286,9 @@ function SORU:CreateWindow(C)
     Window.ShowBadge = showNotSupportedBadge
     function Window:IsGame(id) return placeId == id or gameId == id end
     function Window:Toggle() toggleWin() end
-    function Window:SetSound(b) SFX_ON = b and true or false end
     function Window:SetScale(pct) userScale = math.clamp((tonumber(pct) or 100) / 100, 0.6, 1.5) applyScale() saveUI() end
     function Window:SetBlur(b) blurOn = b and true or false updateBlur() end
+    function Window:SetSound(b) sndOn = b and true or false end
     function Window:Destroy() delA() end
 
     if not isSupported then
@@ -2032,8 +2299,7 @@ function SORU:CreateWindow(C)
             if not kickOnFail then notify("Blocked", "Game not supported", T.bad, 4) end
         end)
         function Window:Tab()
-            local dummy
-            dummy = function() return setmetatable({Set = function() end, Get = function() return false end, Refresh = function() end}, {__index = function() return dummy end}) end
+            local function dummy() return {Set = function() end, Get = function() return false end, Refresh = function() end} end
             return setmetatable({}, {__index = function() return dummy end})
         end
         return Window
@@ -2058,20 +2324,19 @@ function SORU:CreateWindow(C)
         S:Dropdown({Title = "Multi dropdown", Flag = "Demo_MD", Multi = true, Options = {"One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"}, Default = {"One"}})
         S:Keybind({Title = "Keybind", Flag = "Demo_Key", Default = Enum.KeyCode.F, Callback = function(k) notify("Keybind", k.Name.." pressed", ACCENT, 1.2) end})
         S:ColorPicker({Title = "Color picker", Flag = "Demo_Col", Default = T.accent})
-        S:Section("Layout")
-        local Acc = S:Accordion({Title = "Accordion", Desc = "Group components inside", Icon = "A", Open = true})
-        Acc:Toggle({Title = "Nested toggle", Flag = "Demo_NT", Default = false})
-        Acc:Slider({Title = "Nested slider", Flag = "Demo_NS", Min = 0, Max = 10, Default = 5})
-        Acc:Dropdown({Title = "Nested dropdown", Flag = "Demo_ND", Options = {"A", "B", "C"}, Default = "A"})
-        local Sub = Acc:Accordion({Title = "Sub accordion", Icon = "S"})
-        Sub:Button({Title = "Deep button", Callback = function() notify("Accordion", "Nested button", ACCENT, 1.5) end})
+        S:Section("Accordion")
+        local A = S:Accordion({Title = "Auto farm group", Desc = "Isinya bisa komponen apa saja", Open = true})
+        A:Toggle({Title = "Auto farm", Flag = "Demo_AF", Default = false})
+        A:Slider({Title = "Farm speed", Flag = "Demo_FS", Min = 1, Max = 10, Default = 5})
+        A:Dropdown({Title = "Target", Flag = "Demo_TG", Options = {"Nearest", "Strongest", "Weakest"}, Default = "Nearest"})
+        A:Button({Title = "Run once", Callback = function() notify("Accordion", "Button di dalam accordion", ACCENT, 1.5) end})
         S:Divider()
         S:Paragraph({Title = "Paragraph", Desc = "Teks panjang akan otomatis wrap ke bawah dan tinggi kartu menyesuaikan isi."})
         S:Label("Label biasa")
     end
 
     boot(function()
-        openA()
+        openA(true)
         notify("SORU HUB v"..VERSION, "Loaded successfully", ACCENT, 3.5)
     end)
     return Window
