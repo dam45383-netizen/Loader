@@ -11001,48 +11001,63 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
--- EggVault.lua | GitHub Ready | No Lib Call
--- Butuh Window global dari SORU Hub
+local Players=game:GetService("Players")
+local TweenService=game:GetService("TweenService")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local RunService=game:GetService("RunService")
+local UIS=game:GetService("UserInputService")
+local workspace=game:GetService("Workspace")
+local LocalPlayer=Players.LocalPlayer
 
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UIS = game:GetService("UserInputService")
-local workspace = game:GetService("Workspace")
-local LocalPlayer = Players.LocalPlayer
-
-local tweenSpeed = 120
-local isCollecting, isBestLuck, useSilentMethod, isPanelShow = false, true, true, false
-local currentTween, panelGui, mainPanel, scrollFrame, statTotal, statBest
-local BASE_POS = Vector3.new(270.9, 4.2, -31.6)
-local ACCENT, CYAN = Color3.fromRGB(145,96,255), Color3.fromRGB(56,200,255)
-local cloneModel, savedCam = nil, {}
-local origTrans = {}
+local tweenSpeed=120
+local isCollecting,isBestLuck,useSilentMethod,isPanelShow,isEspEggEnabled=false,true,true,false,false
+local minLuckFilter=0
+local currentTween,panelGui,mainPanel,scrollFrame,statTotal,statBest
+local BASE_POS=Vector3.new(270.9,4.2,-31.6)
+local ACCENT,CYAN=Color3.fromRGB(145,96,255),Color3.fromRGB(56,200,255)
+local cloneModel,savedCam,origTrans=nil,{},{}
+local fishSpeed,isFishSpeedEnabled=80,false
+local isStatsShow,statsGui,statsPanel,fpsLabel,pingLabel=false,nil,nil,nil,nil
+local selectedIsland="Base"
+local islandPositions={Base=Vector3.new(270.9,4.2,-31.6)}
 
 local function NI(c) return Instance.new(c) end
+local function parseLuck(str)
+    if not str then return 0 end
+    str=tostring(str):gsub("%s+",""):upper()
+    if str=="" or str=="0" then return 0 end
+    local mults={K=1e3,M=1e6,B=1e9,T=1e12,Q=1e15}
+    local num,suf=str:match("^([%d%.]+)([KMBTQ]+)$")
+    if num then return math.floor((tonumber(num) or 0)*(mults[suf] or 1)) else return tonumber(str) or 0 end
+end
+local function formatCompact(n)
+    if n>=1e12 then return string.format("%.2fT",n/1e12)
+    elseif n>=1e9 then return string.format("%.2fB",n/1e9)
+    elseif n>=1e6 then return string.format("%.2fM",n/1e6)
+    elseif n>=1e3 then return string.format("%.1fK",n/1e3) else return tostring(n) end
+end
 local function getHRP() local ch=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait() return ch:WaitForChild("HumanoidRootPart") end
-local function tpToEgg(p) local h=getHRP() if h then h.CFrame=CFrame.new(p+Vector3.new(0,3,0)) end end
+local function tpToPos(p) local h=getHRP() if h then h.CFrame=CFrame.new(p+Vector3.new(0,3,0)) end end
 local function tweenToPos(p) local h=getHRP() if not h then return end if currentTween then pcall(function() currentTween:Cancel() end) end local dur=math.clamp((h.Position-p).Magnitude/tweenSpeed,0.15,8) currentTween=TweenService:Create(h,TweenInfo.new(dur,Enum.EasingStyle.Linear),{CFrame=CFrame.new(p)}) currentTween:Play() currentTween.Completed:Wait() end
 local function getEggPos(m) local cf=nil pcall(function() cf=m:GetPivot() end) if cf then return cf.Position end if m.PrimaryPart then return m.PrimaryPart.Position end for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then return v.Position end end return nil end
 local function instantInteract(m) for _,v in ipairs(m:GetDescendants()) do if v:IsA("ProximityPrompt") then v.HoldDuration=0 pcall(function() if fireproximityprompt then fireproximityprompt(v) else v:InputHoldBegin() task.wait() v:InputHoldEnd() end end) end end end
 local function spamInteract(m) local t=tick() while tick()-t<1 do if not m.Parent then break end instantInteract(m) task.wait(0.05) end end
-local function getAllEggs()
-    local list,seen={},{} local function add(m) if m and not seen[m] and m:GetAttribute("EggLuck")~=nil then seen[m]=true table.insert(list,m) end end
-    local er=workspace:FindFirstChild("EggRuntime") if er then local w=er:FindFirstChild("WildEggs") if w then for _,m in ipairs(w:GetChildren()) do add(m) end end local k=er:FindFirstChild("KrakenBossRuntime") if k then add(k) for _,m in ipairs(k:GetChildren()) do add(m) end for _,m in ipairs(k:GetDescendants()) do if m:IsA("Model") then add(m) end end end end
-    local kra=workspace:FindFirstChild("KrakenBossRuntime") if kra then add(kra) for _,m in ipairs(kra:GetChildren()) do add(m) end for _,m in ipairs(kra:GetDescendants()) do if m:IsA("Model") then add(m) end end end
-    return list
-end
-
--- SILENT METHOD
+local function getAllEggs() local list,seen={},{} local function add(m) if m and not seen[m] and m:GetAttribute("EggLuck")~=nil then seen[m]=true table.insert(list,m) end end local er=workspace:FindFirstChild("EggRuntime") if er then local w=er:FindFirstChild("WildEggs") if w then for _,m in ipairs(w:GetChildren()) do add(m) end end local k=er:FindFirstChild("KrakenBossRuntime") if k then add(k) for _,m in ipairs(k:GetChildren()) do add(m) end for _,m in ipairs(k:GetDescendants()) do if m:IsA("Model") then add(m) end end end end local kra=workspace:FindFirstChild("KrakenBossRuntime") if kra then add(kra) for _,m in ipairs(kra:GetChildren()) do add(m) end for _,m in ipairs(kra:GetDescendants()) do if m:IsA("Model") then add(m) end end end return list end
+local function getFilteredEggs() local all=getAllEggs() local out={} for _,m in ipairs(all) do local luck=tonumber(m:GetAttribute("EggLuck")) or 0 if luck>=minLuckFilter then table.insert(out,m) end end return out end
+local function getRidingFish() local d=workspace:FindFirstChild(LocalPlayer.Name.."_RidingFish") if d then return d end for _,v in ipairs(workspace:GetChildren()) do if v.Name:lower():find("ridingfish") and v.Name:find(LocalPlayer.Name) then return v end end return nil end
 local function setInvisible(v) local char=LocalPlayer.Character if not char then return end for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then if v then origTrans[p]=p.Transparency p.Transparency=1 else if origTrans[p]~=nil then p.Transparency=origTrans[p] else p.Transparency=0 end end end end end
 local function createClone(cf) local char=LocalPlayer.Character if not char then return nil end char.Archivable=true local cl=char:Clone() for _,v in ipairs(cl:GetDescendants()) do if v:IsA("Script") or v:IsA("LocalScript") then v:Destroy() end if v:IsA("BasePart") then v.Anchored=true v.CanCollide=false end end cl.Parent=workspace pcall(function() cl:PivotTo(cf) end) return cl end
 local function saveCam() local cam=workspace.CurrentCamera savedCam.Subject=cam.CameraSubject savedCam.Type=cam.CameraType savedCam.CFrame=cam.CFrame end
 local function lockCamToClone(cl) local cam=workspace.CurrentCamera local hum=cl:FindFirstChildOfClass("Humanoid") if hum then cam.CameraSubject=hum else cam.CameraType=Enum.CameraType.Scriptable cam.CFrame=savedCam.CFrame end end
 local function restoreCam() local cam=workspace.CurrentCamera if savedCam.Subject then cam.CameraSubject=savedCam.Subject end if savedCam.Type then cam.CameraType=savedCam.Type end end
 local function fireStoreLoop() local req=ReplicatedStorage:FindFirstChild("EggGame") and ReplicatedStorage.EggGame:FindFirstChild("Requests") if not req then return end if isCollecting then local s=tick() while isCollecting and tick()-s<2.2 do pcall(function() req:FireServer("StoreEgg") end) task.wait(0.1) end else for i=1,10 do pcall(function() req:FireServer("StoreEgg") end) task.wait(0.1) end end end
-local function doSteal(model) if not model or not model.Parent then return end local eggPos=getEggPos(model) if not eggPos then return end local stayCF=nil if useSilentMethod then saveCam() stayCF=getHRP() and getHRP().CFrame or CFrame.new(BASE_POS) cloneModel=createClone(stayCF) lockCamToClone(cloneModel) setInvisible(true) end tpToEgg(eggPos) task.wait(0.25) spamInteract(model) task.wait(0.15) tweenToPos(BASE_POS) task.wait(0.2) fireStoreLoop() if useSilentMethod and stayCF then tweenToPos(stayCF.Position) task.wait(0.15) setInvisible(false) restoreCam() if cloneModel then cloneModel:Destroy() cloneModel=nil end end end
+local function doSteal(model) if not model or not model.Parent then return end local eggPos=getEggPos(model) if not eggPos then return end local stayCF=nil if useSilentMethod then saveCam() stayCF=getHRP() and getHRP().CFrame or CFrame.new(BASE_POS) cloneModel=createClone(stayCF) lockCamToClone(cloneModel) setInvisible(true) end tpToPos(eggPos) task.wait(0.25) spamInteract(model) task.wait(0.15) tweenToPos(BASE_POS) task.wait(0.2) fireStoreLoop() if useSilentMethod and stayCF then tweenToPos(stayCF.Position) task.wait(0.15) setInvisible(false) restoreCam() if cloneModel then cloneModel:Destroy() cloneModel=nil end end end
 
--- PANEL 5X COOL + DPI SCALE
+local function removeEggEsp(m) if m:FindFirstChild("EggVault_ESP") then m:FindFirstChild("EggVault_ESP"):Destroy() end if m:FindFirstChild("EggVault_HL") then m:FindFirstChild("EggVault_HL"):Destroy() end end
+local function clearAllEsp() for _,m in ipairs(getAllEggs()) do removeEggEsp(m) end end
+local function createEggEsp(m,luck,kg) if m:FindFirstChild("EggVault_ESP") then removeEggEsp(m) end local bb=NI("BillboardGui") bb.Name="EggVault_ESP" bb.Size=UDim2.fromOffset(150,52) bb.StudsOffset=Vector3.new(0,4.5,0) bb.AlwaysOnTop=true bb.Parent=m local main=NI("Frame") main.Size=UDim2.fromScale(1,1) main.BackgroundColor3=Color3.fromRGB(16,14,28) main.BorderSizePixel=0 main.Parent=bb local c=NI("UICorner") c.CornerRadius=UDim.new(0,12) c.Parent=main local st=NI("UIStroke") st.Color=Color3.fromRGB(68,61,106) st.Thickness=1 st.Transparency=0.25 st.Parent=main local top=NI("Frame") top.Size=UDim2.new(1,0,0,2) top.BackgroundColor3=Color3.new(1,1,1) top.BorderSizePixel=0 top.Parent=main local tg=NI("UIGradient") tg.Color=ColorSequence.new(ACCENT,CYAN) tg.Parent=top local luckL=NI("TextLabel") luckL.Text="🍀 "..formatCompact(luck) luckL.Font=Enum.Font.GothamBold luckL.TextSize=12 luckL.TextColor3=Color3.fromRGB(246,244,255) luckL.BackgroundTransparency=1 luckL.Size=UDim2.new(1,0,0.5,0) luckL.Parent=main local kgL=NI("TextLabel") kgL.Text="⚖️ "..tostring(kg).." Kg • "..formatCompact(luck) kgL.Font=Enum.Font.GothamMedium kgL.TextSize=10 kgL.TextColor3=Color3.fromRGB(150,142,186) kgL.BackgroundTransparency=1 kgL.Position=UDim2.new(0,0,0.5,0) kgL.Size=UDim2.new(1,0,0.5,0) kgL.Parent=main local hl=NI("Highlight") hl.Name="EggVault_HL" hl.FillColor=ACCENT hl.FillTransparency=0.75 hl.OutlineColor=CYAN hl.OutlineTransparency=0.1 hl.Adornee=m hl.Parent=m end
+local function refreshEsp() if not isEspEggEnabled then clearAllEsp() return end for _,m in ipairs(getAllEggs()) do local luck=tonumber(m:GetAttribute("EggLuck")) or 0 local kg=tonumber(m:GetAttribute("EggKg")) or 0 if luck>=minLuckFilter then createEggEsp(m,luck,kg) else removeEggEsp(m) end end end
+
 local function makeDraggable(f,h) local drag,sPos,sIn h.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true sIn=i.Position sPos=f.Position end end) h.InputEnded:Connect(function() drag=false end) UIS.InputChanged:Connect(function(i) if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-sIn f.Position=UDim2.new(sPos.X.Scale,sPos.X.Offset+d.X,sPos.Y.Scale,sPos.Y.Offset+d.Y) end end) end
 local function makeResizable(f,g) local res,sIn,sSz,vp g.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then res=true sIn=i.Position sSz=f.Size vp=workspace.CurrentCamera.ViewportSize end end) UIS.InputChanged:Connect(function(i) if res and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then local d=i.Position-sIn local nx=math.clamp(sSz.X.Scale+d.X/vp.X,0.24,0.55) local ny=math.clamp(sSz.Y.Scale+d.Y/vp.Y,0.35,0.85) f.Size=UDim2.fromScale(nx,ny) end end) UIS.InputEnded:Connect(function() res=false end) end
 
@@ -11054,51 +11069,74 @@ local function createPanelUI()
     local top=NI("Frame") top.Size=UDim2.new(1,0,0,2) top.BackgroundColor3=Color3.new(1,1,1) top.BorderSizePixel=0 top.Parent=mainPanel local tg=NI("UIGradient") tg.Color=ColorSequence.new(ACCENT,CYAN) tg.Parent=top
     local header=NI("Frame") header.Size=UDim2.new(1,0,0,48) header.BackgroundTransparency=1 header.Parent=mainPanel
     local title=NI("TextLabel") title.Text="🥚 EGG VAULT" title.Font=Enum.Font.GothamBold title.TextSize=14 title.TextColor3=Color3.fromRGB(246,244,255) title.BackgroundTransparency=1 title.Position=UDim2.fromOffset(14,0) title.Size=UDim2.new(1,-60,0.5,0) title.TextXAlignment=Enum.TextXAlignment.Left title.Parent=header
-    local sub=NI("TextLabel") sub.Text="Silent Method • DPI Adaptive" sub.Font=Enum.Font.GothamMedium sub.TextSize=10 sub.TextColor3=Color3.fromRGB(150,142,186) sub.BackgroundTransparency=1 sub.Position=UDim2.fromOffset(14,20) sub.Size=UDim2.new(1,-60,0.5,0) sub.TextXAlignment=Enum.TextXAlignment.Left sub.Parent=header
+    local sub=NI("TextLabel") sub.Text=" " sub.Font=Enum.Font.GothamMedium sub.TextSize=10 sub.TextColor3=Color3.fromRGB(150,142,186) sub.BackgroundTransparency=1 sub.Position=UDim2.fromOffset(14,20) sub.Size=UDim2.new(1,-60,0.5,0) sub.TextXAlignment=Enum.TextXAlignment.Left sub.Parent=header
     local stats=NI("Frame") stats.Size=UDim2.new(1,-16,0,34) stats.Position=UDim2.fromOffset(8,52) stats.BackgroundColor3=Color3.fromRGB(20,18,36) stats.Parent=mainPanel local sc=NI("UICorner") sc.CornerRadius=UDim.new(0,10) sc.Parent=stats
     statTotal=NI("TextLabel") statTotal.Text="Total: 0" statTotal.Font=Enum.Font.GothamBold statTotal.TextSize=11 statTotal.TextColor3=CYAN statTotal.BackgroundTransparency=1 statTotal.Size=UDim2.new(0.5,0,1,0) statTotal.Parent=stats
     statBest=NI("TextLabel") statBest.Text="Best: 0" statBest.Font=Enum.Font.GothamBold statBest.TextSize=11 statBest.TextColor3=ACCENT statBest.BackgroundTransparency=1 statBest.Position=UDim2.new(0.5,0,0,0) statBest.Size=UDim2.new(0.5,0,1,0) statBest.Parent=stats
-    scrollFrame=NI("ScrollingFrame") scrollFrame.Size=UDim2.new(1,-10,1,-98) scrollFrame.Position=UDim2.fromOffset(5,92) scrollFrame.BackgroundTransparency=1 scrollFrame.BorderSizePixel=0 scrollFrame.ScrollBarThickness=2 scrollFrame.AutomaticCanvasSize=Enum
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     .AutomaticSize.Y scrollFrame.CanvasSize=UDim2.new(0,0,0,0) scrollFrame.Parent=mainPanel
+    scrollFrame=NI("ScrollingFrame") scrollFrame.Size=UDim2.new(1,-10,1,-98) scrollFrame.Position=UDim2.fromOffset(5,92) scrollFrame.BackgroundTransparency=1 scrollFrame.BorderSizePixel=0 scrollFrame.ScrollBarThickness=2 scrollFrame.AutomaticCanvasSize=Enum.AutomaticSize.Y scrollFrame.CanvasSize=UDim2.new(0,0,0,0) scrollFrame.Parent=mainPanel
     local lay=NI("UIListLayout") lay.Padding=UDim.new(0,8) lay.Parent=scrollFrame local pad=NI("UIPadding") pad.PaddingLeft=UDim.new(0,4) pad.PaddingRight=UDim.new(0,4) pad.Parent=scrollFrame
     local grip=NI("Frame") grip.Size=UDim2.fromOffset(26,26) grip.Position=UDim2.new(1,-30,1,-30) grip.BackgroundColor3=Color3.fromRGB(30,28,50) grip.Parent=mainPanel local gc=NI("UICorner") gc.CornerRadius=UDim.new(1,0) gc.Parent=grip local gl=NI("TextLabel") gl.Text="↘" gl.Font=Enum.Font.GothamBold gl.TextSize=14 gl.TextColor3=Color3.fromRGB(150,142,186) gl.BackgroundTransparency=1 gl.Size=UDim2.fromScale(1,1) gl.Parent=grip
     makeDraggable(mainPanel,header) makeResizable(mainPanel,grip)
 end
-
 local function refreshPanel()
     if not scrollFrame or not isPanelShow then return end
     for _,c in ipairs(scrollFrame:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-    local eggs=getAllEggs() table.sort(eggs,function(a,b) local la,lb=tonumber(a:GetAttribute("EggLuck")) or 0, tonumber(b:GetAttribute("EggLuck")) or 0 if la~=lb then return la>lb end local wa,wb=tonumber(a:GetAttribute("EggKg")) or 0, tonumber(b:GetAttribute("EggKg")) or 0 return wa>wb end)
-    if statTotal then statTotal.Text="Total: "..#eggs end if statBest and #eggs>0 then statBest.Text="Best: "..tostring(eggs[1]:GetAttribute("EggLuck")) end
+    local eggs=getFilteredEggs() table.sort(eggs,function(a,b) local la,lb=tonumber(a:GetAttribute("EggLuck")) or 0, tonumber(b:GetAttribute("EggLuck")) or 0 if la~=lb then return la>lb end local wa,wb=tonumber(a:GetAttribute("EggKg")) or 0, tonumber(b:GetAttribute("EggKg")) or 0 return wa>wb end)
+    if statTotal then statTotal.Text="Total: "..#eggs.." (≥ "..formatCompact(minLuckFilter)..")" end if statBest and #eggs>0 then statBest.Text="Best: "..formatCompact(tonumber(eggs[1]:GetAttribute("EggLuck")) or 0) end
     for _,egg in ipairs(eggs) do
         local card=NI("Frame") card.Size=UDim2.new(1,-10,0,68) card.BackgroundColor3=Color3.fromRGB(22,20,38) card.Parent=scrollFrame local cc=NI("UICorner") cc.CornerRadius=UDim.new(0,12) cc.Parent=card local cs=NI("UIStroke") cs.Color=Color3.fromRGB(70,60,120) cs.Transparency=0.6 cs.Parent=card
         local left=NI("Frame") left.Size=UDim2.new(0,4,1,0) left.BackgroundColor3=ACCENT left.BorderSizePixel=0 left.Parent=card local lg=NI("UIGradient") lg.Color=ColorSequence.new(ACCENT,CYAN) lg.Rotation=90 lg.Parent=left
         local imgBox=NI("Frame") imgBox.Size=UDim2.fromOffset(48,48) imgBox.Position=UDim2.fromOffset(12,10) imgBox.BackgroundColor3=Color3.fromRGB(14,12,26) imgBox.Parent=card local ic=NI("UICorner") ic.CornerRadius=UDim.new(0,10) ic.Parent=imgBox local vp=NI("ViewportFrame") vp.Size=UDim2.fromScale(1,1) vp.BackgroundTransparency=1 vp.Parent=imgBox local cam=NI("Camera") cam.Parent=vp vp.CurrentCamera=cam pcall(function() local cl=egg:Clone() cl.Parent=vp local cf,_=cl:GetBoundingBox() cam.CFrame=CFrame.new(cf.Position+Vector3.new(2,2,4),cf.Position) end)
         local nL=NI("TextLabel") nL.Text=egg.Name nL.Font=Enum.Font.GothamBold nL.TextSize=12 nL.TextColor3=Color3.fromRGB(245,243,255) nL.BackgroundTransparency=1 nL.Position=UDim2.fromOffset(70,8) nL.Size=UDim2.new(1,-150,0,16) nL.TextXAlignment=Enum.TextXAlignment.Left nL.Parent=card
-        local lB=NI("Frame") lB.Size=UDim2.fromOffset(68,16) lB.Position=UDim2.fromOffset(70,30) lB.BackgroundColor3=ACCENT lB.BackgroundTransparency=0.2 lB.Parent=card local lbc=NI("UICorner") lbc.CornerRadius=UDim.new(1,0) lbc.Parent=lB local lbT=NI("TextLabel") lbT.Text="🍀 "..tostring(egg:GetAttribute("EggLuck") or 0) lbT.Font=Enum.Font.GothamBold lbT.TextSize=10 lbT.TextColor3=Color3.new(1,1,1) lbT.BackgroundTransparency=1 lbT.Size=UDim2.fromScale(1,1) lbT.Parent=lB
+        local lB=NI("Frame") lB.Size=UDim2.fromOffset(68,16) lB.Position=UDim2.fromOffset(70,30) lB.BackgroundColor3=ACCENT lB.BackgroundTransparency=0.2 lB.Parent=card local lbc=NI("UICorner") lbc.CornerRadius=UDim.new(1,0) lbc.Parent=lB local lbT=NI("TextLabel") lbT.Text="🍀 "..formatCompact(tonumber(egg:GetAttribute("EggLuck")) or 0) lbT.Font=Enum.Font.GothamBold lbT.TextSize=10 lbT.TextColor3=Color3.new(1,1,1) lbT.BackgroundTransparency=1 lbT.Size=UDim2.fromScale(1,1) lbT.Parent=lB
         local kB=NI("Frame") kB.Size=UDim2.fromOffset(62,16) kB.Position=UDim2.fromOffset(142,30) kB.BackgroundColor3=Color3.fromRGB(30,28,50) kB.Parent=card local kbc=NI("UICorner") kbc.CornerRadius=UDim.new(1,0) kbc.Parent=kB local kbT=NI("TextLabel") kbT.Text=tostring(egg:GetAttribute("EggKg") or 0).." Kg" kbT.Font=Enum.Font.GothamMedium kbT.TextSize=10 kbT.TextColor3=Color3.fromRGB(180,175,210) kbT.BackgroundTransparency=1 kbT.Size=UDim2.fromScale(1,1) kbT.Parent=kB
         local btn=NI("TextButton") btn.Text="SILENT STEAL" btn.Font=Enum.Font.GothamBold btn.TextSize=10 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=ACCENT btn.Size=UDim2.fromOffset(76,32) btn.Position=UDim2.new(1,-82,0.5,-16) btn.Parent=card local bc=NI("UICorner") bc.CornerRadius=UDim.new(0,8) bc.Parent=btn local bg=NI("UIGradient") bg.Color=ColorSequence.new(ACCENT,CYAN) bg.Parent=btn
         btn.MouseButton1Click:Connect(function() task.spawn(function() doSteal(egg) end) end)
     end
 end
+local function createStatsPanel()
+    if statsGui then statsGui:Destroy() end
+    statsGui=NI("ScreenGui") statsGui.Name="SORU_Stats" statsGui.ResetOnSpawn=false statsGui.Parent=LocalPlayer.PlayerGui
+    statsPanel=NI("Frame") statsPanel.AnchorPoint=Vector2.new(0,0) statsPanel.Position=UDim2.fromScale(0.02,0.18) statsPanel.Size=UDim2.fromScale(0.16,0.09) statsPanel.BackgroundColor3=Color3.fromRGB(12,10,22) statsPanel.BorderSizePixel=0 statsPanel.Parent=statsGui
+    local c=NI("UICorner") c.CornerRadius=UDim.new(0,14) c.Parent=statsPanel local st=NI("UIStroke") st.Color=Color3.fromRGB(80,70,130) st.Thickness=1.2 st.Transparency=0.25 st.Parent=statsPanel
+    local top=NI("Frame") top.Size=UDim2.new(1,0,0,2) top.BackgroundColor3=Color3.new(1,1,1) top.BorderSizePixel=0 top.Parent=statsPanel local tg=NI("UIGradient") tg.Color=ColorSequence.new(ACCENT,CYAN) tg.Parent=top
+    local header=NI("Frame") header.Size=UDim2.new(1,0,0,20) header.BackgroundTransparency=1 header.Parent=statsPanel
+    local title=NI("TextLabel") title.Text=" " title.Font=Enum.Font.GothamBold title.TextSize=10 title.TextColor3=Color3.fromRGB(246,244,255) title.BackgroundTransparency=1 title.Size=UDim2.new(1,0,1,0) title.Parent=header
+    fpsLabel=NI("TextLabel") fpsLabel.Text="FPS: --" fpsLabel.Font=Enum.Font.GothamBold fpsLabel.TextSize=11 fpsLabel.TextColor3=CYAN fpsLabel.BackgroundTransparency=1 fpsLabel.Position=UDim2.new(0,0,0,20) fpsLabel.Size=UDim2.new(0.5,0,0,18) fpsLabel.Parent=statsPanel
+    pingLabel=NI("TextLabel") pingLabel.Text="PING: --" pingLabel.Font=Enum.Font.GothamBold pingLabel.TextSize=11 pingLabel.TextColor3=ACCENT pingLabel.BackgroundTransparency=1 pingLabel.Position=UDim2.new(0.5,0,0,20) pingLabel.Size=UDim2.new(0.5,0,0,18) pingLabel.Parent=statsPanel
+    makeDraggable(statsPanel,header)
+    local frames,last=0,tick()
+    RunService.RenderStepped:Connect(function() frames+=1 if tick()-last>=0.5 then if fpsLabel then fpsLabel.Text="FPS: "..math.floor(frames/(tick()-last)) end frames=0 last=tick() end end)
+    task.spawn(function() while isStatsShow do pcall(function() local ping=math.floor(LocalPlayer:GetNetworkPing()*1000) if pingLabel then pingLabel.Text="PING: "..ping.."ms" end end) task.wait(0.5) end end)
+end
 
--- MAIN API = TAB
-local MainTab = Window:Tab({Title="Main", Icon="M"})
-local EggAcc = MainTab:Accordion({Title="Egg", Desc=" ", Open=true})
+local MainTab=Window:Tab({Title="Main", Icon="M"})
+local EggAcc=MainTab:Accordion({Title="Egg", Desc=" ", Open=true})
 EggAcc:Toggle({Title="Best Luck", Desc=" ", Flag="BestLuck", Default=true, Callback=function(v) isBestLuck=v end})
 EggAcc:Toggle({Title="Silent Method", Desc=" ", Flag="SilentMethod", Default=true, Callback=function(v) useSilentMethod=v end})
-EggAcc:Slider({Title="Tween Speed", Desc=" ", Flag="TweenSpeedBase", Min=20, Max=1000, Step=5, Default=120, Suffix=" stud/s", Callback=function(v) tweenSpeed=v end})
-EggAcc:Toggle({Title="Auto Collect Egg", Desc=" ", Flag="AutoCollectEgg", Default=false, Callback=function(s)
-    isCollecting=s
-    if s then task.spawn(function() while isCollecting do pcall(function() local all=getAllEggs() if #all==0 then task.wait(1) return end local target,best=nil,-1 local hrp=getHRP() local closest=math.huge if isBestLuck then for _,m in ipairs(all) do local n=tonumber(m:GetAttribute("EggLuck")) or 0 if n>best then best=n target=m end end else for _,m in ipairs(all) do local p=getEggPos(m) if p and hrp then local d=(hrp.Position-p).Magnitude if d<closest then closest=d target=m end end end end if target then doSteal(target) else task.wait(0.8) end end) task.wait(0.3) end end) else if cloneModel then cloneModel:Destroy() setInvisible(false) restoreCam() end end
-end})
+EggAcc:Textbox({Title="Min Luck Filter", Desc=" ", Flag="MinLuckFilter", Default="0", Placeholder=" ", Callback=function(val) minLuckFilter=parseLuck(val) refreshPanel() if isEspEggEnabled then refreshEsp() end end})
+EggAcc:Slider({Title="Tween Speed", Desc=" ", Flag="TweenSpeedBase", Min=20, Max=1000, Step=5, Default=120, Suffix=" ", Callback=function(v) tweenSpeed=v end})
+EggAcc:Toggle({Title="Auto Collect Egg", Desc=" ", Flag="AutoCollectEgg", Default=false, Callback=function(s) isCollecting=s if s then task.spawn(function() while isCollecting do pcall(function() local all=getFilteredEggs() if #all==0 then task.wait(1) return end local target,best=nil,-1 local hrp=getHRP() local closest=math.huge if isBestLuck then for _,m in ipairs(all) do local n=tonumber(m:GetAttribute("EggLuck")) or 0 if n>best then best=n target=m end end else for _,m in ipairs(all) do local p=getEggPos(m) if p and hrp then local d=(hrp.Position-p).Magnitude if d<closest then closest=d target=m end end end end if target then doSteal(target) else task.wait(0.8) end end) task.wait(0.3) end end) else if cloneModel then cloneModel:Destroy() setInvisible(false) restoreCam() end end end})
 
-local PanelTab = Window:Tab({Title="Panel", Icon="P"})
-local PanelAcc = PanelTab:Accordion({Title="Panel Egg", Desc=" ", Open=true})
-PanelAcc:Toggle({Title="Show Panel", Desc=" ", Flag="ShowEggPanel", Default=false, Callback=function(v)
-    isPanelShow=v if v then createPanelUI() refreshPanel() task.spawn(function() while isPanelShow do task.wait(1.5) refreshPanel() end end) else if panelGui then panelGui:Destroy() panelGui=nil end if cloneModel then cloneModel:Destroy() setInvisible(false) restoreCam() end end
-end})
---(%--&_>@)
+local PanelTab=Window:Tab({Title="Panel", Icon="P"})
+local PanelAcc=PanelTab:Accordion({Title="Panel Egg", Desc=" ", Open=true})
+PanelAcc:Toggle({Title="Show Panel", Desc=" ", Flag="ShowEggPanel", Default=false, Callback=function(v) isPanelShow=v if v then createPanelUI() refreshPanel() task.spawn(function() while isPanelShow do task.wait(1.5) refreshPanel() end end) else if panelGui then panelGui:Destroy() panelGui=nil end if cloneModel then cloneModel:Destroy() setInvisible(false) restoreCam() end end end})
+
+local MiscTab=Window:Tab({Title="Misc", Icon="M"})
+local FishAcc=MiscTab:Accordion({Title="Fish", Desc=" ", Open=true})
+FishAcc:Textbox({Title="Speed", Desc=" ", Flag="FishSpeed", Default=tostring(fishSpeed), Placeholder=" ", Callback=function(val) fishSpeed=tonumber(val) or fishSpeed end})
+FishAcc:Toggle({Title="Enable Speed", Desc=" ", Flag="EnableFishSpeed", Default=false, Callback=function(state) isFishSpeedEnabled=state if state then task.spawn(function() while isFishSpeedEnabled do pcall(function() local fish=getRidingFish() if fish then fish:SetAttribute("RideSpeed",fishSpeed) end end) task.wait(0.01) end end) end end})
+
+local ESPAcc=MiscTab:Accordion({Title="ESP", Desc=" ", Open=true})
+ESPAcc:Toggle({Title="ESP Egg", Desc=" ", Flag="ESPEgg", Default=false, Callback=function(v) isEspEggEnabled=v if v then task.spawn(function() while isEspEggEnabled do refreshEsp() task.wait(0.5) end end) else clearAllEsp() end end})
+
+local StatsAcc=MiscTab:Accordion({Title="Stats", Desc=" ", Open=true})
+StatsAcc:Toggle({Title="Show FPS & Ping", Desc=" ", Flag="ShowStats", Default=false, Callback=function(v) isStatsShow=v if v then createStatsPanel() else if statsGui then statsGui:Destroy() statsGui=nil end end end})
+
+local TeleportTab=Window:Tab({Title="Teleport", Icon="T"})
+local IslandAcc=TeleportTab:Accordion({Title="Island", Desc=" ", Open=true})
+IslandAcc:Dropdown({Title="Select Island", Desc=" ", Flag="IslandDropdown", Options={"Base"}, Default="Base", Callback=function(val) selectedIsland=val end})
+IslandAcc:Button({Title="TP to Base", Desc=" ", Callback=function() local pos=islandPositions[selectedIsland] or BASE_POS tweenToPos(pos) end})--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
