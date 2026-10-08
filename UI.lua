@@ -1761,13 +1761,14 @@ function SORU:CreateWindow(C)
             corner(badge, FULL)
             local arrow = label(badge, {Text = "›", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = WHITE, Rotation = 90, ZIndex = 3})
 
-            local body = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 1, -HEAD), BackgroundTransparency = 1, BorderSizePixel = 0}, f)
-            local tree = new("Frame", {Position = UDim2.fromOffset(14, 2), Size = UDim2.new(0, 2, 1, -10), BackgroundColor3 = WHITE, BorderSizePixel = 0}, body)
+            -- isi accordion: tinggi mengikuti konten (AutomaticSize), tidak bergantung pada tinggi kartu yang sedang dianimasikan
+            local body = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            new("UIPadding", {PaddingTop = UDim.new(0, PADT), PaddingBottom = UDim.new(0, PADB), PaddingLeft = UDim.new(0, 24), PaddingRight = UDim.new(0, 10)}, body)
+            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, body)
+            local tree = new("Frame", {Position = UDim2.fromOffset(14, HEAD + 2), Size = UDim2.new(0, 2, 1, -(HEAD + 10)), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
             corner(tree, FULL)
             new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.35, 1), Rotation = 90}, tree)
-            local inner = new("Frame", {Position = UDim2.fromOffset(24, PADT), Size = UDim2.new(1, -34, 1, -(PADT + PADB)), BackgroundTransparency = 1, BorderSizePixel = 0}, body)
-            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, inner)
-            local sub = buildComponents(scroll, inner, true)
+            local sub = buildComponents(scroll, body, true)
 
             local function contentH()
                 local fac = head.AbsoluteSize.Y / HEAD
@@ -1775,11 +1776,17 @@ function SORU:CreateWindow(C)
                 return math.floor(lay.AbsoluteContentSize.Y / fac + 0.5) + PADT + PADB
             end
             local function target() return UDim2.new(1, 0, 0, open and (HEAD + contentH()) or HEAD) end
+            local function resetKids()
+                for _, b in ipairs(sub._kids) do
+                    if b.Parent then b.Position = UDim2.fromOffset(0, 0) end
+                end
+            end
             local function setOpen(v, instant)
                 if v == open then return end
                 open = v
                 tok = tok + 1
                 local my = tok
+                if not v then resetKids() end
                 if not instant then sfx(v and "expand" or "collapse") end
                 play(arrow, {Rotation = v and -90 or 90}, 0.35, Enum.EasingStyle.Back)
                 play(badge, {BackgroundTransparency = v and 0.2 or 0.85}, 0.25)
@@ -1799,10 +1806,11 @@ function SORU:CreateWindow(C)
                         if b.Parent then
                             b.Position = UDim2.fromOffset(-24, 0)
                             task.delay(0.05 + math.min(i - 1, 8) * 0.045, function()
-                                if open and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.5, Enum.EasingStyle.Back) end
+                                if open and tok == my and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.5, Enum.EasingStyle.Back) end
                             end)
                         end
                     end
+                    task.delay(1.1, function() if open and tok == my then resetKids() end end)
                 end
             end
             lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
