@@ -11020,9 +11020,7 @@ workspace.DescendantAdded:Connect(function(v) if v:IsA("Animator") then task.wai
 
 local function getTabScroll(name)
     local t = Window.Tabs[name]
-    if t and t.frame then
-        return t.frame:FindFirstChildOfClass("ScrollingFrame") or t.frame
-    end
+    if t and t.frame then return t.frame:FindFirstChildOfClass("ScrollingFrame") or t.frame end
     return nil
 end
 local mainFrame = getTabScroll("Main")
@@ -11031,9 +11029,7 @@ repeat task.wait() until mainFrame and miscFrame
 
 local function clearFrame(f)
     for _,v in ipairs(f:GetChildren()) do
-        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then
-            v:Destroy()
-        end
+        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then v:Destroy() end
     end
 end
 clearFrame(mainFrame)
@@ -11051,7 +11047,6 @@ local ACCENT = Color3.fromRGB(139,92,246)
 local ACCENT2 = Color3.fromRGB(99,102,241)
 local DIM = Color3.fromRGB(148,140,180)
 local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p) end
-
 local function track(handle, onBegin, onMove, onEnd)
     handle.InputBegan:Connect(function(input)
         local ut = input.UserInputType
@@ -11068,11 +11063,7 @@ local function track(handle, onBegin, onMove, onEnd)
             end
         end)
         input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End and not ended then
-                ended = true
-                if conn then conn:Disconnect() end
-                if onEnd then onEnd(moved, state) end
-            end
+            if input.UserInputState == Enum.UserInputState.End and not ended then ended=true if conn then conn:Disconnect() end if onEnd then onEnd(moved, state) end end
         end)
     end)
 end
@@ -11098,7 +11089,26 @@ local function getAnimalZone(model)
 end
 local function getCashPerSecond(model) for _,v in ipairs(model:GetDescendants()) do if v.Name=="CashPerSecond" and v:IsA("TextLabel") then return v.Text end end return "?" end
 
+-- PARSER $ -> number
+local function parseCash(text)
+    if not text then return 0 end
+    local s = tostring(text):gsub("%$", ""):gsub("/s",""):gsub("/sec",""):gsub(" ",""):gsub(",",""):upper()
+    local num = tonumber(s:match("[%d%.]+"))
+    if not num then return 0 end
+    if s:find("K") then num*=1000
+    elseif s:find("M") then num*=1000000
+    elseif s:find("B") then num*=1000000000
+    elseif s:find("T") then num*=1000000000000
+    end
+    return num
+end
+local function parseFilterInput(text)
+    if not text or text=="" then return 0 end
+    return parseCash(text)
+end
+
 local defendMode="None" local attackEnabled=false
+local minCashFilter=0 -- FILTER $
 local function getBaseSpeed() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then return hum:GetAttribute("BaseSpeed") or hum.WalkSpeed end return 16 end
 local function getWalkSpeed() return getBaseSpeed() + SPEED_BUFF end
 local function findDropButton() for _,v in ipairs(plr.PlayerGui:GetDescendants()) do if v:IsA("TextButton") and (v.Name:lower():find("drop") or v.Text:lower():find("drop")) then return v end end return nil end
@@ -11158,11 +11168,10 @@ local function getClosestPlayerToModel(model, maxDist) local pos=getBasePos(mode
 local function equipBat() local char=plr.Character if not char then return nil end local bat=char:FindFirstChildWhichIsA("Tool") if bat and bat.Name:lower():find("bat") then return bat end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find("bat") then t.Parent=char return t end end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") then t.Parent=char return t end end return char:FindFirstChildOfClass("Tool") end
 local function attackCarrier(carrier) if not attackEnabled then return end if not carrier or not carrier.Character then return end local char=carrier.Character local hrp=char:FindFirstChild("HumanoidRootPart") if not hrp then return end for i=1,20 do if not char.Parent or not attackEnabled then break end local myHrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") if not myHrp then break end local pred=hrp.Position+hrp.CFrame.LookVector*5 pred=Vector3.new(pred.X,3.5,pred.Z) walkDirect(pred, hrp.Position, false) local bat=equipBat() if bat then pcall(function() bat:Activate() end) pcall(function() VIM:SendMouseButtonEvent(0,0,0,true,game,0) task.wait(0.05) VIM:SendMouseButtonEvent(0,0,0,false,game,0) end) end task.wait(0.15) local dist=(Vector3.new(myHrp.Position.X,0,myHrp.Position.Z)-Vector3.new(hrp.Position.X,0,hrp.Position.Z)).Magnitude if dist>30 then break end end end
 
--- NOTIF BAWAAN LIB (Instance.new notif dihapus)
 local function showStealNotif(model)
     if not model or not model.Parent then return end
     local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
-    Window.Notify("STEAL • "..model.Name:upper(), tostring(weight).." KG • "..string.upper(rarity), ACCENT, 3)
+    Window.Notify("STEAL • "..model.Name:upper(), tostring(weight).." KG • "..string.upper(rarity).." • "..getCashPerSecond(model), ACCENT, 3)
 end
 
 local stealMode="Normal"
@@ -11194,16 +11203,12 @@ end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("ProximityPrompt") then task.wait(0.1) makeBigPrompt(v) end end)
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") then makeBigPrompt(v) end end
 
--- DATA ZONE
 local zoneNames={} local zbFolder=getZoneBuildsFolder() if zbFolder then for _,m in ipairs(zbFolder:GetChildren()) do if m:IsA("Model") then table.insert(zoneNames,m.Name) end end end if #zoneNames==0 then zoneNames={"Zone1"} end
 local defendModes={"None","ZigZag","Random","Circle","Juke"}
-
--- FILTERS
 local selected={} local selectedZones={} local selectedEggZone=nil
 
--- CUSTOM INSTANCE.NEW COMPONENTS (TETAP)
+-- CUSTOM INSTANCE.NEW COMPONENTS
 local function createSectionLabel(parent, title, order)
-    -- label pengganti accordion --Auto Steal-- style
     local f=Instance.new("Frame") f.LayoutOrder=order f.Size=UDim2.new(1,-5,0,28) f.BackgroundTransparency=1 f.Parent=parent
     local lineL=Instance.new("Frame",f) lineL.Size=UDim2.new(0.22,0,0,1) lineL.Position=UDim2.new(0,0,0.5,0) lineL.BackgroundColor3=ACCENT lineL.BorderSizePixel=0
     Instance.new("UIGradient",lineL).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)}
@@ -11212,7 +11217,6 @@ local function createSectionLabel(parent, title, order)
     Instance.new("UIGradient",lineR).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT2),ColorSequenceKeypoint.new(1,ACCENT)}
     return f
 end
-
 local function createToggle(parent,order,title,desc)
     local f=Instance.new("Frame",parent) f.LayoutOrder=order f.Size=UDim2.new(1,-8,0,54) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.BackgroundTransparency=0.15 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
     local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0,14) dot.BackgroundColor3=Color3.fromRGB(60,55,80) Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
@@ -11222,8 +11226,16 @@ local function createToggle(parent,order,title,desc)
     local knob=Instance.new("Frame",btn) knob.Size=UDim2.fromOffset(18,18) knob.Position=UDim2.new(0,3,0.5,-9) knob.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
     return {frame=f, btn=btn, dot=knob, accent=dot, track=btn}
 end
+local function createTextbox(parent,order,title,placeholder)
+    local f=Instance.new("Frame",parent) f.LayoutOrder=order f.Size=UDim2.new(1,-8,0,54) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.BackgroundTransparency=0.15 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
+    local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0,14) dot.BackgroundColor3=ACCENT Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
+    local t=Instance.new("TextLabel",f) t.Text=title t.Position=UDim2.new(0,26,0,8) t.Size=UDim2.new(1,-130,0,12) t.BackgroundTransparency=1 t.Font=Enum.Font.GothamBold t.TextSize=12 t.TextColor3=Color3.new(1,1,1) t.TextXAlignment=Enum.TextXAlignment.Left
+    local d=Instance.new("TextLabel",f) d.Text=" " d.Position=UDim2.new(0,26,0,22) d.Size=UDim2.new(1,-130,0,10) d.BackgroundTransparency=1 d.Font=Enum.Font.GothamMedium d.TextSize=9 d.TextColor3=DIM d.TextXAlignment=Enum.TextXAlignment.Left
+    local wrap=Instance.new("Frame",f) wrap.Size=UDim2.fromOffset(110,28) wrap.Position=UDim2.new(1,-120,0.5,-14) wrap.BackgroundColor3=Color3.fromRGB(18,16,28) Instance.new("UICorner",wrap).CornerRadius=UDim.new(0,8) Instance.new("UIStroke",wrap).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",wrap).Transparency=0.6
+    local box=Instance.new("TextBox",wrap) box.Size=UDim2.new(1,-16,1,0) box.Position=UDim2.new(0,8,0,0) box.BackgroundTransparency=1 box.Text="" box.PlaceholderText=placeholder or "$ 0" box.PlaceholderColor3=Color3.fromRGB(100,94,130) box.TextColor3=Color3.new(1,1,1) box.Font=Enum.Font.GothamMedium box.TextSize=12 box.TextXAlignment=Enum.TextXAlignment.Left box.ClearTextOnFocus=false
+    return {frame=f, box=box, wrap=wrap}
+end
 
--- HELPER UNTUK DROPDOWN LIB BAWAAN SUPAYA LAYOUT NYATU
 local function createDropdownLib(tabAPI, scroll, desiredOrder, title, options, multi, default, callback)
     local cfg={
         Title=title,
@@ -11235,18 +11247,13 @@ local function createDropdownLib(tabAPI, scroll, desiredOrder, title, options, m
         Callback=callback
     }
     local api = tabAPI:Dropdown(cfg)
-    -- force LayoutOrder biar urut sama Instance.new lain
     task.defer(function()
         for _,h in ipairs(scroll:GetChildren()) do
-            if h.Name=="Holder" and h:GetAttribute("Title")==nil then
+            if h.Name=="Holder" then
                 local body=h:FindFirstChild("Body")
                 if body then
                     for _,lbl in ipairs(body:GetDescendants()) do
-                        if lbl:IsA("TextLabel") and lbl.Text==title then
-                            h.LayoutOrder=desiredOrder
-                            h:SetAttribute("Title",title)
-                            break
-                        end
+                        if lbl:IsA("TextLabel") and lbl.Text==title then h.LayoutOrder=desiredOrder break end
                     end
                 end
             end
@@ -11294,7 +11301,7 @@ end
 local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
 closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false end)
 
--- BUILD UI MAIN (INSTANCE.NEW KECUALI DROPDOWN)
+-- BUILD UI MAIN
 local ord=1
 createSectionLabel(mainFrame,"BASE",ord) ord+=1
 local baseToggle=createToggle(mainFrame,ord,"Auto Base"," ") ord+=1
@@ -11302,19 +11309,29 @@ local baseToggle=createToggle(mainFrame,ord,"Auto Base"," ") ord+=1
 createSectionLabel(mainFrame,"STEAL",ord) ord+=1
 
 createDropdownLib(MainAPI, mainFrame, ord, "Rarity", rarityNames, true, nil, function(val)
-    selected={}
-    if type(val)=="table" then for _,n in ipairs(val) do selected[n]=true end elseif val then selected[val]=true end
+    selected={} if type(val)=="table" then for _,n in ipairs(val) do selected[n]=true end elseif val then selected[val]=true end
 end) ord+=1
 
 createDropdownLib(MainAPI, mainFrame, ord, "Zone Filter", zoneNames, true, nil, function(val)
-    selectedZones={}
-    if type(val)=="table" then for _,n in ipairs(val) do selectedZones[n]=true end elseif val then selectedZones[val]=true end
+    selectedZones={} if type(val)=="table" then for _,n in ipairs(val) do selectedZones[n]=true end elseif val then selectedZones[val]=true end
 end) ord+=1
 
 createDropdownLib(MainAPI, mainFrame, ord, "Defend Mode", defendModes, false, "None", function(val)
     defendMode = type(val)=="table" and val[1] or val
     defendMode = defendMode or "None"
 end) ord+=1
+
+-- TEXTBOX FILTER $ (INSTANCE.NEW)
+local cashFilterBox=createTextbox(mainFrame,ord,"Min $ /Sec","$ 0 = off") ord+=1
+cashFilterBox.box.FocusLost:Connect(function(enter)
+    local v=parseFilterInput(cashFilterBox.box.Text)
+    minCashFilter=v
+    if v>0 then
+        Window.Notify("FILTER $","Min: $"..tostring(v),ACCENT,2)
+    else
+        Window.Notify("FILTER $","OFF",DIM,2)
+    end
+end)
 
 local stealToggle=createToggle(mainFrame,ord,"Auto Steal"," ") ord+=1
 local attackToggle=createToggle(mainFrame,ord,"Attack Carrier"," ") ord+=1
@@ -11323,12 +11340,9 @@ createSectionLabel(mainFrame,"PANEL",ord) ord+=1
 local panelToggle=createToggle(mainFrame,ord,"External Panel"," ") ord+=1
 
 createSectionLabel(mainFrame,"BREAK EGG",ord) ord+=1
-createDropdownLib(MainAPI, mainFrame, ord, "Egg Zone", zoneNames, false, nil, function(val)
-    selectedEggZone = type(val)=="table" and val[1] or val
-end) ord+=1
+createDropdownLib(MainAPI, mainFrame, ord, "Egg Zone", zoneNames, false, nil, function(val) selectedEggZone = type(val)=="table" and val[1] or val end) ord+=1
 local eggToggle=createToggle(mainFrame,ord,"Break Egg"," ") ord+=1
 
--- BUILD UI MISC
 local mord=1
 createSectionLabel(miscFrame,"MISC",mord) mord+=1
 local ragdollToggle=createToggle(miscFrame,mord,"No Ragdoll"," ") mord+=1
@@ -11336,9 +11350,27 @@ local antiMentalToggle=createToggle(miscFrame,mord,"Anti Mental"," ") mord+=1
 createSectionLabel(miscFrame,"GAMEPASS",mord) mord+=1
 local fastBreakToggle=createToggle(miscFrame,mord,"Fast Break"," ") mord+=1
 
--- LOGIC TOGGLES (TETAP INSTANCE.NEW)
+-- LOGIC
 local baseOn=false local baseConn=nil
 baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) Window.Notify("BASE","Auto Base ON",ACCENT,2) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
+
+local function getStealTargets()
+    local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end
+    local out={}
+    for _,m in ipairs(folder:GetChildren()) do
+        if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then
+            if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end
+            -- FILTER $
+            if minCashFilter>0 then
+                local cash=parseCash(getCashPerSecond(m))
+                if cash < minCashFilter then continue end
+            end
+            table.insert(out,m)
+        end
+    end
+    table.sort(out, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end)
+    return out
+end
 
 local stealOn=false
 stealToggle.btn.MouseButton1Click:Connect(function()
@@ -11349,9 +11381,7 @@ stealToggle.btn.MouseButton1Click:Connect(function()
         walkToSafeBase()
         task.spawn(function()
             while stealOn do
-                local folder=workspace:FindFirstChild("AnimalPickups") if not folder then task.wait(1) continue end
-                local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(list,m) end end
-                table.sort(list, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end)
+                local list=getStealTargets()
                 local found=#list>0
                 for _,m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end
                 if not found then task.wait(0.8) end
@@ -11367,7 +11397,6 @@ local extOn=false panelToggle.btn.MouseButton1Click:Connect(function() extOn=not
 local function getEggsInZone(zoneName) local zb=getZoneBuildsFolder() if not zb then return {} end local zoneModel=zb:FindFirstChild(zoneName) if not zoneModel then return {} end local eggsRoot=zoneModel:FindFirstChild("Eggs") or zoneModel local out={} for _,v in ipairs(eggsRoot:GetChildren()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end if #out==0 then for _,v in ipairs(eggsRoot:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end end return out end
 local function getEggHealth(eggModel) if eggModel:GetAttribute("Health") then return eggModel:GetAttribute("Health") end for _,d in ipairs(eggModel:GetDescendants()) do local h=d:GetAttribute("Health") if h~=nil then return h end end return nil end
 local function equipPickaxe() local char=plr.Character if not char then return nil end local tool=char:FindFirstChildOfClass("Tool") if tool and tool.Name:lower():find("pickaxe") then return tool end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find("pickaxe") then t.Parent=char return t end end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") then t.Parent=char return t end end return char:FindFirstChildOfClass("Tool") end
-local function getStealTargets() local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end local out={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(out,m) end end table.sort(out, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end) return out end
 
 local breakOn=false
 eggToggle.btn.MouseButton1Click:Connect(function()
@@ -11377,7 +11406,7 @@ eggToggle.btn.MouseButton1Click:Connect(function()
         tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play()
         task.spawn(function()
             while breakOn do
-                local targets=getStealTargets()
+                local targets=getStealTargets() -- sudah termasuk filter $
                 if #targets>0 then for _,m in ipairs(targets) do if not breakOn then break end pcall(function() stealMethod(m) end) task.wait(0.3) end continue end
                 local eggs=getEggsInZone(selectedEggZone)
                 if #eggs==0 then task.wait(1) continue end
@@ -11435,7 +11464,7 @@ RunService.Heartbeat:Connect(function()
     if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end
 end)
 
-Window.Notify("👑","Lib Dropdown & Notif Active", ACCENT, 3)--(%--&_>@)
+Window.Notify("👑","Filter $ Active", ACCENT, 3)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
