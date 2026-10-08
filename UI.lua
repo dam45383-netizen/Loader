@@ -364,7 +364,7 @@ function SORU:CreateWindow(C)
         end
         for i, body in ipairs(list) do
             task.delay(math.min(i - 1, 14) * 0.045, function()
-                if body.Parent then play(body, {Position = UDim2.fromOffset(0, 0)}, 0.6, Enum.EasingStyle.Back) end
+                if body.Parent then play(body, {Position = UDim2.fromOffset(0, 0)}, 0.6, Enum.EasingStyle.Back).Completed:Connect(function() if body.Parent then body.Position = UDim2.fromOffset(0, 0) end end) end
             end)
         end
     end
@@ -478,7 +478,7 @@ function SORU:CreateWindow(C)
 
     local function sweepFx(btn)
         btn.ClipsDescendants = true
-        local sw = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2.4, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 20, BackgroundColor3 = WHITE, BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 5}, btn)
+        local sw = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 40, 1, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 5}, btn)
         new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.75), NumberSequenceKeypoint.new(1, 1)}}, sw)
         btn.MouseEnter:Connect(function()
             sw.Position = UDim2.new(-0.2, 0, 0.5, 0)
@@ -785,6 +785,8 @@ function SORU:CreateWindow(C)
             local f = new(clickable and "TextButton" or "Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.card, BackgroundTransparency = 0.15, BorderSizePixel = 0})
             if clickable then f.Text = "" f.AutoButtonColor = false end
             f.Parent = hf
+            f.AnchorPoint = Vector2.new(0, 0)
+            f.Position = UDim2.fromOffset(0, 0)
             corner(f, 12)
             local s = stroke(f, T.stroke, 1, 0.55)
             grad(f, WHITE, Color3.fromRGB(200, 196, 222), 90)
@@ -793,7 +795,7 @@ function SORU:CreateWindow(C)
             regTrans(f, 0)
             enter(f)
             if clickable then
-                ripple(f) sweepFx(f)
+                ripple(f)
                 local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
                 corner(bar, FULL)
                 grad(bar, T.cyan, T.accent, 90)
