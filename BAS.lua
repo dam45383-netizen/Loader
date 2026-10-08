@@ -11001,8 +11001,10 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
-local MainAPI = Window:Tab({Title="Main", Icon="⚡"})
-local MiscAPI = Window:Tab({Title="Misc", Icon="🛡️"})
+local MainAPI = Window:Tab({Title = "Main"})
+local MiscAPI = Window:Tab({Title = "Misc"})
+
+repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"] and Window.Gui:FindFirstChild("Root")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -11016,46 +11018,92 @@ local plr = Players.LocalPlayer
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Animator") then pcall(function() v:Destroy() end) end end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("Animator") then task.wait(0.1) pcall(function() v:Destroy() end) end end)
 
-local T = {panel=Color3.fromRGB(16,14,28), card=Color3.fromRGB(25,22,41), stroke=Color3.fromRGB(68,61,106), text=Color3.fromRGB(246,244,255), dim=Color3.fromRGB(150,142,186), accent=Color3.fromRGB(145,96,255), accent2=Color3.fromRGB(94,106,255), cyan=Color3.fromRGB(56,200,255), ok=Color3.fromRGB(74,222,128)}
-local ACCENT, DIM = T.accent, T.dim
+local function getTabScroll(name)
+    local t = Window.Tabs[name]
+    if t and t.frame then
+        return t.frame:FindFirstChildOfClass("ScrollingFrame") or t.frame
+    end
+    return nil
+end
+local mainFrame = getTabScroll("Main")
+local miscFrame = getTabScroll("Misc")
+repeat task.wait() until mainFrame and miscFrame
+
+local function clearFrame(f)
+    for _,v in ipairs(f:GetChildren()) do
+        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then
+            v:Destroy()
+        end
+    end
+end
+clearFrame(mainFrame)
+clearFrame(miscFrame)
+
 local root = Window.Gui:FindFirstChild("Root")
 local rootScale = root and root:FindFirstChildOfClass("UIScale")
 
 local SAFE_BASE_POS = Vector3.new(-75, 3.5, -7.4)
 local HELPER_DROP_POS = Vector3.new(-105.2, 3.7, -6.2)
-local OFFSET_DIST, RANGE, SPEED_BUFF = 3, 15, 5
-local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quint, Enum.EasingDirection.Out), p) end
+local OFFSET_DIST = 3
+local RANGE = 15
+local SPEED_BUFF = 5
+local ACCENT = Color3.fromRGB(139,92,246)
+local ACCENT2 = Color3.fromRGB(99,102,241)
+local DIM = Color3.fromRGB(148,140,180)
+local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p) end
+
 local function track(handle, onBegin, onMove, onEnd)
     handle.InputBegan:Connect(function(input)
-        if input.UserInputType~=Enum.UserInputType.MouseButton1 and input.UserInputType~=Enum.UserInputType.Touch then return end
-        local start=input.Position local state=onBegin and onBegin(start) or nil
-        local moved,ended=false,false local conn
-        conn=UserInputService.InputChanged:Connect(function(i)
-            if i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch then
-                local dx,dy=i.Position.X-start.X, i.Position.Y-start.Y
-                if not moved and (math.abs(dx)>4 or math.abs(dy)>4) then moved=true end
-                if onMove then onMove(dx,dy,state,moved,i.Position) end
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        local start = input.Position
+        local state = onBegin and onBegin(start) or nil
+        local moved, ended = false, false
+        local conn
+        conn = UserInputService.InputChanged:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+                local dx, dy = i.Position.X - start.X, i.Position.Y - start.Y
+                if not moved and (math.abs(dx)>4 or math.abs(dy)>4) then moved = true end
+                if onMove then onMove(dx, dy, state, moved, i.Position) end
             end
         end)
-        input.Changed:Connect(function() if input.UserInputState==Enum.UserInputState.End and not ended then ended=true if conn then conn:Disconnect() end if onEnd then onEnd(moved,state) end end end)
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End and not ended then
+                ended = true
+                if conn then conn:Disconnect() end
+                if onEnd then onEnd(moved, state) end
+            end
+        end)
     end)
 end
 
-local RARITY_SCORE = {Common=1,Uncommon=2,Rare=3,Epic=4,Legendary=5,Mythic=6,Secret=7,Godly=8,Cosmic=9,Divine=10,Celestial=11}
+local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Cosmic"]=9,["Divine"]=10,["Celestial"]=11}
 local rarityNames={} local rf=RS:FindFirstChild("Rarities") if rf then for _,c in ipairs(rf:GetChildren()) do table.insert(rarityNames,c.Name) end else rarityNames={"Common","Rare","Epic","Legendary","Mythic","Secret"} end
 local function getRarityScore(n) if RARITY_SCORE[n] then return RARITY_SCORE[n] end for i,v in ipairs(rarityNames) do if v==n then return i end end return 0 end
 local function getBasePos(m) local b if m.PrimaryPart then b=m.PrimaryPart.Position else local ok,cf=pcall(function() return m:GetPivot() end) if ok then b=Vector3.new(cf.X,cf.Y,cf.Z) else for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then b=v.Position break end end end end return b end
-local function getOffsetPos(m) local base=getBasePos(m) if not base then return nil,nil end local hrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") local dir=hrp and Vector3.new(hrp.Position.X-base.X,0,hrp.Position.Z-base.Z) or Vector3.new(0,0,1) if dir.Magnitude<1 then dir=Vector3.new(0,0,1) end return Vector3.new(base.X,3.5,base.Z)+dir.Unit*OFFSET_DIST, Vector3.new(base.X,3.5,base.Z) end
+local function getOffsetPos(m)
+    local base=getBasePos(m) if not base then return nil,nil end
+    local hrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    local dir=hrp and Vector3.new(hrp.Position.X-base.X,0,hrp.Position.Z-base.Z) or Vector3.new(0,0,1)
+    if dir.Magnitude<1 then dir=Vector3.new(0,0,1) end
+    return Vector3.new(base.X, 3.5, base.Z) + dir.Unit*OFFSET_DIST, Vector3.new(base.X,3.5,base.Z)
+end
 local function getZoneBuildsFolder() local b=workspace:FindFirstChild("Build") if b then local zb=b:FindFirstChild("ZoneBuilds") if zb then return zb end end return workspace:FindFirstChild("ZoneBuilds") or workspace:FindFirstChild("Build") end
-local function getAnimalZone(model) local pos=getBasePos(model) if not pos then return "Unknown" end local zb=getZoneBuildsFolder() if not zb then return "Unknown" end local closest="Unknown" local minD=math.huge for _,z in ipairs(zb:GetChildren()) do if z:IsA("Model") then local zp=getBasePos(z) if zp then local d=(Vector3.new(pos.X,0,pos.Z)-Vector3.new(zp.X,0,zp.Z)).Magnitude if d<minD then minD=d closest=z.Name end end end end return closest end
+local function getAnimalZone(model)
+    local pos=getBasePos(model) if not pos then return "Unknown" end
+    local zb=getZoneBuildsFolder() if not zb then return "Unknown" end
+    local closest="Unknown" local minD=math.huge
+    for _,z in ipairs(zb:GetChildren()) do if z:IsA("Model") then local zp=getBasePos(z) if zp then local d=(Vector3.new(pos.X,0,pos.Z)-Vector3.new(zp.X,0,zp.Z)).Magnitude if d<minD then minD=d closest=z.Name end end end end
+    return closest
+end
 local function getCashPerSecond(model) for _,v in ipairs(model:GetDescendants()) do if v.Name=="CashPerSecond" and v:IsA("TextLabel") then return v.Text end end return "?" end
 
-local defendMode, attackEnabled, stealMode = "None", false, "Normal"
+local defendMode="None" local attackEnabled=false
 local function getBaseSpeed() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then return hum:GetAttribute("BaseSpeed") or hum.WalkSpeed end return 16 end
-local function getWalkSpeed() return getBaseSpeed()+SPEED_BUFF end
+local function getWalkSpeed() return getBaseSpeed() + SPEED_BUFF end
 local function findDropButton() for _,v in ipairs(plr.PlayerGui:GetDescendants()) do if v:IsA("TextButton") and (v.Name:lower():find("drop") or v.Text:lower():find("drop")) then return v end end return nil end
 local function isDropVisible() local btn=findDropButton() if not btn then return false end if not btn.Visible then return false end local cur=btn.Parent while cur and cur~=plr.PlayerGui do if cur:IsA("GuiObject") and not cur.Visible then return false end cur=cur.Parent end return true end
-local function fireDropNow() local b=findDropButton() if b then pcall(function() b:Activate() end) end local r=RS:FindFirstChild("DropCarriedRemote") or RS:FindFirstChild("DropCarriedRemote",true) or RS:FindFirstChild("DropCarried",true) if r then pcall(function() r:FireServer() end) end end
+local function fireDropNow() local dropBtn=findDropButton() if dropBtn then pcall(function() dropBtn:Activate() end) end local remote=RS:FindFirstChild("DropCarriedRemote") or RS:FindFirstChild("DropCarriedRemote",true) or RS:FindFirstChild("DropCarried",true) if remote then pcall(function() remote:FireServer() end) end end
 local function getClosestAnimalToHRP(maxDist) local hrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") if not hrp then return nil end local closest=nil local minD=maxDist or 8 local folder=workspace:FindFirstChild("AnimalPickups") if folder then for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then local pos=getBasePos(m) if pos then local d=(Vector3.new(hrp.Position.X,0,hrp.Position.Z)-Vector3.new(pos.X,0,pos.Z)).Magnitude if d<minD then minD=d closest=m end end end end end return closest end
 local function isCarryingTarget(targetModel) if not isDropVisible() then return false end local closest=getClosestAnimalToHRP(8) if not closest then return true end if closest==targetModel then return true end if closest.Name==targetModel.Name and closest:GetAttribute("Rarity")==targetModel:GetAttribute("Rarity") then return true end return false end
 
@@ -11065,29 +11113,40 @@ local function walkDirect(targetPos, lookAt, keepRot)
     pcall(function() hrp.AssemblyLinearVelocity=Vector3.zero hrp.AssemblyAngularVelocity=Vector3.zero end)
     local function distLeft() return (Vector3.new(hrp.Position.X,0,hrp.Position.Z)-Vector3.new(targetPos.X,0,targetPos.Z)).Magnitude end
     if distLeft()<1.2 then return end
-    while distLeft()>1.2 do if not char or not hrp.Parent then break end local ws=getWalkSpeed() local cur=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z) local dir=Vector3.new(targetPos.X-cur.X,0,targetPos.Z-cur.Z) if dir.Magnitude<0.1 then break end dir=dir.Unit local dt=RunService.Heartbeat:Wait() local step=dir*ws*dt if step.Magnitude>distLeft() then step=dir*distLeft() end local newPos=cur+step local cf=keepRot and CFrame.new(newPos)*(hrp.CFrame-hrp.CFrame.Position) or (lookAt and CFrame.lookAt(newPos,lookAt) or CFrame.lookAt(newPos,newPos+dir)) hrp.CFrame=cf hrp.AssemblyLinearVelocity=Vector3.zero end
+    while distLeft() > 1.2 do
+        if not char or not hrp.Parent then break end
+        local ws=getWalkSpeed() local cur=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z)
+        local dir=Vector3.new(targetPos.X-cur.X,0,targetPos.Z-cur.Z) if dir.Magnitude<0.1 then break end dir=dir.Unit
+        local dt=RunService.Heartbeat:Wait() local step=dir*ws*dt if step.Magnitude>distLeft() then step=dir*distLeft() end
+        local newPos=cur+step local cf=keepRot and CFrame.new(newPos)*(hrp.CFrame-hrp.CFrame.Position) or (lookAt and CFrame.lookAt(newPos,lookAt) or CFrame.lookAt(newPos,newPos+dir))
+        hrp.CFrame=cf hrp.AssemblyLinearVelocity=Vector3.zero
+    end
 end
 local function walkDirectFallback(targetPos, keepRot, originalAnimal)
     local char=plr.Character local hrp=char and char:FindFirstChild("HumanoidRootPart") if not hrp or not targetPos then return false end
     pcall(function() hrp.AssemblyLinearVelocity=Vector3.zero hrp.AssemblyAngularVelocity=Vector3.zero end)
     local function distLeft() return (Vector3.new(hrp.Position.X,0,hrp.Position.Z)-Vector3.new(targetPos.X,0,targetPos.Z)).Magnitude end
     if distLeft()<1.2 then return true end
-    while distLeft()>1.2 do if not char or not hrp.Parent then return false end if not isDropVisible() then if originalAnimal and originalAnimal.Parent then local p,b=getOffsetPos(originalAnimal) if p then walkDirect(p,b,false) end end return false end local ws=getWalkSpeed() local cur=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z) local dir=Vector3.new(targetPos.X-cur.X,0,targetPos.Z-cur.Z) if dir.Magnitude<0.1 then break end dir=dir.Unit local dt=RunService.Heartbeat:Wait() local step=dir*ws*dt if step.Magnitude>distLeft() then step=dir*distLeft() end local newPos=cur+step local cf=keepRot and CFrame.new(newPos)*(hrp.CFrame-hrp.CFrame.Position) or CFrame.lookAt(newPos,newPos+dir) hrp.CFrame=cf hrp.AssemblyLinearVelocity=Vector3.zero end return true
+    while distLeft() > 1.2 do
+        if not char or not hrp.Parent then return false end
+        if not isDropVisible() then if originalAnimal and originalAnimal.Parent then local p,b=getOffsetPos(originalAnimal) if p then walkDirect(p,b,false) end end return false end
+        local ws=getWalkSpeed() local cur=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z) local dir=Vector3.new(targetPos.X-cur.X,0,targetPos.Z-cur.Z) if dir.Magnitude<0.1 then break end dir=dir.Unit
+        local dt=RunService.Heartbeat:Wait() local step=dir*ws*dt if step.Magnitude>distLeft() then step=dir*distLeft() end
+        local newPos=cur+step local cf=keepRot and CFrame.new(newPos)*(hrp.CFrame-hrp.CFrame.Position) or CFrame.lookAt(newPos,newPos+dir)
+        hrp.CFrame=cf hrp.AssemblyLinearVelocity=Vector3.zero
+    end
+    return true
 end
 local function walkDefendFallback(targetPos, mode, originalAnimal)
-    if mode=="None" or not mode then return walkDirectFallback(targetPos,true,originalAnimal) end
+    if mode=="None" or not mode then return walkDirectFallback(targetPos, true, originalAnimal) end
     local hrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") if not hrp then return false end
     local start=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z) local dir=(targetPos-start) local dist=Vector3.new(dir.X,0,dir.Z).Magnitude if dist<5 then return walkDirectFallback(targetPos,true,originalAnimal) end
     dir=Vector3.new(dir.X,0,dir.Z).Unit local perp=Vector3.new(-dir.Z,0,dir.X)
-    local points={}
-    if mode=="ZigZag" then for i=1,4 do local t=i/5 local baseP=start:Lerp(targetPos,t) table.insert(points, baseP+perp*((i%2==0 and 1 or -1)*24)) end
-    elseif mode=="Random" then for i=1,4 do local t=i/5 local baseP=start:Lerp(targetPos,t) table.insert(points, baseP+perp*math.random(-22,22)) end
-    elseif mode=="Circle" then for i=1,6 do local t=i/7 local baseP=start:Lerp(targetPos,t) local ang=i*60 table.insert(points, baseP+Vector3.new(math.cos(math.rad(ang))*12,0,math.sin(math.rad(ang))*12)) end
-    elseif mode=="Juke" then for i=1,5 do local t=i/6 local baseP=start:Lerp(targetPos,t) table.insert(points, baseP+perp*((i%2==0 and 32 or -32)+math.random(-8,8))) end end
-    for _,p in ipairs(points) do if not walkDirectFallback(p,true,originalAnimal) then return false end task.wait(0.05) end
+    local points={} if mode=="ZigZag" then for i=1,4 do local t=i/5 local baseP=start:Lerp(targetPos,t) local offset=(i%2==0 and 1 or -1)*10 table.insert(points, baseP+perp*offset) end elseif mode=="Random" then for i=1,4 do local t=i/5 local baseP=start:Lerp(targetPos,t) table.insert(points, baseP+perp*math.random(-12,12)) end elseif mode=="Circle" then for i=1,6 do local t=i/7 local baseP=start:Lerp(targetPos,t) local ang=i*60 table.insert(points, baseP+Vector3.new(math.cos(math.rad(ang))*8,0,math.sin(math.rad(ang))*8)) end elseif mode=="Juke" then for i=1,5 do local t=i/6 local baseP=start:Lerp(targetPos,t) local offset=(i%2==0 and 14 or -14)+math.random(-4,4) table.insert(points, baseP+perp*offset) end end
+    for _,p in ipairs(points) do local ok=walkDirectFallback(p,true,originalAnimal) if not ok then return false end task.wait(0.05) end
     return walkDirectFallback(targetPos,true,originalAnimal)
 end
-local function walkToSafeBaseFallback(originalAnimal) if not walkDefendFallback(Vector3.new(-75,3.5,-7.4), defendMode, originalAnimal) then return false end return walkDefendFallback(SAFE_BASE_POS, defendMode, originalAnimal) end
+local function walkToSafeBaseFallback(originalAnimal) local ok=walkDefendFallback(Vector3.new(-75,3.5,-7.4), defendMode, originalAnimal) if not ok then return false end ok=walkDefendFallback(SAFE_BASE_POS, defendMode, originalAnimal) return ok end
 local function walkToSafeBase() walkDirect(Vector3.new(-75,3.5,-7.4), nil, true) walkDirect(SAFE_BASE_POS, nil, true) end
 local function setupViewportModel(vp, model) vp:ClearAllChildren() local clone=model:Clone() for _,d in ipairs(clone:GetDescendants()) do if d:IsA("Script") or d:IsA("LocalScript") or d:IsA("ProximityPrompt") or d:IsA("ParticleEmitter") or d:IsA("BillboardGui") or d:IsA("SurfaceGui") or d:IsA("Highlight") then d:Destroy() end if d:IsA("BasePart") then d.Anchored=true d.CanCollide=false end end pcall(function() clone:PivotTo(CFrame.new(0,0,0)) end) local _,size=clone:GetBoundingBox() clone.Parent=vp local cam=Instance.new("Camera") cam.FieldOfView=30 cam.CFrame=CFrame.new(Vector3.new(1.2,0.8,2.5)*math.clamp(math.max(size.X,size.Y,size.Z),1,5), Vector3.new(0,0,0)) cam.Parent=vp vp.CurrentCamera=cam end
 local function makeBigPrompt(p) if not p:IsA("ProximityPrompt") then return end pcall(function() p.HoldDuration=0 p.MaxActivationDistance=RANGE p.RequiresLineOfSight=false p.KeyboardKeyCode=Enum.KeyCode.E p.Exclusivity=Enum.ProximityPromptExclusivity.OnePerButton end) end
@@ -11097,21 +11156,16 @@ local function touchSteal(m) if not m or not m.Parent then return end local hrp=
 local function pressE() pcall(function() VIM:SendKeyEvent(true, Enum.KeyCode.E, false, game) task.wait(0.05) VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game) end) end
 local function getClosestPlayerToModel(model, maxDist) local pos=getBasePos(model) if not pos then return nil end local closest=nil local minD=maxDist or 20 for _,p in ipairs(Players:GetPlayers()) do if p~=plr and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then local hrp=p.Character.HumanoidRootPart local d=(Vector3.new(hrp.Position.X,0,hrp.Position.Z)-Vector3.new(pos.X,0,pos.Z)).Magnitude if d<minD then minD=d closest=p end end end return closest end
 local function equipBat() local char=plr.Character if not char then return nil end local bat=char:FindFirstChildWhichIsA("Tool") if bat and bat.Name:lower():find("bat") then return bat end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find("bat") then t.Parent=char return t end end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") then t.Parent=char return t end end return char:FindFirstChildOfClass("Tool") end
-local function attackCarrier(carrier) if not attackEnabled then return end if not carrier or not carrier.Character then return end local char=carrier.Character local hrp=char:FindFirstChild("HumanoidRootPart") if not hrp then return end for i=1,20 do if not char.Parent or not attackEnabled then break end local myHrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") if not myHrp then break end local pred=hrp.Position+hrp.CFrame.LookVector*5 pred=Vector3.new(pred.X,3.5,pred.Z) walkDirect(pred, hrp.Position, false) local bat=equipBat() if bat then pcall(function() bat:Activate() end) pcall(function() VIM:SendMouseButtonEvent(0,0,0,true,game,0) task.wait(0.05) VIM:SendMouseButtonEvent(0,0,0,false,game,0) end) end task.wait(0.15) if (Vector3.new(myHrp.Position.X,0,myHrp.Position.Z)-Vector3.new(hrp.Position.X,0,hrp.Position.Z)).Magnitude>30 then break end end end
+local function attackCarrier(carrier) if not attackEnabled then return end if not carrier or not carrier.Character then return end local char=carrier.Character local hrp=char:FindFirstChild("HumanoidRootPart") if not hrp then return end for i=1,20 do if not char.Parent or not attackEnabled then break end local myHrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") if not myHrp then break end local pred=hrp.Position+hrp.CFrame.LookVector*5 pred=Vector3.new(pred.X,3.5,pred.Z) walkDirect(pred, hrp.Position, false) local bat=equipBat() if bat then pcall(function() bat:Activate() end) pcall(function() VIM:SendMouseButtonEvent(0,0,0,true,game,0) task.wait(0.05) VIM:SendMouseButtonEvent(0,0,0,false,game,0) end) end task.wait(0.15) local dist=(Vector3.new(myHrp.Position.X,0,myHrp.Position.Z)-Vector3.new(hrp.Position.X,0,hrp.Position.Z)).Magnitude if dist>30 then break end end end
 
-local notifGui=Instance.new("ScreenGui") notifGui.Name="SORU_NOTIF" notifGui.ResetOnSpawn=false notifGui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling notifGui.Parent=plr.PlayerGui
-local holder=Instance.new("Frame") holder.Size=UDim2.new(1,0,1,0) holder.BackgroundTransparency=1 holder.ZIndex=200 holder.Parent=notifGui local toasts={}
+-- NOTIF BAWAAN LIB (Instance.new notif dihapus)
 local function showStealNotif(model)
     if not model or not model.Parent then return end
     local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
-    local f=Instance.new("Frame") f.Size=UDim2.fromOffset(320,72) f.Position=UDim2.new(1,20,0,24+#toasts*82) f.BackgroundColor3=Color3.fromRGB(20,18,32) f.ZIndex=201 f.Parent=holder Instance.new("UICorner",f).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",f).Color=ACCENT Instance.new("UIStroke",f).Transparency=0.4
-    local line=Instance.new("Frame",f) line.Size=UDim2.new(0,4,1,0) line.BackgroundColor3=ACCENT Instance.new("UICorner",line).CornerRadius=UDim.new(0,99)
-    local vp=Instance.new("ViewportFrame",f) vp.Size=UDim2.fromOffset(48,48) vp.Position=UDim2.new(0,14,0,12) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT Instance.new("UIStroke",vp).Transparency=0.6 setupViewportModel(vp, model)
-    local a=Instance.new("TextLabel",f) a.Text=model.Name:upper() a.Size=UDim2.new(1,-90,0,16) a.Position=UDim2.new(0,74,0,12) a.BackgroundTransparency=1 a.Font=Enum.Font.GothamBold a.TextSize=12 a.TextColor3=Color3.new(1,1,1) a.TextXAlignment=Enum.TextXAlignment.Left a.ZIndex=202 a.TextTruncate=Enum.TextTruncate.AtEnd
-    local b=Instance.new("TextLabel",f) b.Text=tostring(weight).." KG • "..string.upper(rarity) b.Size=UDim2.new(1,-90,0,14) b.Position=UDim2.new(0,74,0,30) b.BackgroundTransparency=1 b.Font=Enum.Font.GothamMedium b.TextSize=11 b.TextColor3=DIM b.TextXAlignment=Enum.TextXAlignment.Left b.ZIndex=202
-    table.insert(toasts,f) tw(f,{Position=UDim2.new(1,-340,0,24+(#toasts-1)*82)},0.5,Enum.EasingStyle.Back):Play()
-    task.delay(3,function() tw(f,{Position=UDim2.new(1,20,0,f.Position.Y.Offset)},0.3,Enum.EasingStyle.Back,Enum.EasingDirection.In):Play() task.wait(0.3) for i,v in ipairs(toasts) do if v==f then table.remove(toasts,i) break end end f:Destroy() for i,v in ipairs(toasts) do tw(v,{Position=UDim2.new(1,-340,0,24+(i-1)*82)},0.25):Play() end end)
+    Window.Notify("STEAL • "..model.Name:upper(), tostring(weight).." KG • "..string.upper(rarity), ACCENT, 3)
 end
+
+local stealMode="Normal"
 local function stealMethod(targetModel)
     if not targetModel or not targetModel.Parent then return end
     showStealNotif(targetModel)
@@ -11122,108 +11176,266 @@ local function stealMethod(targetModel)
         if curPos and lastPos and (curPos-lastPos).Magnitude>2 then local carrier=getClosestPlayerToModel(targetModel, 20) if carrier and attackEnabled then attackCarrier(carrier) end end
         lastPos=curPos
         local p,b=getOffsetPos(targetModel) if p then walkDirect(p,b,false) end
-        touchSteal(targetModel) fireSteal(targetModel) pressE() task.wait(0.25) tries+=1
+        touchSteal(targetModel) fireSteal(targetModel) pressE()
+        task.wait(0.25) tries+=1
         if isDropVisible() and not isCarryingTarget(targetModel) then fireDropNow() task.wait(0.3) end
     end
     if not isDropVisible() then walkToSafeBase() return end
     if not isCarryingTarget(targetModel) then fireDropNow() task.wait(0.3) return end
-    if stealMode=="Helper" then if not walkDefendFallback(HELPER_DROP_POS, defendMode, targetModel) then return end if not isCarryingTarget(targetModel) then fireDropNow() return end task.wait(0.15) fireDropNow() task.wait(0.2) walkToSafeBaseFallback(targetModel) else walkToSafeBaseFallback(targetModel) end
+    if stealMode=="Helper" then
+        local ok=walkDefendFallback(HELPER_DROP_POS, defendMode, targetModel) if not ok then return end
+        if not isCarryingTarget(targetModel) then fireDropNow() return end
+        task.wait(0.15) fireDropNow() task.wait(0.2) walkToSafeBaseFallback(targetModel)
+    else
+        local ok=walkToSafeBaseFallback(targetModel) if not ok then return end
+    end
 end
 
 workspace.DescendantAdded:Connect(function(v) if v:IsA("ProximityPrompt") then task.wait(0.1) makeBigPrompt(v) end end)
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("ProximityPrompt") then makeBigPrompt(v) end end
 
+-- DATA ZONE
 local zoneNames={} local zbFolder=getZoneBuildsFolder() if zbFolder then for _,m in ipairs(zbFolder:GetChildren()) do if m:IsA("Model") then table.insert(zoneNames,m.Name) end end end if #zoneNames==0 then zoneNames={"Zone1"} end
-local selected, selectedZones, selectedEggZone = {}, {}, nil
+local defendModes={"None","ZigZag","Random","Circle","Juke"}
 
--- PANEL v4 + DESC KOSONG
-local mainExt=Instance.new("Frame") mainExt.Name="SORU_ExternalPanel" mainExt.Size=UDim2.fromOffset(330,400) mainExt.Position=UDim2.new(1,-340,1,-420) mainExt.BackgroundColor3=T.panel mainExt.BackgroundTransparency=0.08 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50
-Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,16) Instance.new("UIStroke",mainExt).Color=T.stroke Instance.new("UIStroke",mainExt).Transparency=0.35
-local accentLine=Instance.new("Frame",mainExt) accentLine.Size=UDim2.new(1,0,0,2) accentLine.Position=UDim2.new(0,0,0,0) accentLine.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",accentLine).CornerRadius=UDim.new(0,99) local ag=Instance.new("UIGradient",accentLine) ag.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.accent),ColorSequenceKeypoint.new(0.5,T.cyan),ColorSequenceKeypoint.new(1,T.accent)}
-local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,54) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=52
-local badge=Instance.new("Frame",titleBar) badge.Size=UDim2.fromOffset(32,32) badge.Position=UDim2.new(0,12,0.5,-16) badge.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",badge).CornerRadius=UDim.new(0,10) Instance.new("UIGradient",badge).Color=ColorSequence.new(T.accent,T.accent2) bg=Instance.new("UIGradient",badge) bg.Rotation=45
-local tl=Instance.new("TextLabel",titleBar) tl.Text="Panel" tl.Position=UDim2.new(0,54,0,18) tl.Size=UDim2.new(0,140,0,18) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=14 tl.TextColor3=T.text tl.TextXAlignment=Enum.TextXAlignment.Left
-local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(30,30) closeBtn.Position=UDim2.new(1,-38,0.5,-15) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamBold closeBtn.TextSize=12 closeBtn.TextColor3=T.dim closeBtn.BackgroundColor3=T.card Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) closeBtn.AutoButtonColor=false
+-- FILTERS
+local selected={} local selectedZones={} local selectedEggZone=nil
+
+-- CUSTOM INSTANCE.NEW COMPONENTS (TETAP)
+local function createSectionLabel(parent, title, order)
+    -- label pengganti accordion --Auto Steal-- style
+    local f=Instance.new("Frame") f.LayoutOrder=order f.Size=UDim2.new(1,-5,0,28) f.BackgroundTransparency=1 f.Parent=parent
+    local lineL=Instance.new("Frame",f) lineL.Size=UDim2.new(0.22,0,0,1) lineL.Position=UDim2.new(0,0,0.5,0) lineL.BackgroundColor3=ACCENT lineL.BorderSizePixel=0
+    Instance.new("UIGradient",lineL).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)}
+    local txt=Instance.new("TextLabel",f) txt.Size=UDim2.new(0.56,0,1,0) txt.Position=UDim2.new(0.22,0,0,0) txt.BackgroundTransparency=1 txt.Text="-- "..string.upper(title).." --" txt.Font=Enum.Font.GothamBold txt.TextSize=11 txt.TextColor3=Color3.new(1,1,1) txt.TextXAlignment=Enum.TextXAlignment.Center
+    local lineR=Instance.new("Frame",f) lineR.Size=UDim2.new(0.22,0,0,1) lineR.Position=UDim2.new(0.78,0,0.5,0) lineR.BackgroundColor3=ACCENT2 lineR.BorderSizePixel=0
+    Instance.new("UIGradient",lineR).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT2),ColorSequenceKeypoint.new(1,ACCENT)}
+    return f
+end
+
+local function createToggle(parent,order,title,desc)
+    local f=Instance.new("Frame",parent) f.LayoutOrder=order f.Size=UDim2.new(1,-8,0,54) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.BackgroundTransparency=0.15 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
+    local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0,14) dot.BackgroundColor3=Color3.fromRGB(60,55,80) Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
+    local t=Instance.new("TextLabel",f) t.Text=title t.Position=UDim2.new(0,26,0,8) t.Size=UDim2.new(1,-80,0,12) t.BackgroundTransparency=1 t.Font=Enum.Font.GothamBold t.TextSize=12 t.TextColor3=Color3.new(1,1,1) t.TextXAlignment=Enum.TextXAlignment.Left
+    local d=Instance.new("TextLabel",f) d.Text=" " d.Position=UDim2.new(0,26,0,22) d.Size=UDim2.new(1,-80,0,10) d.BackgroundTransparency=1 d.Font=Enum.Font.GothamMedium d.TextSize=9 d.TextColor3=DIM d.TextXAlignment=Enum.TextXAlignment.Left
+    local btn=Instance.new("TextButton",f) btn.Size=UDim2.fromOffset(44,24) btn.Position=UDim2.new(1,-54,0.5,-12) btn.Text="" btn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",btn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",btn).Transparency=0.6
+    local knob=Instance.new("Frame",btn) knob.Size=UDim2.fromOffset(18,18) knob.Position=UDim2.new(0,3,0.5,-9) knob.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
+    return {frame=f, btn=btn, dot=knob, accent=dot, track=btn}
+end
+
+-- HELPER UNTUK DROPDOWN LIB BAWAAN SUPAYA LAYOUT NYATU
+local function createDropdownLib(tabAPI, scroll, desiredOrder, title, options, multi, default, callback)
+    local cfg={
+        Title=title,
+        Desc=" ",
+        Flag=title:gsub(" ","").."_LIB_"..tostring(desiredOrder)..tostring(math.random(100,999)),
+        Options=options,
+        Default=default,
+        Multi=multi,
+        Callback=callback
+    }
+    local api = tabAPI:Dropdown(cfg)
+    -- force LayoutOrder biar urut sama Instance.new lain
+    task.defer(function()
+        for _,h in ipairs(scroll:GetChildren()) do
+            if h.Name=="Holder" and h:GetAttribute("Title")==nil then
+                local body=h:FindFirstChild("Body")
+                if body then
+                    for _,lbl in ipairs(body:GetDescendants()) do
+                        if lbl:IsA("TextLabel") and lbl.Text==title then
+                            h.LayoutOrder=desiredOrder
+                            h:SetAttribute("Title",title)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return api
+end
+
+-- EXTERNAL PANEL (TETAP INSTANCE.NEW)
+local mainExt=Instance.new("Frame") mainExt.Name="ExternalPanel" mainExt.Size=UDim2.fromOffset(300,340) mainExt.Position=UDim2.new(1,-310,1,-360) mainExt.BackgroundColor3=Color3.fromRGB(20,18,32) mainExt.BackgroundTransparency=0.1 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50 mainExt.ClipsDescendants=false
+Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",mainExt).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",mainExt).Transparency=0.4
+local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0,1) accentLine2.BackgroundColor3=ACCENT Instance.new("UIGradient",accentLine2).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine2).CornerRadius=UDim.new(0,99)
+local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,52) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=51
+local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
+local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
+local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
+local sub=Instance.new("TextLabel",titleBar) sub.Text=" " sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
 track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved) if moved and st then local s=rootScale and rootScale.Scale or 1 mainExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end end)
-local modeFrame=Instance.new("Frame",mainExt) modeFrame.Size=UDim2.new(1,-12,0,32) modeFrame.Position=UDim2.new(0,6,0,56) modeFrame.BackgroundColor3=T.card modeFrame.BackgroundTransparency=0.25 Instance.new("UICorner",modeFrame).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",modeFrame).Color=T.stroke
-local normalBtn=Instance.new("TextButton",modeFrame) normalBtn.Size=UDim2.new(0.5,-2,1,-4) normalBtn.Position=UDim2.new(0,2,0,2) normalBtn.Text="NORMAL" normalBtn.Font=Enum.Font.GothamBold normalBtn.TextSize=10 normalBtn.TextColor3=Color3.new(1,1,1) normalBtn.BackgroundColor3=ACCENT Instance.new("UICorner",normalBtn).CornerRadius=UDim.new(0,8) normalBtn.AutoButtonColor=false
-local helperBtn=Instance.new("TextButton",modeFrame) helperBtn.Size=UDim2.new(0.5,-2,1,-4) helperBtn.Position=UDim2.new(0.5,0,0,2) helperBtn.Text="HELPER" helperBtn.Font=Enum.Font.GothamBold helperBtn.TextSize=10 helperBtn.TextColor3=DIM helperBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",helperBtn).CornerRadius=UDim.new(0,8) helperBtn.AutoButtonColor=false
-local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(helperBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() normalBtn.TextColor3=Color3.new(1,1,1) helperBtn.TextColor3=DIM else tw(helperBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(normalBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() helperBtn.TextColor3=Color3.new(1,1,1) normalBtn.TextColor3=DIM end end
+local modeFrame2=Instance.new("Frame",mainExt) modeFrame2.Size=UDim2.new(1,-12,0,30) modeFrame2.Position=UDim2.new(0,6,0,54) modeFrame2.BackgroundColor3=Color3.fromRGB(24,22,36) modeFrame2.BackgroundTransparency=0.15 Instance.new("UICorner",modeFrame2).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",modeFrame2).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",modeFrame2).Transparency=0.6
+local normalBtn=Instance.new("TextButton",modeFrame2) normalBtn.Size=UDim2.new(0.5,-2,1,-4) normalBtn.Position=UDim2.new(0,2,0,2) normalBtn.Text="NORMAL" normalBtn.Font=Enum.Font.GothamBold normalBtn.TextSize=10 normalBtn.TextColor3=Color3.new(1,1,1) normalBtn.BackgroundColor3=ACCENT Instance.new("UICorner",normalBtn).CornerRadius=UDim.new(0,8) normalBtn.AutoButtonColor=false
+local helperBtn=Instance.new("TextButton",modeFrame2) helperBtn.Size=UDim2.new(0.5,-2,1,-4) helperBtn.Position=UDim2.new(0.5,0,0,2) helperBtn.Text="HELPER" helperBtn.Font=Enum.Font.GothamBold helperBtn.TextSize=10 helperBtn.TextColor3=DIM helperBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",helperBtn).CornerRadius=UDim.new(0,8) helperBtn.AutoButtonColor=false
+local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(normalBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(helperBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(helperBtn,{TextColor3=DIM},0.2):Play() else tw(helperBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(helperBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(normalBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(normalBtn,{TextColor3=DIM},0.2):Play() end end
 normalBtn.MouseButton1Click:Connect(function() setMode("Normal") end) helperBtn.MouseButton1Click:Connect(function() setMode("Helper") end)
-local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-128) extScroll.Position=UDim2.new(0,6,0,94) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=2 extScroll.ScrollBarImageColor3=ACCENT extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,12) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
-local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true
-track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st) local s=rootScale and rootScale.Scale or 1 mainExt.Size=UDim2.fromOffset(math.clamp(st.X.Offset+dx/s,260,420), math.clamp(st.Y.Offset+dy/s,260,600)) end)
+local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-126) extScroll.Position=UDim2.new(0,6,0,90) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=1 extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+Instance.new("UIPadding",extScroll).PaddingTop=UDim.new(0,2) Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,36) Instance.new("UIPadding",extScroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",extScroll).PaddingRight=UDim.new(0,4) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
+local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true resizeHandle.ZIndex=60
+local rhLabel=Instance.new("TextLabel",resizeHandle) rhLabel.Text="⋰" rhLabel.Size=UDim2.fromScale(1,1) rhLabel.BackgroundTransparency=1 rhLabel.Font=Enum.Font.GothamBold rhLabel.TextSize=16 rhLabel.TextColor3=Color3.fromRGB(100,94,130) rhLabel.TextXAlignment=Enum.TextXAlignment.Right rhLabel.TextYAlignment=Enum.TextYAlignment.Bottom
+local minSize=Vector2.new(260,250) local maxSize=Vector2.new(420,600)
+track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st) local s=rootScale and rootScale.Scale or 1 local nw=math.clamp(st.X.Offset + dx/s, minSize.X, maxSize.X) local nh=math.clamp(st.Y.Offset + dy/s, minSize.Y, maxSize.Y) mainExt.Size=UDim2.fromOffset(nw,nh) end)
+
 local function createExtCard(model)
-    local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0 local zone=getAnimalZone(model) local cash=getCashPerSecond(model)
-    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,72) card.BackgroundColor3=T.card card.BackgroundTransparency=0.12 Instance.new("UICorner",card).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",card).Color=T.stroke Instance.new("UIStroke",card).Transparency=0.55
-    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT vp.BackgroundTransparency=0 setupViewportModel(vp, model)
+    local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
+    local zone=getAnimalZone(model) local cashPerSec=getCashPerSecond(model)
+    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,78) card.BackgroundColor3=Color3.fromRGB(24,22,36) card.BackgroundTransparency=0.15 Instance.new("UICorner",card).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",card).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",card).Transparency=0.6
+    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT Instance.new("UIStroke",vp).Transparency=0.6 setupViewportModel(vp, model)
     local mid=Instance.new("Frame",card) mid.Size=UDim2.new(1,-108,1,0) mid.Position=UDim2.new(0,58,0,0) mid.BackgroundTransparency=1
-    local nameLbl=Instance.new("TextLabel",mid) nameLbl.Size=UDim2.new(1,-72,0,12) nameLbl.Position=UDim2.new(0,0,0,6) nameLbl.BackgroundTransparency=1 nameLbl.Text=model.Name:upper() nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=T.text nameLbl.TextXAlignment=Enum.TextXAlignment.Left nameLbl.TextTruncate=Enum.TextTruncate.AtEnd
-    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cash cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=T.ok cashLbl.TextXAlignment=Enum.TextXAlignment.Right
+    local nameLbl=Instance.new("TextLabel",mid) nameLbl.Size=UDim2.new(1,-72,0,12) nameLbl.Position=UDim2.new(0,0,0,6) nameLbl.BackgroundTransparency=1 nameLbl.Text=model.Name:upper() nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=Color3.new(1,1,1) nameLbl.TextXAlignment=Enum.TextXAlignment.Left nameLbl.TextTruncate=Enum.TextTruncate.AtEnd
+    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cashPerSec cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=Color3.fromRGB(80,255,120) cashLbl.TextXAlignment=Enum.TextXAlignment.Right cashLbl.TextTruncate=Enum.TextTruncate.AtEnd
     local kgLbl=Instance.new("TextLabel",mid) kgLbl.Size=UDim2.new(1,0,0,10) kgLbl.Position=UDim2.new(0,0,0,20) kgLbl.BackgroundTransparency=1 kgLbl.Text=tostring(weight).." KG • "..string.upper(rarity) kgLbl.Font=Enum.Font.GothamMedium kgLbl.TextSize=9 kgLbl.TextColor3=DIM kgLbl.TextXAlignment=Enum.TextXAlignment.Left
     local zoneLbl=Instance.new("TextLabel",mid) zoneLbl.Size=UDim2.new(1,0,0,10) zoneLbl.Position=UDim2.new(0,0,0,34) zoneLbl.BackgroundTransparency=1 zoneLbl.Text="📍 "..zone zoneLbl.Font=Enum.Font.GothamBold zoneLbl.TextSize=9 zoneLbl.TextColor3=ACCENT zoneLbl.TextXAlignment=Enum.TextXAlignment.Left
+    local kg2=Instance.new("TextLabel",mid) kg2.Size=UDim2.new(1,0,0,10) kg2.Position=UDim2.new(0,0,0,48) kg2.BackgroundTransparency=1 kg2.Text="3 STUDS • +"..SPEED_BUFF.." SPD • "..cashPerSec.."/s" kg2.Font=Enum.Font.GothamMedium kg2.TextSize=8 kg2.TextColor3=Color3.fromRGB(100,95,120) kg2.TextXAlignment=Enum.TextXAlignment.Left
     local btn=Instance.new("TextButton",card) btn.Size=UDim2.fromOffset(44,26) btn.Position=UDim2.new(1,-50,0.5,-13) btn.Text="STEAL" btn.Font=Enum.Font.GothamBold btn.TextSize=9 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=ACCENT Instance.new("UICorner",btn).CornerRadius=UDim.new(0,8) btn.AutoButtonColor=false btn.MouseButton1Click:Connect(function() stealMethod(model) end) return card
 end
-local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list,function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
+local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
 closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false end)
 
--- UI v4 DESC KOSONG
-local baseAcc = MainAPI:Accordion({Title="Base", Desc=" ", Icon="⚡", Open=true})
-local stealAcc = MainAPI:Accordion({Title="Steal", Desc=" ", Icon="🔥", Open=true})
-local panelAcc = MainAPI:Accordion({Title="Panel", Desc=" ", Icon="📦", Open=true})
-local eggAcc = MainAPI:Accordion({Title="Break Egg", Desc=" ", Icon="🥚", Open=false})
-local miscAcc = MiscAPI:Accordion({Title="Misc", Desc=" ", Icon="🛡️", Open=true})
-local gamepassAcc = MiscAPI:Accordion({Title="Gamepass", Desc=" ", Icon="🎫", Open=true})
+-- BUILD UI MAIN (INSTANCE.NEW KECUALI DROPDOWN)
+local ord=1
+createSectionLabel(mainFrame,"BASE",ord) ord+=1
+local baseToggle=createToggle(mainFrame,ord,"Auto Base"," ") ord+=1
 
-local baseOn, stealOn, breakOn, fastBreakOn, noRagdollOn, antiMentalOn, extOn = false,false,false,false,false,false,false
-local baseConn, fastBreakConn, ragdollConns, antiMentalConns = nil,nil,{},{}
+createSectionLabel(mainFrame,"STEAL",ord) ord+=1
 
-baseAcc:Toggle({Title="Auto Base", Desc=" ", Flag="AutoBase", Default=false, Callback=function(v) baseOn=v if v then baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) else if baseConn then baseConn:Disconnect() baseConn=nil end end end})
-stealAcc:Dropdown({Title="Select Rarity", Desc=" ", Flag="SelRarity", Options=rarityNames, Multi=true, Callback=function(v) table.clear(selected) if type(v)=="table" then for _,n in ipairs(v) do selected[n]=true end elseif v then selected[v]=true end end})
-stealAcc:Dropdown({Title="Filter Zone", Desc=" ", Flag="FilterZone", Options=zoneNames, Multi=true, Callback=function(v) table.clear(selectedZones) if type(v)=="table" then for _,n in ipairs(v) do selectedZones[n]=true end elseif v then selectedZones[v]=true end end})
-stealAcc:Dropdown({Title="Defend Mode", Desc=" ", Flag="DefendMode", Options={"None","ZigZag","Random","Circle","Juke"}, Default="None", Callback=function(v) defendMode = type(v)=="table" and v[1] or v end})
-stealAcc:Toggle({Title="Auto Steal", Desc=" ", Flag="AutoSteal", Default=false, Callback=function(v) stealOn=v if v then if next(selected)==nil then Window.Notify("⚠️"," ", DIM, 2) return end walkToSafeBase() task.spawn(function() while stealOn do local folder=workspace:FindFirstChild("AnimalPickups") if not folder then task.wait(1) continue end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(list,m) end end table.sort(list,function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "")>getRarityScore(b:GetAttribute("Rarity") or "") end) local found=#list>0 for _,m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end if not found then task.wait(0.8) end end end) end end})
-stealAcc:Toggle({Title="Attack Carrier", Desc=" ", Flag="AttackCarrier", Default=false, Callback=function(v) attackEnabled=v end})
-panelAcc:Toggle({Title="External Panel", Desc=" ", Flag="ExtPanel", Default=false, Callback=function(v) extOn=v mainExt.Visible=v if v then refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) end end})
+createDropdownLib(MainAPI, mainFrame, ord, "Rarity", rarityNames, true, nil, function(val)
+    selected={}
+    if type(val)=="table" then for _,n in ipairs(val) do selected[n]=true end elseif val then selected[val]=true end
+end) ord+=1
 
-local function getEggsInZone(zoneName) local zb=getZoneBuildsFolder() if not zb then return {} end local zm=zb:FindFirstChild(zoneName) if not zm then return {} end local er=zm:FindFirstChild("Eggs") or zm local out={} for _,v in ipairs(er:GetChildren()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end if #out==0 then for _,v in ipairs(er:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end end return out end
-local function getEggHealth(egg) if egg:GetAttribute("Health") then return egg:GetAttribute("Health") end for _,d in ipairs(egg:GetDescendants()) do local h=d:GetAttribute("Health") if h~=nil then return h end end return nil end
+createDropdownLib(MainAPI, mainFrame, ord, "Zone Filter", zoneNames, true, nil, function(val)
+    selectedZones={}
+    if type(val)=="table" then for _,n in ipairs(val) do selectedZones[n]=true end elseif val then selectedZones[val]=true end
+end) ord+=1
+
+createDropdownLib(MainAPI, mainFrame, ord, "Defend Mode", defendModes, false, "None", function(val)
+    defendMode = type(val)=="table" and val[1] or val
+    defendMode = defendMode or "None"
+end) ord+=1
+
+local stealToggle=createToggle(mainFrame,ord,"Auto Steal"," ") ord+=1
+local attackToggle=createToggle(mainFrame,ord,"Attack Carrier"," ") ord+=1
+
+createSectionLabel(mainFrame,"PANEL",ord) ord+=1
+local panelToggle=createToggle(mainFrame,ord,"External Panel"," ") ord+=1
+
+createSectionLabel(mainFrame,"BREAK EGG",ord) ord+=1
+createDropdownLib(MainAPI, mainFrame, ord, "Egg Zone", zoneNames, false, nil, function(val)
+    selectedEggZone = type(val)=="table" and val[1] or val
+end) ord+=1
+local eggToggle=createToggle(mainFrame,ord,"Break Egg"," ") ord+=1
+
+-- BUILD UI MISC
+local mord=1
+createSectionLabel(miscFrame,"MISC",mord) mord+=1
+local ragdollToggle=createToggle(miscFrame,mord,"No Ragdoll"," ") mord+=1
+local antiMentalToggle=createToggle(miscFrame,mord,"Anti Mental"," ") mord+=1
+createSectionLabel(miscFrame,"GAMEPASS",mord) mord+=1
+local fastBreakToggle=createToggle(miscFrame,mord,"Fast Break"," ") mord+=1
+
+-- LOGIC TOGGLES (TETAP INSTANCE.NEW)
+local baseOn=false local baseConn=nil
+baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) Window.Notify("BASE","Auto Base ON",ACCENT,2) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
+
+local stealOn=false
+stealToggle.btn.MouseButton1Click:Connect(function()
+    stealOn=not stealOn
+    if stealOn then
+        if next(selected)==nil then Window.Notify("ERROR","Pilih Rarity dulu!",Color3.fromRGB(248,113,113),3) stealOn=false return end
+        tw(stealToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+        walkToSafeBase()
+        task.spawn(function()
+            while stealOn do
+                local folder=workspace:FindFirstChild("AnimalPickups") if not folder then task.wait(1) continue end
+                local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(list,m) end end
+                table.sort(list, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end)
+                local found=#list>0
+                for _,m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end
+                if not found then task.wait(0.8) end
+            end
+        end)
+    else tw(stealToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() stealOn=false end
+end)
+
+attackToggle.btn.MouseButton1Click:Connect(function() attackEnabled=not attackEnabled if attackEnabled then tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() Window.Notify("ATTACK","ON",Color3.fromRGB(255,80,80),2) else tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() Window.Notify("ATTACK","OFF",DIM,2) end end)
+
+local extOn=false panelToggle.btn.MouseButton1Click:Connect(function() extOn=not extOn if extOn then tw(panelToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() mainExt.Visible=true refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) else tw(panelToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() mainExt.Visible=false end end)
+
+local function getEggsInZone(zoneName) local zb=getZoneBuildsFolder() if not zb then return {} end local zoneModel=zb:FindFirstChild(zoneName) if not zoneModel then return {} end local eggsRoot=zoneModel:FindFirstChild("Eggs") or zoneModel local out={} for _,v in ipairs(eggsRoot:GetChildren()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end if #out==0 then for _,v in ipairs(eggsRoot:GetDescendants()) do if v:IsA("Model") and v.Name:lower():find("egg") then table.insert(out,v) end end end return out end
+local function getEggHealth(eggModel) if eggModel:GetAttribute("Health") then return eggModel:GetAttribute("Health") end for _,d in ipairs(eggModel:GetDescendants()) do local h=d:GetAttribute("Health") if h~=nil then return h end end return nil end
 local function equipPickaxe() local char=plr.Character if not char then return nil end local tool=char:FindFirstChildOfClass("Tool") if tool and tool.Name:lower():find("pickaxe") then return tool end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find("pickaxe") then t.Parent=char return t end end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") then t.Parent=char return t end end return char:FindFirstChildOfClass("Tool") end
-local function getStealTargets() local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end local out={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(out,m) end end table.sort(out,function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "")>getRarityScore(b:GetAttribute("Rarity") or "") end) return out end
+local function getStealTargets() local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end local out={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") and selected[m:GetAttribute("Rarity")] then if next(selectedZones)~=nil then local z=getAnimalZone(m) if not selectedZones[z] then continue end end table.insert(out,m) end end table.sort(out, function(a,b) return getRarityScore(a:GetAttribute("Rarity") or "") > getRarityScore(b:GetAttribute("Rarity") or "") end) return out end
 
-eggAcc:Dropdown({Title="Select Zone", Desc=" ", Flag="EggZone", Options=zoneNames, Callback=function(v) selectedEggZone = type(v)=="table" and v[1] or v end})
-eggAcc:Toggle({Title="Break Egg", Desc=" ", Flag="BreakEgg", Default=false, Callback=function(v)
-    breakOn=v
-    if v then
-        if not selectedEggZone then Window.Notify("⚠️"," ", DIM, 2) return end
+local breakOn=false
+eggToggle.btn.MouseButton1Click:Connect(function()
+    breakOn=not breakOn
+    if breakOn then
+        if not selectedEggZone then breakOn=false Window.Notify("ERROR","Pilih Zone dulu!",Color3.fromRGB(248,113,113),2) return end
+        tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play()
         task.spawn(function()
             while breakOn do
                 local targets=getStealTargets()
                 if #targets>0 then for _,m in ipairs(targets) do if not breakOn then break end pcall(function() stealMethod(m) end) task.wait(0.3) end continue end
-                local eggs=getEggsInZone(selectedEggZone) if #eggs==0 then task.wait(1) continue end
-                for _,egg in ipairs(eggs) do if not breakOn then break end if #getStealTargets()>0 then break end local pos,base=getOffsetPos(egg) if not pos then local b=getBasePos(egg) if b then pos=Vector3.new(b.X,3.5,b.Z+3) base=Vector3.new(b.X,3.5,b.Z) end end if not pos then continue end pcall(function() walkDirect(pos, base, false) equipPickaxe() while breakOn and egg.Parent do if #getStealTargets()>0 then break end local h=getEggHealth(egg) if h==nil or h<=0 then break end task.wait(0.15) end end) task.wait(0.2) end task.wait(0.5)
+                local eggs=getEggsInZone(selectedEggZone)
+                if #eggs==0 then task.wait(1) continue end
+                for _,egg in ipairs(eggs) do
+                    if not breakOn then break end
+                    if #getStealTargets()>0 then break end
+                    local pos,base=getOffsetPos(egg) if not pos then local b=getBasePos(egg) if b then pos=Vector3.new(b.X,3.5,b.Z+3) base=Vector3.new(b.X,3.5,b.Z) end end
+                    if not pos then continue end
+                    pcall(function() walkDirect(pos, base, false) equipPickaxe() while breakOn and egg.Parent do if #getStealTargets()>0 then break end local h=getEggHealth(egg) if h==nil or h<=0 then break end task.wait(0.15) end end) task.wait(0.2)
+                end
+                task.wait(0.5)
             end
         end)
-    end
-end})
+    else tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.25):Play() end
+end)
 
-local function enableNoRagdoll() for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={} local char=plr.Character local hum=char and char:FindFirstChildOfClass("Humanoid") if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) hum.BreakJointsOnDeath=false hum.PlatformStand=false end) table.insert(ragdollConns, hum.StateChanged:Connect(function(_,new) if new==Enum.HumanoidStateType.Ragdoll or new==Enum.HumanoidStateType.FallingDown then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end end)) end table.insert(ragdollConns, RunService.Heartbeat:Connect(function() local c=plr.Character local h=c and c:FindFirstChildOfClass("Humanoid") if h then if h:GetState()==Enum.HumanoidStateType.Ragdoll or h:GetState()==Enum.HumanoidStateType.FallingDown then h:ChangeState(Enum.HumanoidStateType.GettingUp) h.PlatformStand=false end h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) h:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end end)) end
+local fastBreakOn=false local fastBreakConn=nil
+local function setFastBreakAttribute(state) pcall(function() plr:SetAttribute("FastSwingOwned", state) end) pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end) end
+fastBreakToggle.btn.MouseButton1Click:Connect(function()
+    fastBreakOn=not fastBreakOn
+    if fastBreakOn then tw(fastBreakToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() setFastBreakAttribute(true)
+        if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end)
+    else tw(fastBreakToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end
+end)
+
+local noRagdollOn=false local ragdollConns={}
+local function enableNoRagdoll()
+    for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={}
+    local char=plr.Character local hum=char and char:FindFirstChildOfClass("Humanoid")
+    if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) hum.BreakJointsOnDeath=false hum.PlatformStand=false end)
+        table.insert(ragdollConns, hum.StateChanged:Connect(function(_,new) if new==Enum.HumanoidStateType.Ragdoll or new==Enum.HumanoidStateType.FallingDown then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end end)) end
+    table.insert(ragdollConns, RunService.Heartbeat:Connect(function() local c=plr.Character local h=c and c:FindFirstChildOfClass("Humanoid") if h then if h:GetState()==Enum.HumanoidStateType.Ragdoll or h:GetState()==Enum.HumanoidStateType.FallingDown then h:ChangeState(Enum.HumanoidStateType.GettingUp) h.PlatformStand=false end h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) h:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end end))
+end
 local function disableNoRagdoll() for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={} local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true) hum.BreakJointsOnDeath=true end) end end
+ragdollToggle.btn.MouseButton1Click:Connect(function() noRagdollOn=not noRagdollOn if noRagdollOn then tw(ragdollToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableNoRagdoll() else tw(ragdollToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableNoRagdoll() end end)
+
+local antiMentalOn=false local antiMentalConns={}
 local function enableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} table.insert(antiMentalConns, RunService.Heartbeat:Connect(function() local char=plr.Character local hrp=char and char:FindFirstChild("HumanoidRootPart") if not hrp then return end local vel=hrp.AssemblyLinearVelocity local flat=Vector3.new(vel.X,0,vel.Z).Magnitude if flat>35 then hrp.AssemblyLinearVelocity=Vector3.new(0,vel.Y,0) hrp.AssemblyAngularVelocity=Vector3.zero pcall(function() hrp.Velocity=Vector3.new(0,hrp.Velocity.Y,0) end) end if hrp.AssemblyAngularVelocity.Magnitude>20 then hrp.AssemblyAngularVelocity=Vector3.zero end end)) end
 local function disableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} end
-miscAcc:Toggle({Title="No Ragdoll", Desc=" ", Flag="NoRagdoll", Default=false, Callback=function(v) noRagdollOn=v if v then enableNoRagdoll() else disableNoRagdoll() end end})
-miscAcc:Toggle({Title="Anti Mental", Desc=" ", Flag="AntiMental", Default=false, Callback=function(v) antiMentalOn=v if v then enableAntiMental() else disableAntiMental() end end})
+antiMentalToggle.btn.MouseButton1Click:Connect(function() antiMentalOn=not antiMentalOn if antiMentalOn then tw(antiMentalToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableAntiMental() else tw(antiMentalToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableAntiMental() end end)
 
-local function setFastBreakAttribute(state) pcall(function() plr:SetAttribute("FastSwingOwned", state) end) pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end) end
-gamepassAcc:Toggle({Title="Fast Break", Desc=" ", Flag="FastBreak", Default=false, Callback=function(v) fastBreakOn=v if v then setFastBreakAttribute(true) if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end) else if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end end})
+plr.CharacterAdded:Connect(function(char)
+    task.wait(0.5)
+    local hum=char:WaitForChild("Humanoid",5)
+    if hum then hum:SetAttribute("BaseSpeed", hum.WalkSpeed) hum.WalkSpeed = hum.WalkSpeed + SPEED_BUFF end
+    task.wait(0.5)
+    if noRagdollOn then enableNoRagdoll() end
+    if antiMentalOn then enableAntiMental() end
+    if fastBreakOn then setFastBreakAttribute(true) end
+end)
 
-plr.CharacterAdded:Connect(function(char) task.wait(0.5) local hum=char:WaitForChild("Humanoid",5) if hum then hum:SetAttribute("BaseSpeed", hum.WalkSpeed) hum.WalkSpeed = hum.WalkSpeed + SPEED_BUFF end task.wait(0.5) if noRagdollOn then enableNoRagdoll() end if antiMentalOn then enableAntiMental() end if fastBreakOn then setFastBreakAttribute(true) end end)
 do local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then hum:SetAttribute("BaseSpeed", hum.WalkSpeed) hum.WalkSpeed = hum.WalkSpeed + SPEED_BUFF end end
-RunService.Heartbeat:Connect(function() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end end)
+RunService.Heartbeat:Connect(function()
+    local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+    if hum then local base=hum:GetAttribute("BaseSpeed") if base and hum.WalkSpeed < base + SPEED_BUFF then hum.WalkSpeed = base + SPEED_BUFF end end
+end)
 
-Window.Notify("Panel v4"," ", ACCENT, 2)
---(%--&_>@)
+Window.Notify("👑","Lib Dropdown & Notif Active", ACCENT, 3)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
