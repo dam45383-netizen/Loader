@@ -47,6 +47,6 @@ if placeId == 114326934417838 or universeId == 114326934417838 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/BAS.lua")
 elseif placeId == 129827112113663 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua")
-elseif placeId == 10765288803 then
-    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/game2.lua")
+elseif placeId == 104050046639813 then
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish")
 end
