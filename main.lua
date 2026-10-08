@@ -13,7 +13,7 @@ local Window = SORU:CreateWindow({
     Title = "SORU HUB",
     SupportedGames = {
         129827112113663, -- Prospecting
-        10765288803,     -- game 2 lu
+        104050046639813,     -- Ride An Fish
         114326934417838 -- BAS
     },
     KickIfNotSupported = false
