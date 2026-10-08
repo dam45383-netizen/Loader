@@ -1,5 +1,8 @@
 --[[
-    SORU HUB UI v4.0  (API 100% kompatibel dengan v2.x / v3.x)
+    SORU HUB UI v4.1  (API 100% kompatibel dengan v2.x / v3.x)
+
+    BARU DI v4.1
+      Accordion : didesain ulang (aksen header, badge jumlah item, buka/tutup mulus, isi tidak bisa bocor saat tertutup)
 
     BARU DI v4.0  (redesign visual + animasi)
       Tema      : preset warna Violet / Ocean / Crimson / Emerald / Sunset (Dashboard > Interface > Theme), tersimpan di config
@@ -165,7 +168,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "4.0"
+local VERSION = "4.1"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -1077,18 +1080,19 @@ function SORU:CreateWindow(C)
             enter(f)
             if clickable then
                 ripple(f)
-                spotlight(f)
+                if not nested then spotlight(f) end
                 local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
                 corner(bar, FULL)
                 grad(bar, T.cyan, T.accent, 90)
                 local sc = new("UIScale", {Scale = 1}, f)
                 local hov = false
+                local HOVS = nested and 1 or 1.012
                 local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, f)
                 new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
                 f.MouseEnter:Connect(function()
                     hov = true
                     play(bar, {Size = UDim2.new(0, 3, 0.55, 0)}, 0.25, Enum.EasingStyle.Back)
-                    play(sc, {Scale = 1.012}, 0.3, Enum.EasingStyle.Back)
+                    play(sc, {Scale = HOVS}, 0.3, Enum.EasingStyle.Back)
                     shine.Position = UDim2.new(-0.15, 0, 0.5, 0)
                     play(shine, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.6, Enum.EasingStyle.Quad)
                 end)
@@ -1098,7 +1102,7 @@ function SORU:CreateWindow(C)
                     play(sc, {Scale = 1}, 0.25)
                 end)
                 f.MouseButton1Down:Connect(function() play(sc, {Scale = 0.98}, 0.08) end)
-                f.MouseButton1Up:Connect(function() play(sc, {Scale = hov and 1.012 or 1}, 0.35, Enum.EasingStyle.Back) end)
+                f.MouseButton1Up:Connect(function() play(sc, {Scale = hov and HOVS or 1}, 0.35, Enum.EasingStyle.Back) end)
             end
             return f, s, hf
         end
@@ -1132,6 +1136,7 @@ function SORU:CreateWindow(C)
             if type(text) == "table" then text = text.Title or text.Text end
             text = string.upper(tostring(text or ""))
             local hf = holder(24)
+            hf:SetAttribute("Deco", true)
             local f = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
             enter(f)
             local dot = new("Frame", {Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(6, 10), BackgroundColor3 = WHITE, BorderSizePixel = 0, Rotation = 45}, f)
@@ -1148,6 +1153,7 @@ function SORU:CreateWindow(C)
 
         function K:Divider()
             local hf = holder(10)
+            hf:SetAttribute("Deco", true)
             local f = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
             enter(f)
             local line = new("Frame", {Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.new(1, -12, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
@@ -1743,80 +1749,127 @@ function SORU:CreateWindow(C)
         function K:Accordion(o)
             o = o or {}
             local hasDesc = o.Desc ~= nil
-            local HEAD = hasDesc and 54 or 44
-            local PADT, PADB = 4, 10
+            local HEAD = hasDesc and 54 or 46
+            local PADT, PADB = 8, 12
             local open, animating, tok = false, false, 0
             local f, st, hf = card(HEAD)
             f.ClipsDescendants = true
+
+            -- aksen header: gradien tipis dari kiri, muncul saat terbuka
+            local hglow = new("Frame", {Size = UDim2.new(1, 0, 0, HEAD), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            corner(hglow, nested and 10 or 14)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0, 1)}, hglow)
+
             local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, HEAD)}, f)
             ripple(head)
             spotlight(f, head)
             local rail = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, head)
             corner(rail, FULL) grad(rail, T.cyan, T.accent, 90)
-            label(head, {Text = o.Title or "Accordion", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -56, 0, hasDesc and 18 or HEAD), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
+            label(head, {Text = o.Title or "Accordion", Position = UDim2.fromOffset(14, hasDesc and 9 or 0), Size = UDim2.new(1, -96, 0, hasDesc and 18 or HEAD), Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 2})
             if hasDesc then
-                label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -56, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 2})
+                label(head, {Text = o.Desc, Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -96, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 2})
             end
+            -- badge jumlah item + chevron
+            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -44, 0.5, 0), Size = UDim2.fromOffset(24, 18), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 2}, head)
+            corner(cnt, FULL)
+            local cntL = label(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, TextTruncate = Enum.TextTruncate.None, ZIndex = 3})
             local badge = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 2}, head)
             corner(badge, FULL)
             local arrow = label(badge, {Text = "›", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = WHITE, Rotation = 90, ZIndex = 3})
 
-            -- isi accordion: tinggi mengikuti konten (AutomaticSize), tidak bergantung pada tinggi kartu yang sedang dianimasikan
-            local body = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
-            new("UIPadding", {PaddingTop = UDim.new(0, PADT), PaddingBottom = UDim.new(0, PADB), PaddingLeft = UDim.new(0, 24), PaddingRight = UDim.new(0, 10)}, body)
-            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, body)
-            local tree = new("Frame", {Position = UDim2.fromOffset(14, HEAD + 2), Size = UDim2.new(0, 2, 1, -(HEAD + 10)), BackgroundColor3 = WHITE, BorderSizePixel = 0}, f)
+            -- isi: wrap (ukuran offset eksplisit, clip) berisi content (tinggi mengikuti isi).
+            -- Saat tertutup wrap disembunyikan total, jadi isi tidak mungkin bocor / bergeser.
+            local wrap = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, f)
+            local content = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, wrap)
+            new("UIPadding", {PaddingTop = UDim.new(0, PADT), PaddingBottom = UDim.new(0, PADB), PaddingLeft = UDim.new(0, 24), PaddingRight = UDim.new(0, 10)}, content)
+            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, content)
+            local tree = new("Frame", {Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0}, wrap)
             corner(tree, FULL)
-            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.35, 1), Rotation = 90}, tree)
-            local sub = buildComponents(scroll, body, true)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.3, 1), Rotation = 90}, tree)
+            local sub = buildComponents(scroll, content, true)
 
             local function contentH()
+                if lay.AbsoluteContentSize.Y <= 0 then return 0 end
                 local fac = head.AbsoluteSize.Y / HEAD
                 if fac < 0.01 then fac = math.max(rootScale.Scale * winScale.Scale, 0.01) end
                 return math.floor(lay.AbsoluteContentSize.Y / fac + 0.5) + PADT + PADB
             end
-            local function target() return UDim2.new(1, 0, 0, open and (HEAD + contentH()) or HEAD) end
+            local function setH(h)
+                wrap.Size = UDim2.new(1, 0, 0, h)
+                hf.Size = UDim2.new(1, 0, 0, HEAD + h)
+            end
             local function resetKids()
                 for _, b in ipairs(sub._kids) do
                     if b.Parent then b.Position = UDim2.fromOffset(0, 0) end
                 end
             end
+            local function recount()
+                local n = 0
+                for _, c in ipairs(content:GetChildren()) do
+                    if c.Name == "Holder" and not c:GetAttribute("Deco") then n = n + 1 end
+                end
+                cntL.Text = tostring(n)
+                cnt.Size = UDim2.fromOffset(math.max(24, textW(tostring(n), 10) + 14), 18)
+            end
+            content.ChildAdded:Connect(function() task.defer(recount) end)
+            content.ChildRemoved:Connect(function() task.defer(recount) end)
+
             local function setOpen(v, instant)
                 if v == open then return end
                 open = v
                 tok = tok + 1
                 local my = tok
-                if not v then resetKids() end
                 if not instant then sfx(v and "expand" or "collapse") end
-                play(arrow, {Rotation = v and -90 or 90}, 0.35, Enum.EasingStyle.Back)
-                play(badge, {BackgroundTransparency = v and 0.2 or 0.85}, 0.25)
-                play(rail, {Size = UDim2.new(0, 3, v and 0.7 or 0, 0)}, 0.3, Enum.EasingStyle.Back)
-                play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.25 or 0.55}, 0.25)
-                if instant then hf.Size = target() return end
+                play(arrow, {Rotation = v and -90 or 90}, 0.5, Enum.EasingStyle.Back)
+                play(badge, {BackgroundTransparency = v and 0.15 or 0.85}, 0.3)
+                play(cnt, {BackgroundTransparency = v and 0.55 or 0.82}, 0.3)
+                play(rail, {Size = UDim2.new(0, 3, v and 0.7 or 0, 0)}, 0.35, Enum.EasingStyle.Back)
+                play(hglow, {BackgroundTransparency = v and 0.8 or 1}, 0.4)
+                play(st, {Color = v and ACCENT or T.stroke, Transparency = v and 0.2 or 0.5}, 0.3)
+                if not v then resetKids() end
+                if instant then
+                    wrap.Visible = v
+                    setH(v and contentH() or 0)
+                    return
+                end
                 animating = true
-                play(hf, {Size = target()}, 0.42, Enum.EasingStyle.Quint)
-                task.delay(0.45, function()
-                    if tok == my then
-                        animating = false
-                        if open then hf.Size = target() end
+                task.spawn(function()
+                    if v then
+                        wrap.Visible = true
+                        RunService.Heartbeat:Wait()
+                        if tok ~= my then return end
                     end
-                end)
-                if v then
-                    for i, b in ipairs(sub._kids) do
-                        if b.Parent then
-                            b.Position = UDim2.fromOffset(-24, 0)
-                            task.delay(0.05 + math.min(i - 1, 8) * 0.045, function()
-                                if open and tok == my and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.5, Enum.EasingStyle.Back) end
-                            end)
+                    local h = v and contentH() or 0
+                    local dur = v and 0.5 or 0.4
+                    local sty = v and Enum.EasingStyle.Quint or Enum.EasingStyle.Quart
+                    play(hf, {Size = UDim2.new(1, 0, 0, HEAD + h)}, dur, sty)
+                    play(wrap, {Size = UDim2.new(1, 0, 0, h)}, dur, sty)
+                    if v then
+                        for i, b in ipairs(sub._kids) do
+                            if b.Parent then
+                                b.Position = UDim2.fromOffset(0, -10)
+                                task.delay(0.05 + math.min(i - 1, 8) * 0.045, function()
+                                    if open and tok == my and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.45, Enum.EasingStyle.Back) end
+                                end)
+                            end
                         end
                     end
-                    task.delay(1.1, function() if open and tok == my then resetKids() end end)
-                end
+                    task.wait(dur + 0.05)
+                    if tok ~= my then return end
+                    animating = false
+                    if open then
+                        resetKids()
+                        setH(contentH())
+                    else
+                        wrap.Visible = false
+                    end
+                end)
             end
+            -- isi berubah saat terbuka (dropdown mengembang, komponen ditambah): ukuran ikut langsung
             lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
                 if open and not animating then
-                    local h = HEAD + contentH()
-                    if math.abs(hf.Size.Y.Offset - h) > 1 then hf.Size = UDim2.new(1, 0, 0, h) end
+                    local h = contentH()
+                    if math.abs(wrap.Size.Y.Offset - h) > 1 then setH(h) end
                 end
             end)
             head.MouseEnter:Connect(function()
@@ -1824,12 +1877,14 @@ function SORU:CreateWindow(C)
                 if not open then
                     play(rail, {Size = UDim2.new(0, 3, 0.55, 0)}, 0.25, Enum.EasingStyle.Back)
                     play(st, {Color = ACCENT, Transparency = 0.35}, 0.18)
+                    play(hglow, {BackgroundTransparency = 0.94}, 0.25)
                 end
             end)
             head.MouseLeave:Connect(function()
                 if not open then
                     play(rail, {Size = UDim2.new(0, 3, 0, 0)}, 0.2)
-                    play(st, {Color = T.stroke, Transparency = 0.55}, 0.22)
+                    play(st, {Color = T.stroke, Transparency = 0.5}, 0.22)
+                    play(hglow, {BackgroundTransparency = 1}, 0.25)
                 end
             end)
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
