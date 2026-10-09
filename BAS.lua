@@ -11450,7 +11450,7 @@ antiMentalToggle.btn.MouseButton1Click:Connect(function() antiMentalOn=not antiM
 
 plr.CharacterAdded:Connect(function(char)
     task.wait(0.5)
-    local hum=char:WaitForChild("Humanoid",5)
+    local hum=char:WaitForChild("Humanoid",15)
     if hum then hum:SetAttribute("BaseSpeed", hum.WalkSpeed) hum.WalkSpeed = hum.WalkSpeed + SPEED_BUFF end
     task.wait(0.5)
     if noRagdollOn then enableNoRagdoll() end
