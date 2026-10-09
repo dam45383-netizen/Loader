@@ -12009,13 +12009,12 @@ local ACCENT = Color3.fromRGB(145, 96, 255)
 local CYAN = Color3.fromRGB(56, 200, 255)
 local RED = Color3.fromRGB(255, 70, 100)
 
-local Window = SORU:CreateWindow({
+local Window = getgenv().SORU_Window or SORU:CreateWindow({
     Title = "Soru Hub",
     SubTitle = " ",
     ToggleKey = Enum.KeyCode.RightShift
 })
 
--- UTILS
 local function IsRealBall(obj)
     if not obj or not obj.Parent then return nil end
     if obj.Name:match("FAKEVISUAL") or obj.Name:match("ESP_") or obj.Name:match("PRED_") then return nil end
@@ -12027,285 +12026,311 @@ local function IsRealBall(obj)
     return nil
 end
 
--- ================= MAIN TAB =================
+-- MAIN TAB
 local MainTab = Window:Tab({ Title = "Main", Icon = "M" })
-
--- HITBOX
 local HitboxAcc = MainTab:Accordion({ Title = "Hitbox", Desc = " ", Open = true })
 local HitboxSize = 22
-local HitboxEnabled = false
-local Tracked = {}
-local Conns = {}
-local HeartbeatConn = nil
+local Tracked, Conns, HeartbeatConn = {}, {}, nil
 
 local function CreateDupe(realObj)
     local realBall = IsRealBall(realObj)
     if not realBall or Tracked[realBall] then return end
-    local origSize = realBall.Size
-    local origTrans = realBall.Transparency
-    local origMat = realBall.Material
-
+    local origSize, origTrans, origMat = realBall.Size, realBall.Transparency, realBall.Material
     local fake
     local ok, cloned = pcall(function() return realBall:Clone() end)
     fake = (ok and cloned) and cloned or Instance.new("Part")
     if not ok then fake.Size = origSize fake.Color = realBall.Color end
-
     fake.Name = realBall.Name.."_FAKEVISUAL"
     local tag = Instance.new("BoolValue") tag.Name = "IsFakeVisual" tag.Parent = fake
     for _, v in ipairs(fake:GetDescendants()) do if v.Name == "Hitbox_Visual" then v:Destroy() end end
-
-    fake.Size = origSize
-    fake.Transparency = origTrans
-    fake.Material = origMat
-    fake.CanCollide = false
-    fake.CanQuery = false
-    fake.CanTouch = false
-    fake.Massless = true
-    fake.Anchored = true
-    fake.Parent = workspace
-
-    pcall(function()
-        realBall.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-        realBall.Transparency = 0.7
-        realBall.CanCollide = false
-    end)
-
-    local ancConn = realBall.AncestryChanged:Connect(function(_, parent)
-        if not parent and Tracked[realBall] then
-            if Tracked[realBall].fake then Tracked[realBall].fake:Destroy() end
-            Tracked[realBall] = nil
-            ancConn:Disconnect()
-        end
-    end)
-
-    Tracked[realBall] = {fake = fake, origSize = origSize, origTrans = origTrans, origMat = origMat, conn = ancConn}
+    fake.Size = origSize fake.Transparency = origTrans fake.Material = origMat
+    fake.CanCollide = false fake.CanQuery = false fake.CanTouch = false fake.Massless = true fake.Anchored = true fake.Parent = workspace
+    pcall(function() realBall.Size = Vector3.new(HitboxSize,HitboxSize,HitboxSize) realBall.Transparency = 0.7 realBall.CanCollide = false end)
+    local ancConn = realBall.AncestryChanged:Connect(function(_, p) if not p and Tracked[realBall] then if Tracked[realBall].fake then Tracked[realBall].fake:Destroy() end Tracked[realBall]=nil ancConn:Disconnect() end end)
+    Tracked[realBall] = {fake=fake, origSize=origSize, origTrans=origTrans, origMat=origMat, conn=ancConn}
     table.insert(Conns, ancConn)
 end
 
 local function RestoreAll()
-    for realBall, data in pairs(Tracked) do
-        pcall(function()
-            if realBall and realBall.Parent then
-                realBall.Size = data.origSize
-                realBall.Transparency = data.origTrans
-                realBall.Material = data.origMat
-            end
-        end)
-        if data.fake and data.fake.Parent then data.fake:Destroy() end
-        if data.conn then data.conn:Disconnect() end
-    end
-    table.clear(Tracked)
+    for rb,data in pairs(Tracked) do pcall(function() if rb.Parent then rb.Size=data.origSize rb.Transparency=data.origTrans rb.Material=data.origMat end end) if data.fake then data.fake:Destroy() end if data.conn then data.conn:Disconnect() end end table.clear(Tracked)
 end
 
 local function ScanBalls()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name:match("^CLIENT_BALL_") and not obj.Name:match("FAKEVISUAL") then
-            local rb = IsRealBall(obj)
-            if rb and not Tracked[rb] then CreateDupe(obj) end
-        end
-    end
+    for _,obj in ipairs(workspace:GetDescendants()) do if obj.Name:match("^CLIENT_BALL_") then local rb=IsRealBall(obj) if rb and not Tracked[rb] then CreateDupe(obj) end end end
 end
 
-HitboxAcc:Slider({
-    Title = "Hitbox Size", Flag = "HitboxSize", Min = 5, Max = 80, Step = 1, Default = 22, Suffix = " studs",
-    Callback = function(v)
-        HitboxSize = v
-        for rb,_ in pairs(Tracked) do if rb.Parent then rb.Size = Vector3.new(v,v,v) rb.Transparency = 0.7 end end
+HitboxAcc:Slider({ Title="Hitbox Size", Flag="HitboxSize", Min=5, Max=80, Step=1, Default=22, Suffix=" ", Callback=function(v) HitboxSize=v for rb,_ in pairs(Tracked) do if rb.Parent then rb.Size=Vector3.new(v,v,v) rb.Transparency=0.7 end end end })
+HitboxAcc:Toggle({ Title="Enable Hitbox", Desc=" ", Flag="EnableHitbox", Default=false, Callback=function(v)
+    if v then ScanBalls() Window.Notify(" "," ",ACCENT,2)
+        if HeartbeatConn then HeartbeatConn:Disconnect() end
+        HeartbeatConn = RunService.Heartbeat:Connect(function() for rb,data in pairs(Tracked) do if not rb.Parent then if data.fake then data.fake:Destroy() end Tracked[rb]=nil else if data.fake then data.fake.CFrame=rb.CFrame end end end end)
+        table.insert(Conns, workspace.DescendantAdded:Connect(function(o) task.wait(0.05) if o.Name:match("^CLIENT_BALL_") then CreateDupe(o) end end))
+    else
+        if HeartbeatConn then HeartbeatConn:Disconnect() end HeartbeatConn=nil
+        for _,c in ipairs(Conns) do pcall(function() c:Disconnect() end) end table.clear(Conns) RestoreAll()
+        for _,o in ipairs(workspace:GetDescendants()) do if o.Name:match("FAKEVISUAL") then o:Destroy() end end
     end
-})
-HitboxAcc:Toggle({
-    Title = "Enable Hitbox", Desc = " ", Flag = "EnableHitbox", Default = false,
-    Callback = function(v)
-        HitboxEnabled = v
-        if v then
-            ScanBalls() Window.Notify("Hitbox ON", " ", ACCENT, 2)
-            if HeartbeatConn then HeartbeatConn:Disconnect() end
-            HeartbeatConn = RunService.Heartbeat:Connect(function()
-                for rb, data in pairs(Tracked) do
-                    if not rb.Parent or not rb:IsDescendantOf(workspace) then
-                        if data.fake then data.fake:Destroy() end
-                        Tracked[rb] = nil
-                    else
-                        if data.fake then data.fake.CFrame = rb.CFrame end
-                    end
-                end
-            end)
-            table.insert(Conns, workspace.DescendantAdded:Connect(function(o) task.wait(0.05) if HitboxEnabled and o.Name:match("^CLIENT_BALL_") then CreateDupe(o) end end))
-        else
-            if HeartbeatConn then HeartbeatConn:Disconnect() end HeartbeatConn = nil
-            for _, c in ipairs(Conns) do pcall(function() c:Disconnect() end) end
-            table.clear(Conns) RestoreAll()
-            for _, o in ipairs(workspace:GetDescendants()) do if o.Name:match("FAKEVISUAL") then o:Destroy() end end
-        end
-    end
-})
+end})
 
--- ROTATE
-local RotateAcc = MainTab:Accordion({ Title = "Rotate", Desc = "Bisa rotate pas di udara", Open = false })
-local RotateEnabled = false
-local RotateConn, JumpConn, StateConn, IsAirborne = nil, nil, nil, false
-
-local function GetHumHRP()
-    local char = Player.Character
-    if not char then return nil, nil end
-    return char:FindFirstChildOfClass("Humanoid"), char:FindFirstChild("HumanoidRootPart")
-end
-
+local RotateAcc = MainTab:Accordion({ Title="Rotate", Desc=" ", Open=false })
+local RotateEnabled, RotateConn, JumpConn, StateConn, IsAirborne = false, nil, nil, nil, false
+local function GetHumHRP() local char=Player.Character if not char then return nil,nil end return char:FindFirstChildOfClass("Humanoid"), char:FindFirstChild("HumanoidRootPart") end
 local function EnableRotate()
-    local hum = GetHumHRP() if not hum then return end
-    hum.AutoRotate = true
-    if JumpConn then JumpConn:Disconnect() end
-    JumpConn = hum.Jumping:Connect(function(j) if j and RotateEnabled then IsAirborne = true hum.AutoRotate = true end end)
-    if StateConn then StateConn:Disconnect() end
-    StateConn = hum.StateChanged:Connect(function(_, new)
-        if new == Enum.HumanoidStateType.Freefall or new == Enum.HumanoidStateType.Jumping then IsAirborne = true
-        elseif new == Enum.HumanoidStateType.Landed then IsAirborne = false end
-    end)
-    if RotateConn then RotateConn:Disconnect() end
-    RotateConn = RunService.RenderStepped:Connect(function()
-        if not RotateEnabled then return end
-        local h, r = GetHumHRP() if not h or not r then return end
-        if IsAirborne or h:GetState() == Enum.HumanoidStateType.Freefall or h.FloorMaterial == Enum.Material.Air then
-            h.AutoRotate = true
-            if h.MoveDirection.Magnitude > 0.1 then
-                local dir = Vector3.new(h.MoveDirection.X, 0, h.MoveDirection.Z)
-                if dir.Magnitude > 0 then r.CFrame = r.CFrame:Lerp(CFrame.new(r.Position, r.Position + dir), 0.35) end
-            end
-        end
-    end)
+    local hum=GetHumHRP() if not hum then return end hum.AutoRotate=true
+    if JumpConn then JumpConn:Disconnect() end JumpConn=hum.Jumping:Connect(function(j) if j and RotateEnabled then IsAirborne=true hum.AutoRotate=true end end)
+    if StateConn then StateConn:Disconnect() end StateConn=hum.StateChanged:Connect(function(_,n) if n==Enum.HumanoidStateType.Freefall or n==Enum.HumanoidStateType.Jumping then IsAirborne=true elseif n==Enum.HumanoidStateType.Landed then IsAirborne=false end end)
+    if RotateConn then RotateConn:Disconnect() end RotateConn=RunService.RenderStepped:Connect(function() if not RotateEnabled then return end local h,r=GetHumHRP() if not h or not r then return end if IsAirborne or h:GetState()==Enum.HumanoidStateType.Freefall or h.FloorMaterial==Enum.Material.Air then h.AutoRotate=true if h.MoveDirection.Magnitude>0.1 then local dir=Vector3.new(h.MoveDirection.X,0,h.MoveDirection.Z) if dir.Magnitude>0 then r.CFrame=r.CFrame:Lerp(CFrame.new(r.Position,r.Position+dir),0.35) end end end end)
 end
+RotateAcc:Toggle({ Title="Rotate On Air", Desc=" ", Flag="RotateOnAir", Default=false, Callback=function(v) RotateEnabled=v if v then Window.Notify(" "," ",Color3.fromRGB(74,222,128),2) EnableRotate() Player.CharacterAdded:Connect(function() task.wait(0.5) if RotateEnabled then EnableRotate() end end) else if RotateConn then RotateConn:Disconnect() end if JumpConn then JumpConn:Disconnect() end if StateConn then StateConn:Disconnect() end end end })
 
-RotateAcc:Toggle({
-    Title = "Rotate On Air", Desc = " ", Flag = "RotateOnAir", Default = false,
-    Callback = function(v)
-        RotateEnabled = v
-        if v then Window.Notify("Rotate ON", "Bisa rotate di udara", Color3.fromRGB(74, 222, 128), 2) EnableRotate()
-            Player.CharacterAdded:Connect(function() task.wait(0.5) if RotateEnabled then EnableRotate() end end)
-        else
-            if RotateConn then RotateConn:Disconnect() end
-            if JumpConn then JumpConn:Disconnect() end
-            if StateConn then StateConn:Disconnect() end
-        end
-    end
-})
-
--- ================= ESP TAB =================
+-- ESP TAB
 local EspTab = Window:Tab({ Title = "Esp", Icon = "E" })
 local BallEspAcc = EspTab:Accordion({ Title = "Ball Esp", Desc = " ", Open = true })
-
 local EspEnabled, PredEnabled = false, false
-local EspTracked, PredMarkers = {}, {}
+local EspTracked, PredMarkers, OuterMarkers, BallCache, CacheConns = {}, {}, {}, {}, {}
+local GroundCache, LastPos, LastVel = {}, {}, {}
 local EspConn = nil
 
-local function GetBallVelocity(ball)
-    return ball.AssemblyLinearVelocity.Magnitude > 0 and ball.AssemblyLinearVelocity or ball.Velocity
+local function GetVelocityManual(ball)
+    local v = ball.AssemblyLinearVelocity
+    if v.Magnitude > 1 then return v end
+    v = ball.Velocity
+    if v.Magnitude > 1 then return v end
+    if LastVel[ball] and LastVel[ball].Magnitude > 0.5 then return LastVel[ball] end
+    return Vector3.new(0,0,0)
+end
+
+local function GetGroundPos(ball)
+    local c = GroundCache[ball]
+    if c and tick() - c.t < 1 then return c.pos end
+    local params = RaycastParams.new() params.FilterDescendantsInstances = {ball, Player.Character} params.FilterType = Enum.RaycastFilterType.Exclude
+    local from = ball.Position + Vector3.new(0,5,0)
+    local ray = workspace:Raycast(from, Vector3.new(0,-2000,0), params)
+    local pos = ray and ray.Position or Vector3.new(ball.Position.X, 2, ball.Position.Z)
+    GroundCache[ball] = {pos=pos, t=tick()}
+    return pos
 end
 
 local function GetPredictedLanding(ball)
     local p0 = ball.Position
-    local v0 = GetBallVelocity(ball)
-    if v0.Magnitude < 2 then return nil end
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {ball}
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    local ray = workspace:Raycast(p0, Vector3.new(0, -1000, 0), params)
-    local groundY = ray and (ray.Position.Y + ball.Size.Y/2 + 0.5) or 0
+    local v0 = GetVelocityManual(ball)
+    local groundPos = GetGroundPos(ball)
+    local groundY = groundPos.Y
+    if v0.Magnitude < 1 then return groundPos + Vector3.new(0,0.06,0) end
     local g = workspace.Gravity
     local a, b, c = 0.5 * g, -v0.Y, groundY - p0.Y
     local disc = b*b - 4*a*c
-    if disc < 0 then return nil end
-    local sqrtD = math.sqrt(disc)
-    local t1, t2 = (-b + sqrtD)/(2*a), (-b - sqrtD)/(2*a)
-    local t = (t1 > 0 and t2 > 0) and math.min(t1,t2) or math.max(t1,t2)
-    if t <= 0 or t > 10 then return nil end
-    return Vector3.new(p0.X + v0.X*t, groundY, p0.Z + v0.Z*t)
+    local t
+    if disc < 0 then t = math.sqrt(math.max(0, (p0.Y-groundY)*2 / g)) if t==0 then t=0.6 end
+    else local sqrtD=math.sqrt(disc) local t1,t2=(-b+sqrtD)/(2*a),(-b-sqrtD)/(2*a) t=(t1>0 and t2>0) and math.min(t1,t2) or math.max(t1,t2) if t<=0 or t>6 then t=0.8 end end
+    return Vector3.new(p0.X + v0.X*t, groundY + 0.06, p0.Z + v0.Z*t)
 end
 
 local function CreateEsp(ball)
     if EspTracked[ball] then return end
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = "ESP_Box" box.Adornee = ball box.AlwaysOnTop = true box.ZIndex = 10
-    box.Size = ball.Size + Vector3.new(0.5,0.5,0.5) box.Color3 = CYAN box.Transparency = 0.5 box.Parent = ball
-    local bill = Instance.new("BillboardGui")
-    bill.Name = "ESP_Billboard" bill.Adornee = ball bill.AlwaysOnTop = true
-    bill.Size = UDim2.new(0,100,0,40) bill.StudsOffset = Vector3.new(0,3,0) bill.Parent = ball
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.fromScale(1,1) label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1,1,1) label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.GothamBold label.TextSize = 12 label.Parent = bill
-    EspTracked[ball] = {box = box, bill = bill, label = label}
+    local box = Instance.new("BoxHandleAdornment") box.Name="ESP_Box" box.Adornee=ball box.AlwaysOnTop=true box.ZIndex=10
+    local s = Tracked[ball] and Tracked[ball].origSize or Vector3.new(4,4,4) box.Size=s+Vector3.new(0.5,0.5,0.5) box.Color3=CYAN box.Transparency=0.5 box.Parent=ball
+    local bill = Instance.new("BillboardGui") bill.Name="ESP_Billboard" bill.Adornee=ball bill.AlwaysOnTop=true bill.Size=UDim2.new(0,50,0,16) bill.StudsOffset=Vector3.new(0,3.5,0) bill.Parent=ball
+    local label = Instance.new("TextLabel") label.Size=UDim2.fromScale(1,1) label.BackgroundTransparency=1 label.TextColor3=Color3.new(1,1,1) label.TextStrokeTransparency=0 label.Font=Enum.Font.GothamBold label.TextSize=11 label.Parent=bill
+    EspTracked[ball]={box=box,bill=bill,label=label}
 end
 
-local function CreatePredMarker(ball, pos)
-    if PredMarkers[ball] and PredMarkers[ball].Parent then PredMarkers[ball].Position = pos return PredMarkers[ball] end
-    local marker = Instance.new("Part")
-    marker.Name = "PRED_"..ball.Name marker.Size = Vector3.new(4,0.5,4) marker.Shape = Enum.PartType.Cylinder
-    marker.Orientation = Vector3.new(0,0,90) marker.Anchored = true marker.CanCollide = false
-    marker.Material = Enum.Material.ForceField marker.Color = RED marker.Transparency = 0.3 marker.Position = pos marker.Parent = workspace
-    local hl = Instance.new("Highlight") hl.Adornee = marker hl.FillTransparency = 0.7 hl.OutlineColor = RED hl.Parent = marker
-    local bg = Instance.new("BillboardGui") bg.Adornee = marker bg.Size = UDim2.new(0,80,0,20) bg.AlwaysOnTop = true bg.StudsOffset = Vector3.new(0,3,0) bg.Parent = marker
-    local tl = Instance.new("TextLabel") tl.Size = UDim2.fromScale(1,1) tl.BackgroundTransparency = 1 tl.Text = "JATUH" tl.TextColor3 = RED tl.Font = Enum.Font.GothamBold tl.TextSize = 14 tl.Parent = bg
-    PredMarkers[ball] = marker
-    return marker
+local function CreateCircleArea(ball, pos)
+    local inner = PredMarkers[ball] local outer = OuterMarkers[ball]
+    if inner and inner.Parent then
+        inner.Position = pos inner.CFrame = CFrame.new(pos) * CFrame.Angles(0,0,math.rad(90))
+        if outer and outer.Parent then outer.Position = pos + Vector3.new(0,0.02,0) outer.CFrame = CFrame.new(pos + Vector3.new(0,0.02,0)) * CFrame.Angles(0,0,math.rad(90)) end
+        return inner
+    end
+    inner = Instance.new("Part") inner.Name="PRED_"..ball.Name inner.Shape=Enum.PartType.Cylinder inner.Size=Vector3.new(0.2,12,12) inner.CFrame = CFrame.new(pos) * CFrame.Angles(0,0,math.rad(90)) inner.Anchored=true inner.CanCollide=false inner.CanQuery=false inner.Material=Enum.Material.Neon inner.Color=RED inner.Transparency=0.15 inner.Parent=workspace
+    outer = Instance.new("Part") outer.Name="PRED_OUTER" outer.Shape=Enum.PartType.Cylinder outer.Size=Vector3.new(0.15,20,20) outer.CFrame = CFrame.new(pos + Vector3.new(0,0.02,0)) * CFrame.Angles(0,0,math.rad(90)) outer.Anchored=true outer.CanCollide=false outer.CanQuery=false outer.Material=Enum.Material.ForceField outer.Color=RED outer.Transparency=0.55 outer.Parent=workspace
+    local bg = Instance.new("BillboardGui") bg.Adornee=inner bg.Size=UDim2.new(0,60,0,16) bg.AlwaysOnTop=true bg.StudsOffset=Vector3.new(0,3,0) bg.Parent=inner
+    local tl = Instance.new("TextLabel") tl.Size=UDim2.fromScale(1,1) tl.BackgroundTransparency=1 tl.Text=" " tl.TextColor3=RED tl.Font=Enum.Font.GothamBold tl.TextSize=11 tl.Parent=bg
+    PredMarkers[ball]=inner OuterMarkers[ball]=outer return inner
 end
 
+local function RefreshCache() table.clear(BallCache) for _,obj in ipairs(workspace:GetDescendants()) do local b=IsRealBall(obj) if b then BallCache[b]=true end end end
+local function StartCache() if #CacheConns>0 then return end table.insert(CacheConns, workspace.DescendantAdded:Connect(function(obj) task.wait(0.08) local b=IsRealBall(obj) if b then BallCache[b]=true end end)) table.insert(CacheConns, workspace.DescendantRemoving:Connect(function(obj) if BallCache[obj] then BallCache[obj]=nil GroundCache[obj]=nil LastPos[obj]=nil LastVel[obj]=nil end if PredMarkers[obj] then PredMarkers[obj]:Destroy() PredMarkers[obj]=nil end if OuterMarkers[obj] then OuterMarkers[obj]:Destroy() OuterMarkers[obj]=nil end if EspTracked[obj] then if EspTracked[obj].box then EspTracked[obj].box:Destroy() end if EspTracked[obj].bill then EspTracked[obj].bill:Destroy() end EspTracked[obj]=nil end end)) end
+local function StopCache() for _,c in ipairs(CacheConns) do pcall(function() c:Disconnect() end) end table.clear(CacheConns) end
 local function EnableEspLoop()
-    if EspConn then EspConn:Disconnect() end
-    EspConn = RunService.RenderStepped:Connect(function()
-        local char = Player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            local ball = IsRealBall(obj)
-            if ball then
-                if EspEnabled then
-                    if not EspTracked[ball] then CreateEsp(ball) end
-                    local data = EspTracked[ball]
-                    if data and hrp then
-                        local dist = (hrp.Position - ball.Position).Magnitude
-                        data.label.Text = string.format("%s | %dm", ball.Name, math.floor(dist))
-                        data.box.Size = ball.Size + Vector3.new(0.5,0.5,0.5)
-                    end
-                end
-                if PredEnabled then
-                    local predPos = GetPredictedLanding(ball)
-                    if predPos then CreatePredMarker(ball, predPos) end
-                end
+    if EspConn then EspConn:Disconnect() end RefreshCache() StartCache()
+    local lastTick=0
+    EspConn = RunService.Heartbeat:Connect(function()
+        if tick()-lastTick < 0.1 then return end lastTick=tick()
+        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        for ball,_ in pairs(BallCache) do
+            if not ball.Parent or not ball:IsDescendantOf(workspace) then
+                BallCache[ball]=nil GroundCache[ball]=nil LastPos[ball]=nil LastVel[ball]=nil
+                if EspTracked[ball] then if EspTracked[ball].box then EspTracked[ball].box:Destroy() end if EspTracked[ball].bill then EspTracked[ball].bill:Destroy() end EspTracked[ball]=nil end
+                if PredMarkers[ball] then PredMarkers[ball]:Destroy() PredMarkers[ball]=nil end if OuterMarkers[ball] then OuterMarkers[ball]:Destroy() OuterMarkers[ball]=nil end
+            else
+                local curPos=ball.Position local now=tick()
+                if LastPos[ball] then local dt=now-LastPos[ball].t if dt>0.04 then local vel=(curPos-LastPos[ball].p)/dt if vel.Magnitude<150 then LastVel[ball]=vel end end end
+                LastPos[ball]={p=curPos,t=now}
+                if EspEnabled then if not EspTracked[ball] then CreateEsp(ball) end if hrp and EspTracked[ball] then EspTracked[ball].label.Text=math.floor((hrp.Position-ball.Position).Magnitude).."m" end end
+                if PredEnabled then local pos=GetPredictedLanding(ball) if pos then CreateCircleArea(ball,pos) end end
             end
         end
-        for b, d in pairs(EspTracked) do if not b.Parent then if d.box then d.box:Destroy() end if d.bill then d.bill:Destroy() end EspTracked[b]=nil end end
-        for b, m in pairs(PredMarkers) do if not b.Parent then if m.Parent then m:Destroy() end PredMarkers[b]=nil end end
     end)
 end
 
-BallEspAcc:Toggle({
-    Title = "Esp Ball", Desc = " ", Flag = "EspBall", Default = false,
+BallEspAcc:Toggle({ Title="Esp Ball", Desc=" ", Flag="EspBall", Default=false, Callback=function(v)
+    EspEnabled=v if v then Window.Notify(" "," ",CYAN,2) EnableEspLoop()
+    else for _,d in pairs(EspTracked) do if d.box then d.box:Destroy() end if d.bill then d.bill:Destroy() end end table.clear(EspTracked) if not PredEnabled then if EspConn then EspConn:Disconnect() EspConn=nil end StopCache() table.clear(BallCache) end end
+end})
+BallEspAcc:Toggle({ Title="Prediksi Ball Jatuh", Desc=" ", Flag="PrediksiJatuh", Default=false, Callback=function(v)
+    PredEnabled=v if v then Window.Notify(" "," ",RED,2) EnableEspLoop()
+    else for _,m in pairs(PredMarkers) do if m.Parent then m:Destroy() end end for _,m in pairs(OuterMarkers) do if m.Parent then m:Destroy() end end table.clear(PredMarkers) table.clear(OuterMarkers) table.clear(GroundCache)
+        if not EspEnabled then if EspConn then EspConn:Disconnect() EspConn=nil end StopCache() table.clear(BallCache) end
+    end
+end})
+
+-- STATS TAB PER STAT BEDA VALUE
+local StatsTab = Window:Tab({ Title = "Stats", Icon = "S" })
+local StatsAcc = StatsTab:Accordion({ Title = "Player Stats", Desc = " ", Open = true })
+
+local MultiplierList = {}
+local SelectedStat = nil
+local StatValues = {}
+local StatLoopConn = nil
+local StatLoopEnabled = false
+local statDropdown, statSlider
+
+local function ScanMultiplier()
+    table.clear(MultiplierList)
+    local function scanInst(inst)
+        if not inst then return end
+        pcall(function()
+            for k,_ in pairs(inst:GetAttributes()) do
+                if k:find("Multiplier_") then
+                    if not table.find(MultiplierList, k) then table.insert(MultiplierList, k) end
+                end
+            end
+        end)
+    end
+    scanInst(Player)
+    scanInst(Player.Character)
+    scanInst(Player.Character and Player.Character:FindFirstChildOfClass("Humanoid"))
+    if Player.Character then
+        for _,v in ipairs(Player.Character:GetDescendants()) do
+            pcall(function()
+                for k,_ in pairs(v:GetAttributes()) do
+                    if k:find("Multiplier_") then
+                        if not table.find(MultiplierList, k) then table.insert(MultiplierList, k) end
+                    end
+                end
+            end)
+            if v.Name:find("Multiplier_") and v:IsA("ValueBase") then
+                if not table.find(MultiplierList, v.Name) then table.insert(MultiplierList, v.Name) end
+            end
+        end
+    end
+    table.sort(MultiplierList)
+    if #MultiplierList == 0 then
+        MultiplierList = {"Multiplier_Power","Multiplier_Speed","Multiplier_Jump","Multiplier_Stamina"}
+    end
+    return MultiplierList
+end
+
+statDropdown = StatsAcc:Dropdown({
+    Title = "Select Stat",
+    Desc = " ",
+    Flag = "StatDropdown",
+    Options = ScanMultiplier(),
+    Default = nil,
     Callback = function(v)
-        EspEnabled = v
-        if v then
-            Window.Notify("ESP ON", "ESP Ball", CYAN, 2)
-            for _, o in ipairs(workspace:GetDescendants()) do local b = IsRealBall(o) if b then CreateEsp(b) end end
-            EnableEspLoop()
+        SelectedStat = v
+        local saved = StatValues[v]
+        if saved then
+            pcall(function() statSlider:SetValue(saved) end)
         else
-            for _, d in pairs(EspTracked) do if d.box then d.box:Destroy() end if d.bill then d.bill:Destroy() end end
-            table.clear(EspTracked)
-            if not PredEnabled and EspConn then EspConn:Disconnect() EspConn=nil end
+            StatValues[v] = 1
+            pcall(function() statSlider:SetValue(1) end)
         end
+        Window.Notify(" ", v.." = "..(StatValues[v] or 1), ACCENT, 1)
     end
 })
 
-BallEspAcc:Toggle({
-    Title = "Prediksi Ball Jatuh", Desc = " ", Flag = "PrediksiJatuh", Default = false,
+StatsAcc:Button({
+    Title = "Refresh Stats",
+    Desc = " ",
+    Callback = function()
+        local list = ScanMultiplier()
+        pcall(function() statDropdown:SetOptions(list) end)
+        Window.Notify(" ", #list.." ", CYAN, 1)
+    end
+})
+
+statSlider = StatsAcc:Slider({
+    Title = "Change Value",
+    Desc = " ",
+    Flag = "StatValue",
+    Min = 0,
+    Max = 5,
+    Step = 0.1,
+    Default = 1,
+    Suffix = " ",
     Callback = function(v)
-        PredEnabled = v
-        if v then Window.Notify("Prediksi ON", "", RED, 2) EnableEspLoop()
-        else for _, m in pairs(PredMarkers) do if m.Parent then m:Destroy() end end table.clear(PredMarkers)
-            if not EspEnabled and EspConn then EspConn:Disconnect() EspConn=nil end
+        if not SelectedStat then Window.Notify(" "," ",RED,1) return end
+        StatValues[SelectedStat] = v
+    end
+})
+
+StatsAcc:Button({
+    Title = "Apply Selected",
+    Desc = " ",
+    Callback = function()
+        if not SelectedStat then return end
+        local val = StatValues[SelectedStat] or 1
+        pcall(function()
+            Player:SetAttribute(SelectedStat, val)
+            if Player.Character then
+                Player.Character:SetAttribute(SelectedStat, val)
+                local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum:SetAttribute(SelectedStat, val) end
+                local vb = Player.Character:FindFirstChild(SelectedStat)
+                if vb and vb:IsA("ValueBase") then vb.Value = val end
+            end
+        end)
+    end
+})
+
+StatsAcc:Toggle({
+    Title = "Change Stats (Loop All)",
+    Desc = " ",
+    Flag = "StatLoop",
+    Default = false,
+    Callback = function(v)
+        StatLoopEnabled = v
+        if v then
+            if next(StatValues) == nil then Window.Notify(" "," ",RED,1) return end
+            Window.Notify(" "," ",Color3.fromRGB(74,222,128),2)
+            if StatLoopConn then StatLoopConn:Disconnect() end
+            StatLoopConn = RunService.Heartbeat:Connect(function()
+                if not StatLoopEnabled then return end
+                for statName, statVal in pairs(StatValues) do
+                    pcall(function()
+                        Player:SetAttribute(statName, statVal)
+                        if Player.Character then
+                            Player.Character:SetAttribute(statName, statVal)
+                            local hum = Player.Character:FindFirstChildOfClass("Humanoid")
+                            if hum then hum:SetAttribute(statName, statVal) end
+                            local vb = Player.Character:FindFirstChild(statName)
+                            if vb and vb:IsA("ValueBase") then vb.Value = statVal end
+                            for _,obj in ipairs(Player.Character:GetDescendants()) do
+                                if obj.Name == statName and obj:IsA("ValueBase") then obj.Value = statVal end
+                            end
+                        end
+                    end)
+                end
+            end)
+        else
+            if StatLoopConn then StatLoopConn:Disconnect() StatLoopConn=nil end
         end
     end
 })
 
-Window.Notify("Loaded", "Final build ready - upload to github", ACCENT, 2)
---(%--&_>@)
+Window.Notify(" "," ",ACCENT,1)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
