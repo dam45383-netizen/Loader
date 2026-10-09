@@ -1,5 +1,17 @@
 --[[
-    SORU HUB UI v4.1  (API 100% kompatibel dengan v2.x / v3.x)
+    SORU HUB UI v4.2  (API 100% kompatibel dengan v2.x / v3.x / v4.x)
+
+    BARU DI v4.2
+      Background animasi : pengganti GIF. Roblox tidak bisa memutar .gif, jadi pakai
+                           video (.webm / .mp4 lewat VideoFrame) atau frame sequence (kumpulan PNG).
+                           Kalau gagal dimuat, otomatis balik ke background PNG bawaan.
+      CreateWindow({
+          Background = "https://.../bg.webm",   -- .webm / .mp4 (video loop) | .png / .jpg (gambar) | rbxassetid | path file lokal
+          BackgroundAspect = 16/9,              -- rasio video (lebar/tinggi), default 16/9
+          -- ATAU kalau executor tidak support video:
+          BackgroundFrames = {"https://.../f01.png", "https://.../f02.png"},
+          BackgroundFPS = 12,                   -- 1 - 30
+      })
 
     BARU DI v4.1
       Accordion : didesain ulang (aksen header, badge jumlah item, buka/tutup mulus, isi tidak bisa bocor saat tertutup)
@@ -70,6 +82,29 @@ local function getAsset(name, url)
 end
 local ICON = getAsset("SORU_S_ICON_1024.png", URLS.ICON)
 local BG = getAsset("SORU_THEME_1024.png", URLS.BG)
+
+-- helper background animasi (video / frame sequence / gambar)
+local function bgKind(src)
+    local s = (tostring(src or ""):lower():gsub("%?.*$", ""))
+    if s:match("%.webm$") or s:match("%.mp4$") then return "video" end
+    if s:match("%.gif$") then return "gif" end
+    return "image"
+end
+local function srcAsset(src)
+    src = tostring(src or "")
+    if src:match("^rbxasset") then return src end
+    if src:match("^%d+$") then return "rbxassetid://"..src end
+    if src:match("^https?://") then
+        local ext = (src:lower():gsub("%?.*$", "")):match("%.(%w+)$") or "bin"
+        local h = 5381
+        for i = 1, #src do h = (h * 33 + src:byte(i)) % 4294967296 end
+        local a = getAsset("SORU_BG_"..h.."."..ext, src)
+        if a ~= "rbxassetid://0" then return a end
+        return nil
+    end
+    if isfile and isfile(src) and getcustomasset then return getcustomasset(src) end
+    return nil
+end
 
 ----------------------------------------------------------------------
 -- SOUND KHAS SORU (disintesis sendiri -> .wav -> getcustomasset, tanpa asset id)
@@ -168,7 +203,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "4.1"
+local VERSION = "4.2"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -576,6 +611,90 @@ function SORU:CreateWindow(C)
     new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(20, 17, 36), Color3.fromRGB(8, 7, 14)), Rotation = 125}, tint)
     local bgImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = BG, ImageTransparency = 0.82, ScaleType = Enum.ScaleType.Crop, ZIndex = 2}, win)
     local bgS = new("UIScale", {Scale = 1.05}, bgImg)
+
+    -- BACKGROUND ANIMASI (opsional): C.Background = url .webm/.mp4/.png/.jpg | C.BackgroundFrames = {url,...}
+    local vidRatio = tonumber(C.BackgroundAspect) or (16 / 9)
+    local bgVidOn = false
+    local bgBox = new("Frame", {Name = "BGVideo", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, win)
+    new("UIScale", {Scale = 1.08}, bgBox)
+    local bgVid = new("VideoFrame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Looped = true, Volume = 0, ZIndex = 1}, bgBox)
+    local vidDim = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(14, 12, 24), BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 2, Visible = false}, bgBox)
+
+    -- video di-"crop" supaya menutup seluruh window (tanpa gepeng)
+    local function fitVideo()
+        local a = win.AbsoluteSize
+        if a.X <= 0 or a.Y <= 0 then return end
+        local wr = a.X / a.Y
+        if wr > vidRatio then bgVid.Size = UDim2.fromScale(1, wr / vidRatio)
+        else bgVid.Size = UDim2.fromScale(vidRatio / wr, 1) end
+    end
+    bind(win:GetPropertyChangedSignal("AbsoluteSize"), fitVideo)
+    local function setVid(p) if bgVidOn then pcall(function() bgVid.Playing = p end) end end
+
+    local function startVideo(asset)
+        if not pcall(function() bgVid.Video = asset bgVid.Playing = true end) then return false end
+        local t0 = os.clock()
+        while not bgVid.IsLoaded and os.clock() - t0 < 12 do task.wait(0.1) end
+        if not bgVid.IsLoaded then
+            pcall(function() bgVid.Playing = false bgVid.Video = "" end)
+            return false
+        end
+        bgVidOn = true
+        fitVideo()
+        vidDim.Visible = true
+        bgImg.Visible = false
+        setVid(isOpen)
+        return true
+    end
+
+    local function applyBackground()
+        local frames, src = C.BackgroundFrames, C.Background
+        if type(frames) == "table" and #frames > 0 then
+            -- mode frame sequence
+            local list = {}
+            for _, u in ipairs(frames) do
+                local a = srcAsset(u)
+                if a then list[#list + 1] = a end
+            end
+            if #list == 0 then return end
+            pcall(function() game:GetService("ContentProvider"):PreloadAsync(list) end)
+            bgImg.Image = list[1]
+            local dt = 1 / math.clamp(tonumber(C.BackgroundFPS) or 12, 1, 30)
+            local i = 1
+            while gui.Parent do
+                if isOpen then
+                    i = i % #list + 1
+                    bgImg.Image = list[i]
+                    task.wait(dt)
+                else
+                    task.wait(0.3)
+                end
+            end
+        elseif type(src) == "string" and src ~= "" then
+            local kind = bgKind(src)
+            if kind == "gif" then
+                task.wait(2.5)
+                notify("Background", "GIF tidak didukung Roblox. Ubah ke .webm atau pakai BackgroundFrames.", T.warn, 6)
+                return
+            end
+            local asset = srcAsset(src)
+            if not asset then
+                task.wait(2.5)
+                notify("Background", "Gagal memuat background", T.bad, 4)
+                return
+            end
+            if kind == "video" then
+                if not startVideo(asset) then
+                    task.wait(1)
+                    notify("Background", "Video gagal dimuat, pakai gambar biasa", T.warn, 4)
+                end
+            else
+                bgImg.Image = asset
+            end
+        end
+    end
+    task.spawn(applyBackground)
+
     local glow = new("Frame", {Size = UDim2.new(1, 0, 0, 150), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, win)
     new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.78, 1), Rotation = 90}, glow)
 
@@ -640,6 +759,7 @@ function SORU:CreateWindow(C)
             if e.inst and e.inst.Parent then e.inst.BackgroundTransparency = math.clamp(t + e.off, 0, 1) end
         end
         bgImg.ImageTransparency = math.clamp(0.9 - t * 0.8, 0.3, 1)
+        vidDim.BackgroundTransparency = math.clamp(1 - (bgImg.ImageTransparency - 0.12), 0, 1)
     end
 
     ------------------------------------------------------------------
@@ -796,6 +916,7 @@ function SORU:CreateWindow(C)
         if shadow then play(shadow, {ImageTransparency = 0.55}, 0.45) end
         if neon then play(neon, {ImageTransparency = 0.72}, 0.6) end
         if openFx then openFx() end
+        setVid(true)
         updateBlur()
         local t = tabs[cur]
         if t then task.delay(0.15, function() if isOpen then entrance(t.scroll) end end) end
@@ -812,6 +933,7 @@ function SORU:CreateWindow(C)
         play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
         if shadow then play(shadow, {ImageTransparency = 1}, 0.22) end
         if neon then play(neon, {ImageTransparency = 1}, 0.25) end
+        task.delay(0.45, function() if not isOpen then setVid(false) end end)
         updateBlur()
         task.delay(0.45, function() if not isOpen and tok == openTok then shell.Visible = false end end)
     end
@@ -2241,7 +2363,7 @@ function SORU:CreateWindow(C)
             end
         end
     end)
-    -- parallax halus: gambar background bergeser tipis mengikuti mouse
+    -- parallax halus: gambar / video background bergeser tipis mengikuti mouse
     local pxx, pyy = 0.5, 0.5
     bind(RunService.RenderStepped, function()
         if not isOpen then return end
@@ -2250,7 +2372,9 @@ function SORU:CreateWindow(C)
         local m = UIS:GetMouseLocation()
         pxx = pxx + (math.clamp((m.X - ap.X) / sz.X, 0, 1) - pxx) * 0.08
         pyy = pyy + (math.clamp((m.Y - ap.Y) / sz.Y, 0, 1) - pyy) * 0.08
-        bgImg.Position = UDim2.new(0.5, (0.5 - pxx) * 22, 0.5, (0.5 - pyy) * 14)
+        local ppos = UDim2.new(0.5, (0.5 - pxx) * 22, 0.5, (0.5 - pyy) * 14)
+        bgImg.Position = ppos
+        bgBox.Position = ppos
     end)
     local acc = 0
     bind(RunService.Heartbeat, function(dt)
