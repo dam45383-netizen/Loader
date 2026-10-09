@@ -68,7 +68,7 @@ local SIZE_FILE2 = CFG.."/soru.size"
 
 local URLS = {
     ICON = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_S_ICON_1024.png",
-    BG = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_THEME_1024.png"
+    BG = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_THEME_1024.mp4"
 }
 local function getAsset(name, url)
     local path = CFG.."/"..name
