@@ -15,7 +15,8 @@ local Window = SORU:CreateWindow({
         129827112113663, -- Prospecting
         104050046639813,  -- Ride A Fish
         114326934417838, -- BAS
-        73956553001240   -- VBL
+        73956553001240,  -- VBL
+        74193805629461 -- +1 mine per click
     },
     KickIfNotSupported = false
 })
@@ -54,4 +55,6 @@ elseif placeId == 104050046639813 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish")
 elseif placeId == 73956553001240 or universeId == 73956553001240 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua")
+elseif placeId == 74193805629461 then
+    loadRaw("") 
 end
