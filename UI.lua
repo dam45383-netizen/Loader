@@ -1,5 +1,13 @@
 --[[
-    SORU HUB UI v4.2  (API 100% kompatibel dengan v2.x / v3.x / v4.x)
+    SORU HUB UI v4.3  (API 100% kompatibel dengan v2.x / v3.x / v4.x)
+
+    BARU DI v4.3
+      Panel     : Tab:Panel({Title, Desc, Width, Open}) -> laci samping yang isinya komponen apa saja.
+                  Garis vertikal di tepi kanan tab bisa DIGESER ke kiri atau DIKLIK untuk membuka panel.
+                  Tutup: geser garis ke kanan, klik garisnya, klik tombol X, atau klik area gelap di belakang panel.
+                  local P = Tab:Panel({Title = "Settings", Desc = "opsional", Width = 0.75})
+                  P:Toggle({...}) P:Slider({...}) P:Button({...}) P:Dropdown({...}) dst
+                  P:Open() P:Close() P:SetOpen(bool) P:IsOpen() P:SetTitle("Judul")
 
     BARU DI v4.2
       Background animasi : pengganti GIF. Roblox tidak bisa memutar .gif, jadi pakai
@@ -44,6 +52,7 @@
       Tab:Keybind({Title, Flag, Default = Enum.KeyCode.X, Callback = function(key) end, OnChange = function(key) end})
       Tab:ColorPicker({Title, Flag, Default = Color3, Callback = function(color) end})
       Tab:Accordion({Title, Desc, Open}) -> berisi komponen di atas
+      Tab:Panel({Title, Desc, Width, Open}) -> laci samping (geser / klik garis di kanan), berisi komponen di atas
       Tab:Paragraph({Title, Desc})
       Tab:Section("Judul") / Tab:Divider() / Tab:Label("Teks")
 ]]
@@ -203,7 +212,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "4.2"
+local VERSION = "4.3"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -342,6 +351,9 @@ local function track(handle, onBegin, onMove, onEnd)
         end)
     end)
 end
+
+-- registry Panel per halaman tab (supaya buka satu panel menutup panel lain di tab yang sama)
+local panelReg = setmetatable({}, {__mode = "k"})
 
 ----------------------------------------------------------------------
 -- WINDOW
@@ -2019,6 +2031,210 @@ function SORU:CreateWindow(C)
             return sub
         end
         K.Group = K.Accordion
+
+        ----------------------------------------------------------------
+        -- PANEL: laci samping. Garis vertikal di tepi kanan tab bisa DIGESER ke kiri
+        -- atau DIKLIK untuk membuka panel. Isinya komponen apa saja.
+        --   local P = Tab:Panel({Title = "Settings", Desc = "opsional", Width = 0.75, Open = false})
+        --   P:Toggle({...}) P:Slider({...}) P:Button({...}) P:Dropdown({...}) dst
+        --   P:Open() P:Close() P:SetOpen(bool) P:IsOpen() P:SetTitle("Judul")
+        --   Width: 0.3 - 1 = pecahan lebar tab (default 0.75), angka > 1 = perkiraan pixel
+        --   Tutup: geser garis ke kanan, klik garisnya, klik X, atau klik area gelap di belakang panel
+        ----------------------------------------------------------------
+        function K:Panel(o)
+            o = o or {}
+            local page = scroll:FindFirstAncestorOfClass("CanvasGroup") or scroll.Parent
+            local W = tonumber(o.Width) or 0.75
+            if W > 1 then W = W / math.max(winSize.X - SIDE_W - 30, 1) end
+            W = math.clamp(W, 0.3, 1)
+            local HW = 18
+            local hasDesc = o.Desc ~= nil
+            local HEADH = hasDesc and 54 or 44
+            local open, tok, curTw, dirOpen = false, 0, nil, false
+            local hovering, pressing, othersClosed, p0 = false, false, false, 0
+
+            -- daftar panel di tab yang sama (buka satu = tutup yang lain)
+            local grp = panelReg[page]
+            if not grp then grp = {} panelReg[page] = grp end
+            local me = {}
+            local idx = #grp + 1
+            grp[idx] = me
+
+            -- layar gelap di belakang panel (klik = tutup)
+            local scrim = new("TextButton", {Name = "PanelScrim", Text = "", AutoButtonColor = false, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 30}, page)
+
+            -- laci: bergeser dari tepi kanan tab, garis penarik menempel di sisi kirinya
+            local drawer = new("Frame", {Name = "PanelDrawer", Size = UDim2.new(W, 0, 1, 0), Position = UDim2.fromScale(1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 31}, page)
+            local shadow = new("Frame", {Name = "Shadow", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromOffset(0, 0), Size = UDim2.new(0, 28, 1, 0), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 1}, drawer)
+            new("UIGradient", {Transparency = NumberSequence.new(1, 0.4)}, shadow)
+
+            local body = new("Frame", {Name = "PanelBody", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.panel, BorderSizePixel = 0, Active = true, ZIndex = 2}, drawer)
+            corner(body, 16)
+            local bst = stroke(body, T.stroke, 1, 0.4)
+            regTrans(body, -0.12)
+            grad(body, WHITE, Color3.fromRGB(205, 200, 228), 90)
+            gloss(body)
+
+            local titleL = label(body, {Text = tostring(o.Title or "Panel"), Position = UDim2.fromOffset(16, hasDesc and 10 or 0), Size = UDim2.new(1, -64, 0, hasDesc and 18 or HEADH), Font = Enum.Font.GothamBold, TextSize = 14, ZIndex = 4})
+            if hasDesc then
+                label(body, {Text = tostring(o.Desc), Position = UDim2.fromOffset(16, 30), Size = UDim2.new(1, -64, 0, 16), TextSize = 11, TextColor3 = DIM, ZIndex = 4})
+            end
+            local cb = new("TextButton", {Size = UDim2.fromOffset(28, 28), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0, HEADH / 2), Text = "✕", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.bad, BackgroundColor3 = Color3.fromRGB(28, 25, 44), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 5}, body)
+            corner(cb, FULL)
+            hover(cb, nil, Color3.fromRGB(82, 36, 50), T.cardDown)
+            local sep = new("Frame", {Position = UDim2.fromOffset(12, HEADH), Size = UDim2.new(1, -24, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 4}, body)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 1)}}, sep)
+
+            -- isi panel (scroll sendiri), komponen dibuat lewat buildComponents
+            local pscroll = new("ScrollingFrame", {Name = "PanelScroll", Position = UDim2.fromOffset(0, HEADH + 2), Size = UDim2.new(1, 0, 1, -(HEADH + 2)), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, ScrollBarImageTransparency = 0.3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 4}, body)
+            new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
+            new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12)}, pscroll)
+            local sub = buildComponents(pscroll, pscroll, true)
+
+            -- garis penarik (handle) di sisi kiri laci
+            local handle = new("TextButton", {Name = "Handle", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromOffset(-(idx - 1) * (HW + 2), 0), Size = UDim2.new(0, HW, 1, 0), Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Active = true, ZIndex = 3}, drawer)
+            local lineGlow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.new(0, 8, 1, -20), BackgroundColor3 = WHITE, BackgroundTransparency = 0.88, BorderSizePixel = 0, ZIndex = 1}, handle)
+            corner(lineGlow, FULL)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Rotation = 90, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1)}}, lineGlow)
+            local line = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.new(0, 2, 1, -20), BackgroundColor3 = WHITE, BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 2}, handle)
+            corner(line, FULL)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Rotation = 90, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.18, 0.1), NumberSequenceKeypoint.new(0.82, 0.1), NumberSequenceKeypoint.new(1, 1)}}, line)
+            local grip = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(14, 46), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, handle)
+            corner(grip, FULL)
+            grad(grip, T.accent, T.accent2, 90)
+            local gst = stroke(grip, T.cyan, 1, 0.5)
+            local chev = label(grip, {Text = "‹", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None, ZIndex = 4})
+            TweenService:Create(gst, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Transparency = 0.05}):Play()
+
+            -- satu sumber kebenaran: nv.Value = progres buka (0 tertutup, 1 terbuka)
+            local nv = new("NumberValue", {Value = 0}, drawer)
+            local function render(p)
+                local c = math.clamp(p, 0, 1)
+                drawer.Position = UDim2.fromScale(1 - p * W, 0)
+                scrim.BackgroundTransparency = 1 - c * 0.55
+                scrim.Visible = c > 0.003
+                shadow.BackgroundTransparency = 1 - c
+                shadow.Visible = c > 0.003
+                chev.Rotation = 180 * c
+            end
+            nv:GetPropertyChangedSignal("Value"):Connect(function() render(nv.Value) end)
+            render(0)
+
+            local function resetKids()
+                for _, b in ipairs(sub._kids) do
+                    if b.Parent then b.Position = UDim2.fromOffset(0, 0) end
+                end
+            end
+            local function closeOthers()
+                for _, g in ipairs(grp) do
+                    if g ~= me and g.close then g.close() end
+                end
+            end
+            local function setOpen(v, mode)
+                v = v and true or false
+                if mode == nil and v == open then return end
+                local changed = (v ~= open)
+                open = v
+                tok = tok + 1
+                local my = tok
+                if v then closeOthers() end
+                if changed and mode ~= "instant" then sfx(v and "expand" or "collapse") end
+                play(line, {BackgroundTransparency = v and 0 or 0.25}, 0.3)
+                play(bst, {Color = v and ACCENT or T.stroke, Transparency = v and 0.15 or 0.4}, 0.3)
+                if curTw then curTw:Cancel() curTw = nil end
+                if mode == "instant" then
+                    nv.Value = v and 1 or 0
+                    resetKids()
+                    return
+                end
+                if v then
+                    curTw = play(nv, {Value = 1}, 0.6, Enum.EasingStyle.Back)
+                else
+                    curTw = play(nv, {Value = 0}, 0.42, Enum.EasingStyle.Quint)
+                end
+                if v and mode ~= "drag" then
+                    for i, b in ipairs(sub._kids) do
+                        if b.Parent then
+                            b.Position = UDim2.fromOffset(28, 0)
+                            task.delay(0.1 + math.min(i - 1, 10) * 0.04, function()
+                                if open and tok == my and b.Parent then play(b, {Position = UDim2.fromOffset(0, 0)}, 0.5, Enum.EasingStyle.Back) end
+                            end)
+                        end
+                    end
+                else
+                    resetKids()
+                end
+            end
+            me.close = function() if open then setOpen(false) end end
+
+            -- hover handle
+            handle.MouseEnter:Connect(function()
+                hovering = true
+                sfx("hover")
+                if pressing then return end
+                play(lineGlow, {BackgroundTransparency = 0.7}, 0.2)
+                play(line, {Size = UDim2.new(0, 3, 1, -20)}, 0.2)
+                play(grip, {Size = UDim2.fromOffset(16, 52)}, 0.25, Enum.EasingStyle.Back)
+            end)
+            handle.MouseLeave:Connect(function()
+                hovering = false
+                if pressing then return end
+                play(lineGlow, {BackgroundTransparency = 0.88}, 0.25)
+                play(line, {Size = UDim2.new(0, 2, 1, -20)}, 0.25)
+                play(grip, {Size = UDim2.fromOffset(14, 46)}, 0.25)
+            end)
+
+            -- geser = ikuti jari/kursor lalu snap, klik = buka/tutup
+            track(handle,
+                function()
+                    if curTw then curTw:Cancel() curTw = nil end
+                    tok = tok + 1
+                    p0 = nv.Value
+                    pressing, othersClosed, dirOpen = true, false, open
+                    play(grip, {Size = UDim2.fromOffset(18, 58)}, 0.12, Enum.EasingStyle.Back)
+                    play(lineGlow, {BackgroundTransparency = 0.55}, 0.12)
+                    return true
+                end,
+                function(dx, dy, st, moved)
+                    if not st or not moved then return end
+                    if not othersClosed then
+                        othersClosed = true
+                        closeOthers()
+                    end
+                    local np = math.clamp(p0 - dx / math.max(page.AbsoluteSize.X * W, 1), 0, 1)
+                    local cv = nv.Value
+                    if np > cv + 0.002 then dirOpen = true elseif np < cv - 0.002 then dirOpen = false end
+                    nv.Value = np
+                end,
+                function(moved)
+                    pressing = false
+                    play(grip, {Size = hovering and UDim2.fromOffset(16, 52) or UDim2.fromOffset(14, 46)}, 0.3, Enum.EasingStyle.Back)
+                    play(lineGlow, {BackgroundTransparency = hovering and 0.7 or 0.88}, 0.3)
+                    if not moved then
+                        setOpen(not open)
+                        return
+                    end
+                    local v = nv.Value
+                    local target
+                    if dirOpen then target = v > 0.2 else target = v > 0.8 end
+                    setOpen(target, "drag")
+                end)
+
+            scrim.MouseButton1Click:Connect(function() setOpen(false) end)
+            cb.MouseButton1Click:Connect(function() sfx("click") setOpen(false) end)
+
+            function sub:Open() setOpen(true) end
+            function sub:Close() setOpen(false) end
+            function sub:Expand() setOpen(true) end
+            function sub:Collapse() setOpen(false) end
+            function sub:SetOpen(v) setOpen(v and true or false) end
+            function sub:IsOpen() return open end
+            function sub:SetTitle(t) titleL.Text = tostring(t) end
+            if o.Open then setOpen(true, "instant") end
+            return sub
+        end
+        K.Drawer = K.Panel
+        K.SidePanel = K.Panel
 
         K.Color = K.ColorPicker
 
