@@ -59,5 +59,5 @@ elseif placeId == 73956553001240 or universeId == 73956553001240 then
 elseif placeId == 74193805629461 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Mine%20per%20click.lua") 
 elseif placeId == 85738654635245 then
-    loadRaw("") 
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg") 
 end
