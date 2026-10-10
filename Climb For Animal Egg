@@ -11058,7 +11058,7 @@ local EggAcc = MainTab:Accordion({Title = "Egg", Open = true})
 local AreaDropdown = EggAcc:Dropdown({Title="Area Egg", Flag="EggArea", Options=getEggAreaList(), Default="All", Callback=function(v) getgenv().SelectedEggArea=v end})
 EggAcc:Button({Title="Refresh Area", Callback=function() if AreaDropdown.Refresh then AreaDropdown:Refresh(getEggAreaList()) end end})
 EggAcc:Dropdown({Title="Steal Method", Flag="StealMethod", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMethod=v end})
-EggAcc:Slider({Title="Spam Duration", Flag="SpamDuration", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
+EggAcc:Slider({Title="Spam Duration", Flag="Delay", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
 EggAcc:Toggle({Title="Auto Best Rarity Egg", Flag="AutoBestEgg", Default=false, Callback=function(v) getgenv().AutoBestEgg=v if not v then return end task.spawn(function() while getgenv().AutoBestEgg do local plr=game.Players.LocalPlayer local char=plr.Character or plr.CharacterAdded:Wait() local hrp=char:FindFirstChild("HumanoidRootPart") if not hrp then task.wait(1) continue end local models=getAllEggModels() if #models==0 then task.wait(1) continue end local best=0 for _,m in ipairs(models) do best=math.max(best,getWeight(getRarityFromModel(m))) end for _,m in ipairs(models) do if not getgenv().AutoBestEgg then break end if getWeight(getRarityFromModel(m))==best and m.Parent then local old=hrp.CFrame if getgenv().StealMethod=="Silent" then doSilentSteal(m, hrp, old, char) else doNormalSteal(m, hrp, old) end end end task.wait(0.5) end end) end})
 
 -- GUARD TAB - FIXED ANTI GUARD (desc jadi " " + notif blocked nama model)
@@ -11139,7 +11139,7 @@ local function setupAntiGuardHook()
     end
 end
 
-GuardAcc:Toggle({Title="Anti Guard (FIXED)", Desc=" ", Flag="AntiGuard", Default=false, Callback=function(v)
+GuardAcc:Toggle({Title="Anti Guard", Desc=" ", Flag="AntiGuard", Default=false, Callback=function(v)
     getgenv().AntiGuard=v
     if v then
         local c=scanGuardIds()
@@ -11163,7 +11163,7 @@ local function createEggPanel()
     if EggPanelGui then EggPanelGui:Destroy() end
     local plr=game.Players.LocalPlayer
     local parentGui=plr:WaitForChild("PlayerGui")
-    local gui=Create("ScreenGui",{Name="EggVault_PRO",ResetOnSpawn=false,DisplayOrder=999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parentGui) EggPanelGui=gui
+    local gui=Create("ScreenGui",{Name="EggVault",ResetOnSpawn=false,DisplayOrder=999,ZIndexBehavior=Enum.ZIndexBehavior.Sibling},parentGui) EggPanelGui=gui
     local root=Create("Frame",{Size=UDim2.fromScale(1,1),BackgroundTransparency=1},gui)
     local panel=Create("Frame",{Size=UDim2.fromOffset(360,460),Position=UDim2.new(0.5,-180,0.5,-230),BackgroundColor3=T.ink,BorderSizePixel=0,ClipsDescendants=true},root)
     Create("UICorner",{CornerRadius=UDim.new(0,20)},panel)
@@ -11238,7 +11238,7 @@ local function createEggPanel()
     task.spawn(function() while EggPanelGui and EggPanelGui.Parent do task.wait(3) pcall(refreshList) end end)
 end
 
-ShowToggle = PanelAcc:Toggle({Title="Show Panel PRO", Flag="ShowPanel", Default=false, Callback=function(v) getgenv().ShowPanel=v if v then createEggPanel() Window.Notify("Panel","PRO muncul - tarik ◢ buat resize",T.accent,3) else if EggPanelGui then EggPanelGui:Destroy() EggPanelGui=nil end end end})
+ShowToggle = PanelAcc:Toggle({Title="Show Panel", Flag="ShowPanel", Default=false, Callback=function(v) getgenv().ShowPanel=v if v then createEggPanel() Window.Notify("Panel","PRO muncul - tarik ◢ buat resize",T.accent,3) else if EggPanelGui then EggPanelGui:Destroy() EggPanelGui=nil end end end})
 --(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
