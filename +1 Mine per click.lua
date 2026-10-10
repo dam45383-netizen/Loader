@@ -10001,42 +10001,80 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
--- SORU HUB FAST SELL - NO LIB VERSION (FULL INSTANCE.NEW)
+-- AUTO FPS BOOST + AUTO SELL (NO LIB CALL)
 getgenv().NoShake = true
 task.spawn(function() while getgenv().NoShake do pcall(function() local c=game.Players.LocalPlayer.Character if c and c:FindFirstChild("Humanoid") then c.Humanoid.CameraOffset=Vector3.new(0,0,0) end end) task.wait(0.1) end end)
 
--- PARSER SAMPE VIGINTILLION
-local suffixes = {
-    ["K"]=1e3, ["M"]=1e6, ["B"]=1e9, ["T"]=1e12,
-    ["Q"]=1e15, ["QA"]=1e15, ["QD"]=1e15, ["QUAD"]=1e15,
-    ["QI"]=1e18, ["QN"]=1e18, ["QUIN"]=1e18,
-    ["SX"]=1e21, ["SEX"]=1e21,
-    ["SP"]=1e24, ["SEP"]=1e24,
-    ["OC"]=1e27, ["OCT"]=1e27,
-    ["NO"]=1e30, ["NON"]=1e30,
-    ["DE"]=1e33, ["DEC"]=1e33,
-    ["UD"]=1e36, ["UNDEC"]=1e36,
-    ["DD"]=1e39, ["DUO"]=1e39,
-    ["TD"]=1e42, ["TRE"]=1e42,
-    ["QAD"]=1e45, ["QATD"]=1e45,
-    ["QID"]=1e48, ["QUIND"]=1e48,
-    ["SXD"]=1e51, ["SEXD"]=1e51,
-    ["SPD"]=1e54, ["SEPD"]=1e54,
-    ["OCD"]=1e57, ["OCTD"]=1e57,
-    ["NOD"]=1e60, ["NOND"]=1e60,
-    ["VI"]=1e63, ["VIG"]=1e63,
-    ["UV"]=1e66, ["DV"]=1e69, ["TV"]=1e72, ["QAV"]=1e75, ["QIV"]=1e78, ["SXV"]=1e81, ["SPV"]=1e84, ["OCV"]=1e87, ["NOV"]=1e90, ["TRI"]=1e93
-}
+-- FPS BOOST TANPA TOMBOL (AUTO ON)
+local function doFpsBoost()
+    pcall(function()
+        local Lighting = game:GetService("Lighting")
+        local Terrain = workspace:FindFirstChildOfClass("Terrain")
+        
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 9e9
+        Lighting.Brightness = 1
+        Lighting.ShadowDensity = 0
+        pcall(function() Lighting.Technology = Enum.Technology.Compatibility end)
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        
+        if Terrain then
+            Terrain.WaterWaveSize = 0
+            Terrain.WaterWaveSpeed = 0
+            Terrain.WaterReflectance = 0
+            Terrain.WaterTransparency = 0
+        end
+
+        for _, v in pairs(game:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+                v.CastShadow = false
+            elseif v:IsA("Decal") or v:IsA("Texture") then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+                v.Enabled = false
+            elseif v:IsA("Explosion") then
+                v.BlastPressure = 1
+                v.BlastRadius = 1
+            elseif v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+                v.Enabled = false
+            elseif v:IsA("BlurEffect") or v:IsA("SunRays") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
+                v.Enabled = false
+            end
+        end
+    end)
+end
+
+-- JALANIN LANGSUNG + NOTIF BAWAN LIB
+task.spawn(function()
+    doFpsBoost()
+    task.wait(0.5)
+    pcall(function()
+        Window.Notify("FPS Boost", "Active - No Lag Mode ON", Color3.fromRGB(74,222,128), 3.5)
+    end)
+end)
+
 local function parseMoney(t)
     if not t then return 0 end
-    local clean = t:gsub("%$", ""):gsub("/s", ""):gsub(",", ""):gsub(" ", ""):upper()
-    for suf, mult in pairs(suffixes) do
-        if clean:find(suf.."$") then
-            local num = tonumber(clean:gsub(suf.."$","")) or 0
-            return num * mult
+    local str = tostring(t):upper():gsub("%$", ""):gsub("/S", ""):gsub("/SEC", ""):gsub(",", ""):gsub(" ", "")
+    local suffixes = {
+        ["K"]=1e3, ["M"]=1e6, ["B"]=1e9, ["T"]=1e12,
+        ["Q"]=1e15, ["QA"]=1e15, ["QI"]=1e18, ["SX"]=1e21,
+        ["SP"]=1e24, ["OC"]=1e27, ["NO"]=1e30, ["DE"]=1e33,
+        ["UDE"]=1e36, ["DDE"]=1e39, ["TDE"]=1e42, ["QADE"]=1e45,
+        ["QIDE"]=1e48, ["SXDE"]=1e51, ["SPDE"]=1e54, ["OCDE"]=1e57,
+        ["NODE"]=1e60, ["VI"]=1e63,
+    }
+    local order = {"NODE","OCDE","SPDE","SXDE","QIDE","QADE","TDE","DDE","UDE","VI","DE","NO","OC","SP","SX","QI","QA","Q","T","B","M","K"}
+    for _, suf in ipairs(order) do
+        if str:sub(-#suf) == suf then
+            local num = tonumber(str:sub(1, -#suf-1))
+            if num then return num * suffixes[suf] end
         end
     end
-    return tonumber(clean) or 0
+    return tonumber(str) or 0
 end
 
 local function getWall(s,p)
@@ -10046,12 +10084,18 @@ local function getWall(s,p)
     local inner=sf:FindFirstChild("Stages") or sf return inner:FindFirstChild(tostring(p)) or inner:FindFirstChild("Part"..p)
 end
 local function isPart3Clear(s) local w3=getWall(s,3) return w3 and w3.Transparency==1 end
-local function forceTP(pos) local char=game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait() local hrp=char:WaitForChild("HumanoidRootPart",5) pcall(function() hrp.AssemblyLinearVelocity=Vector3.zero hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0)) char:PivotTo(CFrame.new(pos+Vector3.new(0,5,0))) end) end
+local function forceTP(pos)
+    local char=game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
+    local hrp=char:WaitForChild("HumanoidRootPart",5)
+    pcall(function() hrp.AssemblyLinearVelocity=Vector3.zero hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0)) char:PivotTo(CFrame.new(pos+Vector3.new(0,5,0))) end)
+end
 local function isBackpackFull()
-    local pg=game.Players.LocalPlayer:FindFirstChild("PlayerGui") if not pg then return false end
+    local pg = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+    if not pg then return false end
     for _,lbl in pairs(pg:GetDescendants()) do
         if lbl.Name=="Amount" and lbl:IsA("TextLabel") and lbl.Parent and lbl.Parent.Name=="BackpackFrame" then
-            local cur,max=lbl.Text:match("(%d+)%s*/%s*(%d+)") if cur and max then if tonumber(cur)>=tonumber(max) and tonumber(max)>0 then return true end end
+            local cur,max = lbl.Text:match("(%d+)%s*/%s*(%d+)")
+            if cur and max then cur=tonumber(cur) max=tonumber(max) if max and max>0 and cur>=max then return true end end
         end
     end
     return false
@@ -10059,89 +10103,23 @@ end
 
 getgenv().OreThreshold=1000000
 local SELL_POS = Vector3.new(2.5, 1.4, -6.5)
-local ACCENT = Color3.fromRGB(139,92,246)
-local ACCENT2 = Color3.fromRGB(99,102,241)
-local DIM = Color3.fromRGB(148,140,180)
 
--- UI INSTANCE.NEW
-local Players = game:GetService("Players")
-local plr = Players.LocalPlayer
-local pg = plr:WaitForChild("PlayerGui")
-local old = pg:FindFirstChild("SORU_FAST_SELL") if old then old:Destroy() end
-local gui = Instance.new("ScreenGui", pg) gui.Name="SORU_FAST_SELL" gui.ResetOnSpawn=false gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
-
-local main = Instance.new("Frame", gui) main.Size=UDim2.fromOffset(320,420) main.Position=UDim2.new(0.5,-160,0.5,-210) main.BackgroundColor3=Color3.fromRGB(20,18,32) main.BorderSizePixel=0 main.Active=true main.Draggable=true
-Instance.new("UICorner",main).CornerRadius=UDim.new(0,14) local st=Instance.new("UIStroke",main) st.Color=Color3.fromRGB(50,45,70) st.Transparency=0.4
-local topLine=Instance.new("Frame",main) topLine.Size=UDim2.new(1,0,0,1) topLine.BackgroundColor3=ACCENT Instance.new("UIGradient",topLine).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)}
-
-local titleBar=Instance.new("Frame",main) titleBar.Size=UDim2.new(1,0,0,48) titleBar.BackgroundTransparency=1
-local t1=Instance.new("TextLabel",titleBar) t1.Text="SORU HUB FAST SELL" t1.Position=UDim2.new(0,14,0,8) t1.Size=UDim2.new(1,-50,0,16) t1.BackgroundTransparency=1 t1.Font=Enum.Font.GothamBold t1.TextSize=13 t1.TextColor3=Color3.new(1,1,1) t1.TextXAlignment=Enum.TextXAlignment.Left
-local t2=Instance.new("TextLabel",titleBar) t2.Text="NO LIB • Instance.new only" t2.Position=UDim2.new(0,14,0,24) t2.Size=UDim2.new(1,-50,0,12) t2.BackgroundTransparency=1 t2.Font=Enum.Font.GothamMedium t2.TextSize=9 t2.TextColor3=ACCENT t2.TextXAlignment=Enum.TextXAlignment.Left
-local close=Instance.new("TextButton",titleBar) close.Size=UDim2.fromOffset(28,28) close.Position=UDim2.new(1,-36,0,10) close.Text="✕" close.Font=Enum.Font.GothamBold close.TextSize=12 close.TextColor3=DIM close.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",close).CornerRadius=UDim.new(1,0) close.AutoButtonColor=false
-close.MouseButton1Click:Connect(function() gui:Destroy() end)
-
-local scroll=Instance.new("ScrollingFrame",main) scroll.Size=UDim2.new(1,-12,1,-58) scroll.Position=UDim2.new(0,6,0,52) scroll.BackgroundTransparency=1 scroll.ScrollBarThickness=2 scroll.CanvasSize=UDim2.new(0,0,0,0) scroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
-Instance.new("UIPadding",scroll).PaddingTop=UDim.new(0,4) Instance.new("UIPadding",scroll).PaddingBottom=UDim.new(0,10) Instance.new("UIPadding",scroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",scroll).PaddingRight=UDim.new(0,4)
-local layout=Instance.new("UIListLayout",scroll) layout.Padding=UDim.new(0,8) layout.SortOrder=Enum.SortOrder.LayoutOrder
-
-local function createLabel(text,order)
-    local f=Instance.new("Frame") f.LayoutOrder=order f.Size=UDim2.new(1,-6,0,26) f.BackgroundTransparency=1 f.Parent=scroll
-    local l=Instance.new("Frame",f) l.Size=UDim2.new(0.2,0,0,1) l.Position=UDim2.new(0,0,0.5,0) l.BackgroundColor3=ACCENT l.BorderSizePixel=0
-    local txt=Instance.new("TextLabel",f) txt.Size=UDim2.new(0.6,0,1,0) txt.Position=UDim2.new(0.2,0,0,0) txt.BackgroundTransparency=1 txt.Text="-- "..string.upper(text).." --" txt.Font=Enum.Font.GothamBold txt.TextSize=11 txt.TextColor3=Color3.new(1,1,1) txt.TextXAlignment=Enum.TextXAlignment.Center
-    local r=Instance.new("Frame",f) r.Size=UDim2.new(0.2,0,0,1) r.Position=UDim2.new(0.8,0,0.5,0) r.BackgroundColor3=ACCENT2 r.BorderSizePixel=0
-    return f
-end
-local function createToggle(order,title)
-    local f=Instance.new("Frame") f.LayoutOrder=order f.Size=UDim2.new(1,-6,0,48) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.Parent=scroll Instance.new("UICorner",f).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
-    local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,10,0,12) dot.BackgroundColor3=Color3.fromRGB(60,55,80) Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
-    local lbl=Instance.new("TextLabel",f) lbl.Text=title lbl.Position=UDim2.new(0,24,0,0) lbl.Size=UDim2.new(1,-70,1,0) lbl.BackgroundTransparency=1 lbl.Font=Enum.Font.GothamBold lbl.TextSize=11 lbl.TextColor3=Color3.new(1,1,1) lbl.TextXAlignment=Enum.TextXAlignment.Left
-    local btn=Instance.new("TextButton",f) btn.Size=UDim2.fromOffset(44,22) btn.Position=UDim2.new(1,-52,0.5,-11) btn.Text="" btn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0)
-    local knob=Instance.new("Frame",btn) knob.Size=UDim2.fromOffset(16,16) knob.Position=UDim2.new(0,3,0.5,-8) knob.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
-    return {frame=f, btn=btn, knob=knob, dot=dot}
-end
-local function createTextbox(order,title,def)
-    local f=Instance.new("Frame") f.LayoutOrder=order f.Size=UDim2.new(1,-6,0,50) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.Parent=scroll Instance.new("UICorner",f).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
-    local lbl=Instance.new("TextLabel",f) lbl.Text=title lbl.Position=UDim2.new(0,10,0,6) lbl.Size=UDim2.new(0.5,0,0,12) lbl.BackgroundTransparency=1 lbl.Font=Enum.Font.GothamBold lbl.TextSize=11 lbl.TextColor3=Color3.new(1,1,1) lbl.TextXAlignment=Enum.TextXAlignment.Left
-    local wrap=Instance.new("Frame",f) wrap.Size=UDim2.new(1,-20,0,26) wrap.Position=UDim2.new(0,10,0,22) wrap.BackgroundColor3=Color3.fromRGB(18,16,28) Instance.new("UICorner",wrap).CornerRadius=UDim.new(0,8)
-    local box=Instance.new("TextBox",wrap) box.Size=UDim2.new(1,-10,1,0) box.Position=UDim2.new(0,5,0,0) box.BackgroundTransparency=1 box.Text=def or "1M" box.PlaceholderText="$ target" box.TextColor3=Color3.new(1,1,1) box.Font=Enum.Font.GothamMedium box.TextSize=12 box.TextXAlignment=Enum.TextXAlignment.Left
-    return {frame=f, box=box}
-end
-
-local ord=1
-createLabel("STRENGTH",ord) ord+=1
-local tgStrength=createToggle(ord,"Auto Strength") ord+=1
-createLabel("STAGE",ord) ord+=1
-local tgStage=createToggle(ord,"Auto Break All") ord+=1
-createLabel("ORE",ord) ord+=1
-local tbOre=createTextbox(ord,"$/s Target","1M") ord+=1
-local tgOre=createToggle(ord,"Auto Ore") ord+=1
-
--- LOGIC
-local function setToggleVisual(tg,on)
-    if on then
-        game.TweenService:Create(tg.btn,TweenInfo.new(0.2),{BackgroundColor3=ACCENT}):Play()
-        game.TweenService:Create(tg.knob,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(1,-19,0.5,-8)}):Play()
-        game.TweenService:Create(tg.dot,TweenInfo.new(0.2),{BackgroundColor3=ACCENT}):Play()
-    else
-        game.TweenService:Create(tg.btn,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(34,30,50)}):Play()
-        game.TweenService:Create(tg.knob,TweenInfo.new(0.25,Enum.EasingStyle.Back),{Position=UDim2.new(0,3,0.5,-8)}):Play()
-        game.TweenService:Create(tg.dot,TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(60,55,80)}):Play()
-    end
-end
-
+local StrengthAcc=Tab:Accordion({Title="Strength",Desc=" ",Open=true})
 getgenv().AutoStrength=false
-tgStrength.btn.MouseButton1Click:Connect(function()
-    getgenv().AutoStrength = not getgenv().AutoStrength
-    setToggleVisual(tgStrength,getgenv().AutoStrength)
-    if getgenv().AutoStrength then task.spawn(function() while getgenv().AutoStrength do for i=1,4 do pcall(function() game.ReplicatedStorage.Remotes.Server.Click:FireServer() end) end task.wait() end end) end
-end)
+StrengthAcc:Toggle({Title="Auto Strength 2x FAST",Flag="AutoStrength",Default=false,Callback=function(v)
+    getgenv().AutoStrength=v
+    if v then task.spawn(function()
+        while getgenv().AutoStrength do for i=1,4 do pcall(function() game.ReplicatedStorage.Remotes.Server.Click:FireServer() end) end task.wait() end
+    end) end
+end})
 
+local StageAcc=Tab:Accordion({Title="Stage / Break",Desc=" ",Open=true})
 getgenv().AutoStage=false
-tgStage.btn.MouseButton1Click:Connect(function()
-    getgenv().AutoStage = not getgenv().AutoStage
-    setToggleVisual(tgStage,getgenv().AutoStage)
-    if getgenv().AutoStage then task.spawn(function()
-        local Remote=game.ReplicatedStorage.Remotes.Server.HitWall local s,p=1,1
+StageAcc:Toggle({Title="Auto Break ALL FIX FAST",Flag="AutoStageNoTP",Default=false,Callback=function(v)
+    getgenv().AutoStage=v
+    if v then task.spawn(function()
+        local Remote=game.ReplicatedStorage.Remotes.Server.HitWall
+        local s,p=1,1
         while getgenv().AutoStage do
             local wall=getWall(s,p)
             if wall and wall.Transparency<1 then for i=1,2 do Remote:FireServer(s,p) end task.wait()
@@ -10149,47 +10127,58 @@ tgStage.btn.MouseButton1Click:Connect(function()
             local first=getWall(1,1) if first and first.Transparency==0 and not(s==1 and p==1) then s,p=1,1 end
         end
     end) end
-end)
+end})
 
-tbOre.box.FocusLost:Connect(function() getgenv().OreThreshold=parseMoney(tbOre.box.Text) end)
-
+local OreAcc=Tab:Accordion({Title="Ore",Desc=" ",Open=true})
+OreAcc:Textbox({Title="$/s Target",Default="1M",Flag="OreTarget",Callback=function(val) getgenv().OreThreshold=parseMoney(val) end})
 getgenv().AutoOreTP=false
-tgOre.btn.MouseButton1Click:Connect(function()
-    getgenv().AutoOreTP = not getgenv().AutoOreTP
-    setToggleVisual(tgOre,getgenv().AutoOreTP)
-    if getgenv().AutoOreTP then task.spawn(function()
-        while getgenv().AutoOreTP do
-            if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) end
-            for s=1,32 do
-                if not getgenv().AutoOreTP then break end
-                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
-                if isPart3Clear(s) then
-                    local w3=getWall(s,3) if w3 then forceTP(w3.Position) task.wait(0.25) end
-                    local stageFolder=workspace.Stages:FindFirstChild("Stage "..s)
-                    if stageFolder then
-                        while getgenv().AutoOreTP do
-                            if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
-                            local found=nil
-                            for _,label in pairs(stageFolder:GetDescendants()) do
-                                if label:IsA("TextLabel") and label.Text:find("%$") then
-                                    local val=parseMoney(label.Text)
-                                    if val>=getgenv().OreThreshold and val>0 then local m=label:FindFirstAncestorWhichIsA("Model") if m then found=m break end end
+OreAcc:Toggle({
+    Title="Auto Ore FAST + Auto Sell",
+    Desc=" ",
+    Flag="AutoOreTP", Default=false,
+    Callback=function(v)
+        getgenv().AutoOreTP=v
+        if v then task.spawn(function()
+            while getgenv().AutoOreTP do
+                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) end
+                for s=1,32 do
+                    if not getgenv().AutoOreTP then break end
+                    if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
+                    if isPart3Clear(s) then
+                        local w3=getWall(s,3)
+                        if w3 then forceTP(w3.Position) task.wait(0.25) end
+                        local stageFolder=workspace.Stages:FindFirstChild("Stage "..s)
+                        if stageFolder then
+                            while getgenv().AutoOreTP do
+                                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
+                                local found=nil
+                                for _,label in pairs(stageFolder:GetDescendants()) do
+                                    if label:IsA("TextLabel") and label.Text:find("%$") then
+                                        local val=parseMoney(label.Text)
+                                        if val>=getgenv().OreThreshold and val>0 then
+                                            local m=label:FindFirstAncestorWhichIsA("Model")
+                                            if m then found=m break end
+                                        end
+                                    end
                                 end
+                                if found then
+                                    local pos=nil pcall(function() pos=found:GetPivot().Position end)
+                                    if not pos then local b=found:FindFirstChildWhichIsA("BasePart",true) if b then pos=b.Position end end
+                                    if pos then
+                                        forceTP(pos) task.wait(0.15)
+                                        for _,pr in pairs(found:GetDescendants()) do if pr:IsA("ProximityPrompt") then pr.HoldDuration=0 pr.MaxActivationDistance=999 if fireproximityprompt then fireproximityprompt(pr,1) end end end
+                                        task.wait(0.2)
+                                    end
+                                else break end
                             end
-                            if found then
-                                local pos=nil pcall(function() pos=found:GetPivot().Position end)
-                                if not pos then local b=found:FindFirstChildWhichIsA("BasePart",true) if b then pos=b.Position end end
-                                if pos then forceTP(pos) task.wait(0.15) for _,pr in pairs(found:GetDescendants()) do if pr:IsA("ProximityPrompt") then pr.HoldDuration=0 pr.MaxActivationDistance=999 if fireproximityprompt then fireproximityprompt(pr,1) end end end task.wait(0.2) end
-                            else break end
                         end
                     end
                 end
+                task.wait(0.1)
             end
-            task.wait(0.1)
-        end
-    end) end
-end)
---(%--&_>@)
+        end) end
+    end
+})--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
