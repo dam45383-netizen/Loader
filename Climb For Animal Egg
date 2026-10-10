@@ -10998,6 +10998,9 @@
 --(+.]#;![+")
 --(%^[/<$;,~<_)
 --([;+>#^/'~_)
+local Window = getgenv().SORU_Window
+if not Window then return end
+
 getgenv().AutoBestEgg = false
 getgenv().SpamDuration = 2
 getgenv().SelectedEggArea = "All"
