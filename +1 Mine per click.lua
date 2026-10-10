@@ -10001,30 +10001,40 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
--- AUTO FPS BOOST + AUTO SELL (NO LIB CALL)
-getgenv().NoShake = true
-task.spawn(function() while getgenv().NoShake do pcall(function() local c=game.Players.LocalPlayer.Character if c and c:FindFirstChild("Humanoid") then c.Humanoid.CameraOffset=Vector3.new(0,0,0) end end) task.wait(0.1) end end)
+-- FIX AUTO FIND WINDOW/TAB DARI LOADER
+local Window = Window or getgenv().Window or getgenv().SORU_Window or _G.Window
+local Tab = Tab or getgenv().Tab or getgenv().MainTab or _G.Tab or getgenv().SORU_Tab
 
--- FPS BOOST TANPA TOMBOL (AUTO ON)
+-- kalau tetep gak ada (buat test standalone), baru bikin sendiri
+if not Window then
+    local SORU = getgenv().SORU or loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+    getgenv().SORU = SORU
+    Window = SORU:CreateWindow({Title = "SORU HUB", ToggleKey = Enum.KeyCode.RightShift})
+    getgenv().Window = Window
+end
+if not Tab then
+    Tab = Window:Tab({Title = "Main", Icon = "M"})
+    getgenv().Tab = Tab
+    getgenv().MainTab = Tab
+end
+
+-- FPS BOOST AUTO ON (tanpa tombol)
 local function doFpsBoost()
     pcall(function()
         local Lighting = game:GetService("Lighting")
         local Terrain = workspace:FindFirstChildOfClass("Terrain")
-        
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
-        Lighting.Brightness = 1
         Lighting.ShadowDensity = 0
+        Lighting.Brightness = 1
         pcall(function() Lighting.Technology = Enum.Technology.Compatibility end)
         settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
-        
         if Terrain then
             Terrain.WaterWaveSize = 0
             Terrain.WaterWaveSpeed = 0
             Terrain.WaterReflectance = 0
             Terrain.WaterTransparency = 0
         end
-
         for _, v in pairs(game:GetDescendants()) do
             if v:IsA("BasePart") then
                 v.Material = Enum.Material.SmoothPlastic
@@ -10035,9 +10045,6 @@ local function doFpsBoost()
             elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
                 v.Lifetime = NumberRange.new(0)
                 v.Enabled = false
-            elseif v:IsA("Explosion") then
-                v.BlastPressure = 1
-                v.BlastRadius = 1
             elseif v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
                 v.Enabled = false
             elseif v:IsA("BlurEffect") or v:IsA("SunRays") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
@@ -10047,31 +10054,25 @@ local function doFpsBoost()
     end)
 end
 
--- JALANIN LANGSUNG + NOTIF BAWAN LIB
 task.spawn(function()
     doFpsBoost()
     task.wait(0.5)
     pcall(function()
-        Window.Notify("FPS Boost", "Active", Color3.fromRGB(74,222,128), 3.5)
+        Window.Notify("FPS Boost", "Active - No Lag Mode ON", Color3.fromRGB(74,222,128), 3.5)
     end)
 end)
+
+getgenv().NoShake = true
+task.spawn(function() while getgenv().NoShake do pcall(function() local c=game.Players.LocalPlayer.Character if c and c:FindFirstChild("Humanoid") then c.Humanoid.CameraOffset=Vector3.new(0,0,0) end end) task.wait(0.1) end end)
 
 local function parseMoney(t)
     if not t then return 0 end
     local str = tostring(t):upper():gsub("%$", ""):gsub("/S", ""):gsub("/SEC", ""):gsub(",", ""):gsub(" ", "")
-    local suffixes = {
-        ["K"]=1e3, ["M"]=1e6, ["B"]=1e9, ["T"]=1e12,
-        ["Q"]=1e15, ["QA"]=1e15, ["QI"]=1e18, ["SX"]=1e21,
-        ["SP"]=1e24, ["OC"]=1e27, ["NO"]=1e30, ["DE"]=1e33,
-        ["UDE"]=1e36, ["DDE"]=1e39, ["TDE"]=1e42, ["QADE"]=1e45,
-        ["QIDE"]=1e48, ["SXDE"]=1e51, ["SPDE"]=1e54, ["OCDE"]=1e57,
-        ["NODE"]=1e60, ["VI"]=1e63,
-    }
-    local order = {"NODE","OCDE","SPDE","SXDE","QIDE","QADE","TDE","DDE","UDE","VI","DE","NO","OC","SP","SX","QI","QA","Q","T","B","M","K"}
-    for _, suf in ipairs(order) do
+    local map = {K=1e3,M=1e6,B=1e9,T=1e12,Q=1e15,QA=1e15,QI=1e18,SX=1e21,SP=1e24,OC=1e27,NO=1e30,DE=1e33,UDE=1e36,DDE=1e39,TDE=1e42,QADE=1e45,QIDE=1e48,SXDE=1e51,SPDE=1e54,OCDE=1e57,NODE=1e60,VI=1e63}
+    for _, suf in ipairs({"NODE","OCDE","SPDE","SXDE","QIDE","QADE","TDE","DDE","UDE","VI","DE","NO","OC","SP","SX","QI","QA","Q","T","B","M","K"}) do
         if str:sub(-#suf) == suf then
-            local num = tonumber(str:sub(1, -#suf-1))
-            if num then return num * suffixes[suf] end
+            local n = tonumber(str:sub(1, -#suf-1))
+            if n then return n * map[suf] end
         end
     end
     return tonumber(str) or 0
@@ -10090,8 +10091,7 @@ local function forceTP(pos)
     pcall(function() hrp.AssemblyLinearVelocity=Vector3.zero hrp.CFrame=CFrame.new(pos+Vector3.new(0,5,0)) char:PivotTo(CFrame.new(pos+Vector3.new(0,5,0))) end)
 end
 local function isBackpackFull()
-    local pg = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return false end
+    local pg = game.Players.LocalPlayer:FindFirstChild("PlayerGui") if not pg then return false end
     for _,lbl in pairs(pg:GetDescendants()) do
         if lbl.Name=="Amount" and lbl:IsA("TextLabel") and lbl.Parent and lbl.Parent.Name=="BackpackFrame" then
             local cur,max = lbl.Text:match("(%d+)%s*/%s*(%d+)")
@@ -10106,16 +10106,14 @@ local SELL_POS = Vector3.new(2.5, 1.4, -6.5)
 
 local StrengthAcc=Tab:Accordion({Title="Strength",Desc=" ",Open=true})
 getgenv().AutoStrength=false
-StrengthAcc:Toggle({Title="Auto Strength",Flag="AutoStrength",Default=false,Callback=function(v)
+StrengthAcc:Toggle({Title="Auto Strength 2x FAST",Flag="AutoStrength",Default=false,Callback=function(v)
     getgenv().AutoStrength=v
-    if v then task.spawn(function()
-        while getgenv().AutoStrength do for i=1,4 do pcall(function() game.ReplicatedStorage.Remotes.Server.Click:FireServer() end) end task.wait() end
-    end) end
+    if v then task.spawn(function() while getgenv().AutoStrength do for i=1,4 do pcall(function() game.ReplicatedStorage.Remotes.Server.Click:FireServer() end) end task.wait() end end) end
 end})
 
 local StageAcc=Tab:Accordion({Title="Stage / Break",Desc=" ",Open=true})
 getgenv().AutoStage=false
-StageAcc:Toggle({Title="Auto Break",Flag="AutoStageNoTP",Default=false,Callback=function(v)
+StageAcc:Toggle({Title="Auto Break ALL FIX FAST",Flag="AutoStageNoTP",Default=false,Callback=function(v)
     getgenv().AutoStage=v
     if v then task.spawn(function()
         local Remote=game.ReplicatedStorage.Remotes.Server.HitWall
@@ -10132,53 +10130,46 @@ end})
 local OreAcc=Tab:Accordion({Title="Ore",Desc=" ",Open=true})
 OreAcc:Textbox({Title="$/s Target",Default="1M",Flag="OreTarget",Callback=function(val) getgenv().OreThreshold=parseMoney(val) end})
 getgenv().AutoOreTP=false
-OreAcc:Toggle({
-    Title="Auto Ore",
-    Desc=" ",
-    Flag="AutoOreTP", Default=false,
-    Callback=function(v)
-        getgenv().AutoOreTP=v
-        if v then task.spawn(function()
-            while getgenv().AutoOreTP do
-                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) end
-                for s=1,32 do
-                    if not getgenv().AutoOreTP then break end
-                    if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
-                    if isPart3Clear(s) then
-                        local w3=getWall(s,3)
-                        if w3 then forceTP(w3.Position) task.wait(0.25) end
-                        local stageFolder=workspace.Stages:FindFirstChild("Stage "..s)
-                        if stageFolder then
-                            while getgenv().AutoOreTP do
-                                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
-                                local found=nil
-                                for _,label in pairs(stageFolder:GetDescendants()) do
-                                    if label:IsA("TextLabel") and label.Text:find("%$") then
-                                        local val=parseMoney(label.Text)
-                                        if val>=getgenv().OreThreshold and val>0 then
-                                            local m=label:FindFirstAncestorWhichIsA("Model")
-                                            if m then found=m break end
-                                        end
+OreAcc:Toggle({Title="Auto Ore FAST + Auto Sell",Desc=" ",Flag="AutoOreTP",Default=false,Callback=function(v)
+    getgenv().AutoOreTP=v
+    if v then task.spawn(function()
+        while getgenv().AutoOreTP do
+            if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) end
+            for s=1,32 do
+                if not getgenv().AutoOreTP then break end
+                if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
+                if isPart3Clear(s) then
+                    local w3=getWall(s,3) if w3 then forceTP(w3.Position) task.wait(0.25) end
+                    local stageFolder=workspace.Stages:FindFirstChild("Stage "..s)
+                    if stageFolder then
+                        while getgenv().AutoOreTP do
+                            if isBackpackFull() then forceTP(SELL_POS) task.wait(1.2) break end
+                            local found=nil
+                            for _,label in pairs(stageFolder:GetDescendants()) do
+                                if label:IsA("TextLabel") and label.Text:find("%$") then
+                                    local val=parseMoney(label.Text)
+                                    if val>=getgenv().OreThreshold and val>0 then
+                                        local m=label:FindFirstAncestorWhichIsA("Model") if m then found=m break end
                                     end
                                 end
-                                if found then
-                                    local pos=nil pcall(function() pos=found:GetPivot().Position end)
-                                    if not pos then local b=found:FindFirstChildWhichIsA("BasePart",true) if b then pos=b.Position end end
-                                    if pos then
-                                        forceTP(pos) task.wait(0.15)
-                                        for _,pr in pairs(found:GetDescendants()) do if pr:IsA("ProximityPrompt") then pr.HoldDuration=0 pr.MaxActivationDistance=999 if fireproximityprompt then fireproximityprompt(pr,1) end end end
-                                        task.wait(0.2)
-                                    end
-                                else break end
                             end
+                            if found then
+                                local pos=nil pcall(function() pos=found:GetPivot().Position end)
+                                if not pos then local b=found:FindFirstChildWhichIsA("BasePart",true) if b then pos=b.Position end end
+                                if pos then
+                                    forceTP(pos) task.wait(0.15)
+                                    for _,pr in pairs(found:GetDescendants()) do if pr:IsA("ProximityPrompt") then pr.HoldDuration=0 pr.MaxActivationDistance=999 if fireproximityprompt then fireproximityprompt(pr,1) end end end
+                                    task.wait(0.2)
+                                end
+                            else break end
                         end
                     end
                 end
-                task.wait(0.1)
             end
-        end) end
-    end
-})--(%--&_>@)
+            task.wait(0.1)
+        end
+    end) end
+end})--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
