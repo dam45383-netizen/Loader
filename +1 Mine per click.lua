@@ -10058,7 +10058,7 @@ task.spawn(function()
     doFpsBoost()
     task.wait(0.5)
     pcall(function()
-        Window.Notify("FPS Boost", "Active - No Lag Mode ON", Color3.fromRGB(74,222,128), 3.5)
+        Window.Notify("FPS Boost", "Active", Color3.fromRGB(74,222,128), 3.5)
     end)
 end)
 
@@ -10106,14 +10106,14 @@ local SELL_POS = Vector3.new(2.5, 1.4, -6.5)
 
 local StrengthAcc=Tab:Accordion({Title="Strength",Desc=" ",Open=true})
 getgenv().AutoStrength=false
-StrengthAcc:Toggle({Title="Auto Strength 2x FAST",Flag="AutoStrength",Default=false,Callback=function(v)
+StrengthAcc:Toggle({Title="Auto Strength",Flag="AutoStrength",Default=false,Callback=function(v)
     getgenv().AutoStrength=v
     if v then task.spawn(function() while getgenv().AutoStrength do for i=1,4 do pcall(function() game.ReplicatedStorage.Remotes.Server.Click:FireServer() end) end task.wait() end end) end
 end})
 
 local StageAcc=Tab:Accordion({Title="Stage / Break",Desc=" ",Open=true})
 getgenv().AutoStage=false
-StageAcc:Toggle({Title="Auto Break ALL FIX FAST",Flag="AutoStageNoTP",Default=false,Callback=function(v)
+StageAcc:Toggle({Title="Auto Break",Flag="AutoStageNoTP",Default=false,Callback=function(v)
     getgenv().AutoStage=v
     if v then task.spawn(function()
         local Remote=game.ReplicatedStorage.Remotes.Server.HitWall
@@ -10130,7 +10130,7 @@ end})
 local OreAcc=Tab:Accordion({Title="Ore",Desc=" ",Open=true})
 OreAcc:Textbox({Title="$/s Target",Default="1M",Flag="OreTarget",Callback=function(val) getgenv().OreThreshold=parseMoney(val) end})
 getgenv().AutoOreTP=false
-OreAcc:Toggle({Title="Auto Ore FAST + Auto Sell",Desc=" ",Flag="AutoOreTP",Default=false,Callback=function(v)
+OreAcc:Toggle({Title="Auto Ore FAST",Desc=" ",Flag="AutoOreTP",Default=false,Callback=function(v)
     getgenv().AutoOreTP=v
     if v then task.spawn(function()
         while getgenv().AutoOreTP do
