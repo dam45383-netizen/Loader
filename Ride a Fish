@@ -11001,13 +11001,95 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
+local PANEL_CODE = [[
+function Window:Panel(o)
+    o = o or {}
+    if not isSupported then
+        return setmetatable({}, {__index = function() return function() end end})
+    end
+    local W = math.clamp(tonumber(o.Width) or 300, 220, 520)
+    local GRIP, M, TOP = 18, 8, 10
+    local invert = (tostring(o.OpenDrag or "Right"):lower() == "left")
+    local isP, ptw, hov, dragging = false, nil, false, false
+    local holder = new("Frame", {Name = "SORU_Panel", Size = UDim2.new(0, W + GRIP, 1, -TOP * 2), Position = UDim2.new(0, -W, 0, TOP), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 60}, root)
+    local function posFor(p) return UDim2.new(0, math.floor(-W + p * (W + M) + 0.5), 0, TOP) end
+    local function curP() return math.clamp((holder.Position.X.Offset + W) / (W + M), 0, 1) end
+    if SHADOW_ID ~= "" then
+        local sh = new("Frame", {Size = UDim2.new(0, W, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0}, holder)
+        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 6), Size = UDim2.new(1, 50, 1, 50), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.6, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 0}, sh)
+    end
+    local body = new("Frame", {Name = "Body", Size = UDim2.new(0, W, 1, 0), BackgroundColor3 = T.panel, BorderSizePixel = 0, Active = true, ClipsDescendants = true, ZIndex = 1}, holder)
+    corner(body, 16)
+    local bs = stroke(body, WHITE, 1.4, 0.4)
+    local bsg = new("UIGradient", {Color = RING2}, bs)
+    spin(bsg, 8)
+    regTrans(body, 0.05)
+    local topGlow = new("Frame", {Size = UDim2.new(1, 0, 0, 100), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, body)
+    new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.8, 1), Rotation = 90}, topGlow)
+    local hd = new("Frame", {Size = UDim2.new(1, 0, 0, 46), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, body)
+    local hdot = new("Frame", {Size = UDim2.fromOffset(8, 8), Position = UDim2.fromOffset(16, 19), BackgroundColor3 = WHITE, BorderSizePixel = 0, Rotation = 45, ZIndex = 2}, hd)
+    grad(hdot, T.accent, T.cyan, 45)
+    local tl = label(hd, {Text = tostring(o.Title or "Panel"), Position = UDim2.fromOffset(34, 0), Size = UDim2.new(1, -84, 1, 0), Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = WHITE, ZIndex = 2})
+    local closeB = new("TextButton", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -38, 0.5, -13), Text = "‹", Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = DIM, BackgroundColor3 = Color3.fromRGB(28, 25, 44), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, hd)
+    corner(closeB, FULL)
+    hover(closeB, nil, Color3.fromRGB(42, 38, 66), T.cardDown)
+    local sep = new("Frame", {Position = UDim2.fromOffset(10, 46), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, body)
+    new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.6), NumberSequenceKeypoint.new(1, 1)}}, sep)
+    local scroll = new("ScrollingFrame", {Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 1, -48), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, ScrollBarImageTransparency = 0.3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 2}, body)
+    new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
+    new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 12)}, scroll)
+    local K = buildComponents(scroll)
+    if type(K) ~= "table" then K = {} notify("Panel", "buildComponents tidak mengembalikan tabel", T.bad, 5) end
+    local grip = new("Frame", {Name = "Grip", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, W, math.clamp(tonumber(o.GripY) or 0.3, 0.1, 0.9), 0), Size = UDim2.fromOffset(GRIP, 120), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true, ZIndex = 3}, holder)
+    local lglow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(12, 80), BackgroundColor3 = T.accent, BackgroundTransparency = 0.88, BorderSizePixel = 0, ZIndex = 3}, grip)
+    corner(lglow, FULL)
+    local line = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4, 64), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 4}, grip)
+    corner(line, FULL)
+    grad(line, T.cyan, T.accent, 90)
+    TweenService:Create(line, TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.45}):Play()
+    local function lineFx(on) play(line, {Size = on and UDim2.fromOffset(6, 84) or UDim2.fromOffset(4, 64)}, 0.2, Enum.EasingStyle.Back) play(lglow, {BackgroundTransparency = on and 0.6 or 0.88}, 0.2) end
+    grip.MouseEnter:Connect(function() hov = true sfx("hover") lineFx(true) end)
+    grip.MouseLeave:Connect(function() hov = false if not dragging then lineFx(false) end end)
+    local function goTo(open, quiet)
+        if ptw then ptw:Cancel() end
+        local was = isP
+        isP = open and true or false
+        if not quiet and was ~= isP then sfx(isP and "expand" or "collapse") end
+        ptw = tw(holder, {Position = posFor(isP and 1 or 0)}, isP and 0.55 or 0.4, isP and Enum.EasingStyle.Back or Enum.EasingStyle.Quint)
+        ptw:Play()
+        if isP then task.delay(0.15, function() if isP and scroll.Parent then entrance(scroll) end end) end
+        if was ~= isP and o.Callback then task.spawn(o.Callback, isP) end
+    end
+    closeB.MouseButton1Click:Connect(function() sfx("click") goTo(false) end)
+    local lastStep = 0
+    track(grip,
+        function() if ptw then ptw:Cancel() end dragging = true lastStep = 0 lineFx(true) return {p0 = curP(), prev = 0} end,
+        function(dx, dy, st, moved) if not (moved and st) then return end local d = dx / math.max(rootScale.Scale, 0.01) if invert then d = -d end holder.Position = posFor(math.clamp(st.p0 + d / (W + M), 0, 1)) lastStep = d - st.prev st.prev = d end,
+        function(moved) dragging = false lineFx(hov) if not moved then goTo(not isP) return end local open if math.abs(lastStep) > 1.5 then open = lastStep > 0 else open = curP() > 0.5 end goTo(open) end)
+    function K:Show() goTo(true) end
+    function K:Hide() goTo(false) end
+    function K:Switch() goTo(not isP) end
+    function K:IsOpen() return isP end
+    function K:SetTitle(t) tl.Text = tostring(t) end
+    function K:SetVisible(v) holder.Visible = v and true or false end
+    function K:Destroy() holder:Destroy() end
+    if o.Open then isP = true holder.Position = posFor(1) task.delay(0.3, function() if isP and scroll.Parent then entrance(scroll) end end) end
+    return K
+end
+]]
+
+local src = game:HttpGet(UI_URL)
+src = src:gsub("function Window:Destroy%(%) delA%(%) end", "function Window:Destroy() delA() end\n\n"..PANEL_CODE)
+local SORU = loadstring(src)()
+local Window = SORU:CreateWindow({Title="Kraken Vault", ToggleKey=Enum.KeyCode.RightShift})
+
+-- ===== SCRIPT LU MULAI DARI SINI (UDAH PAKE PANEL BAWAAN) =====
 local Players=game:GetService("Players")
 local TweenService=game:GetService("TweenService")
 local ReplicatedStorage=game:GetService("ReplicatedStorage")
 local RunService=game:GetService("RunService")
-local UIS=game:GetService("UserInputService")
-local workspace=game:GetService("Workspace")
 local LocalPlayer=Players.LocalPlayer
+local workspace=game:GetService("Workspace")
 
 local tweenSpeed=120
 local isCollecting,isBestLuck,useSilentMethod,isEspEggEnabled=false,true,true,false
@@ -11016,72 +11098,18 @@ local currentTween
 local BASE_POS=Vector3.new(270.9,4.2,-31.6)
 local ACCENT,CYAN=Color3.fromRGB(145,96,255),Color3.fromRGB(56,200,255)
 local cloneModel,savedCam,origTrans=nil,{},{}
-local fishSpeed,isFishSpeedEnabled=80,false
-local isStatsShow=false
-local selectedIsland="Base"
-local islandPositions={Base=Vector3.new(270.9,4.2,-31.6)}
-
--- RARITY MULTI SELECT
 local rarityOptions={"All"}
 local raritySet={["All"]=true}
 local selectedRaritySet={["All"]=true}
 local rarityDropdown=nil
 
--- LIB PANEL VARS (bawaan lib)
-local eggListAcc=nil
-local eggStatsPara=nil
-local eggButtons={}
-local isAutoRefreshPanel=true
-local statsPara=nil
-
 local function NI(c) return Instance.new(c) end
-local function parseLuck(str)
-    if not str then return 0 end
-    str=tostring(str):gsub("%s+",""):upper()
-    if str=="" or str=="0" then return 0 end
-    local mults={K=1e3,M=1e6,B=1e9,T=1e12,Q=1e15}
-    local num,suf=str:match("^([%d%.]+)([KMBTQ]+)$")
-    if num then return math.floor((tonumber(num) or 0)*(mults[suf] or 1)) else return tonumber(str) or 0 end
-end
-local function formatCompact(n)
-    if n>=1e12 then return string.format("%.2fT",n/1e12)
-    elseif n>=1e9 then return string.format("%.2fB",n/1e9)
-    elseif n>=1e6 then return string.format("%.2fM",n/1e6)
-    elseif n>=1e3 then return string.format("%.1fK",n/1e3) else return tostring(n) end
-end
-local function getEggTier(m)
-    local t=m:GetAttribute("EggTier")
-    if t==nil or t=="" then return "Unknown" end
-    return tostring(t)
-end
-local function getSelectedRarityDisplay()
-    if selectedRaritySet["All"] then return "All" end
-    if not next(selectedRaritySet) then return "All" end
-    local t={} for k,_ in pairs(selectedRaritySet) do table.insert(t,k) end
-    return table.concat(t,", ")
-end
-local function isRarityAllowed(tier)
-    if selectedRaritySet["All"] then return true end
-    if not next(selectedRaritySet) then return true end
-    return selectedRaritySet[tier]==true
-end
-local function ensureRarity(tier)
-    tier=tostring(tier or "Unknown")
-    if tier=="" then tier="Unknown" end
-    if not raritySet[tier] then
-        raritySet[tier]=true
-        table.insert(rarityOptions, tier)
-        if rarityDropdown then
-            pcall(function()
-                if rarityDropdown.Refresh then rarityDropdown:Refresh(rarityOptions)
-                elseif rarityDropdown.SetOptions then rarityDropdown:SetOptions(rarityOptions) end
-            end)
-        end
-        return true
-    end
-    return false
-end
-
+local function parseLuck(str) if not str then return 0 end str=tostring(str):gsub("%s+",""):upper() if str=="" or str=="0" then return 0 end local mults={K=1e3,M=1e6,B=1e9,T=1e12,Q=1e15} local num,suf=str:match("^([%d%.]+)([KMBTQ]+)$") if num then return math.floor((tonumber(num) or 0)*(mults[suf] or 1)) else return tonumber(str) or 0 end end
+local function formatCompact(n) if n>=1e12 then return string.format("%.2fT",n/1e12) elseif n>=1e9 then return string.format("%.2fB",n/1e9) elseif n>=1e6 then return string.format("%.2fM",n/1e6) elseif n>=1e3 then return string.format("%.1fK",n/1e3) else return tostring(n) end end
+local function getEggTier(m) local t=m:GetAttribute("EggTier") if t==nil or t=="" then return "Unknown" end return tostring(t) end
+local function getSelectedRarityDisplay() if selectedRaritySet["All"] then return "All" end if not next(selectedRaritySet) then return "All" end local t={} for k,_ in pairs(selectedRaritySet) do table.insert(t,k) end return table.concat(t,", ") end
+local function isRarityAllowed(tier) if selectedRaritySet["All"] then return true end if not next(selectedRaritySet) then return true end return selectedRaritySet[tier]==true end
+local function ensureRarity(tier) tier=tostring(tier or "Unknown") if tier=="" then tier="Unknown" end if not raritySet[tier] then raritySet[tier]=true table.insert(rarityOptions,tier) if rarityDropdown then pcall(function() rarityDropdown:Refresh(rarityOptions) end) end return true end return false end
 local function getHRP() local ch=LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait() return ch:WaitForChild("HumanoidRootPart") end
 local function tpToPos(p) local h=getHRP() if h then h.CFrame=CFrame.new(p+Vector3.new(0,3,0)) end end
 local function tweenToPos(p) local h=getHRP() if not h then return end if currentTween then pcall(function() currentTween:Cancel() end) end local dur=math.clamp((h.Position-p).Magnitude/tweenSpeed,0.15,8) currentTween=TweenService:Create(h,TweenInfo.new(dur,Enum.EasingStyle.Linear),{CFrame=CFrame.new(p)}) currentTween:Play() currentTween.Completed:Wait() end
@@ -11089,20 +11117,7 @@ local function getEggPos(m) local cf=nil pcall(function() cf=m:GetPivot() end) i
 local function instantInteract(m) for _,v in ipairs(m:GetDescendants()) do if v:IsA("ProximityPrompt") then v.HoldDuration=0 pcall(function() if fireproximityprompt then fireproximityprompt(v) else v:InputHoldBegin() task.wait() v:InputHoldEnd() end end) end end end
 local function spamInteract(m) local t=tick() while tick()-t<1 do if not m.Parent then break end instantInteract(m) task.wait(0.05) end end
 local function getAllEggs() local list,seen={},{} local function add(m) if m and not seen[m] and m:GetAttribute("EggLuck")~=nil then seen[m]=true table.insert(list,m) end end local er=workspace:FindFirstChild("EggRuntime") if er then local w=er:FindFirstChild("WildEggs") if w then for _,m in ipairs(w:GetChildren()) do add(m) end end local k=er:FindFirstChild("KrakenBossRuntime") if k then add(k) for _,m in ipairs(k:GetChildren()) do add(m) end for _,m in ipairs(k:GetDescendants()) do if m:IsA("Model") then add(m) end end end end local kra=workspace:FindFirstChild("KrakenBossRuntime") if kra then add(kra) for _,m in ipairs(kra:GetChildren()) do add(m) end for _,m in ipairs(kra:GetDescendants()) do if m:IsA("Model") then add(m) end end end return list end
-local function getFilteredEggs()
-    local all=getAllEggs()
-    local out={}
-    for _,m in ipairs(all) do
-        local luck=tonumber(m:GetAttribute("EggLuck")) or 0
-        local tier=getEggTier(m)
-        ensureRarity(tier)
-        if luck>=minLuckFilter and isRarityAllowed(tier) then
-            table.insert(out,m)
-        end
-    end
-    return out
-end
-local function getRidingFish() local d=workspace:FindFirstChild(LocalPlayer.Name.."_RidingFish") if d then return d end for _,v in ipairs(workspace:GetChildren()) do if v.Name:lower():find("ridingfish") and v.Name:find(LocalPlayer.Name) then return v end end return nil end
+local function getFilteredEggs() local all=getAllEggs() local out={} for _,m in ipairs(all) do local luck=tonumber(m:GetAttribute("EggLuck")) or 0 local tier=getEggTier(m) ensureRarity(tier) if luck>=minLuckFilter and isRarityAllowed(tier) then table.insert(out,m) end end return out end
 local function setInvisible(v) local char=LocalPlayer.Character if not char then return end for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") and p.Name~="HumanoidRootPart" then if v then origTrans[p]=p.Transparency p.Transparency=1 else if origTrans[p]~=nil then p.Transparency=origTrans[p] else p.Transparency=0 end end end end end
 local function createClone(cf) local char=LocalPlayer.Character if not char then return nil end char.Archivable=true local cl=char:Clone() for _,v in ipairs(cl:GetDescendants()) do if v:IsA("Script") or v:IsA("LocalScript") then v:Destroy() end if v:IsA("BasePart") then v.Anchored=true v.CanCollide=false end end cl.Parent=workspace pcall(function() cl:PivotTo(cf) end) return cl end
 local function saveCam() local cam=workspace.CurrentCamera savedCam.Subject=cam.CameraSubject savedCam.Type=cam.CameraType savedCam.CFrame=cam.CFrame end
@@ -11110,181 +11125,63 @@ local function lockCamToClone(cl) local cam=workspace.CurrentCamera local hum=cl
 local function restoreCam() local cam=workspace.CurrentCamera if savedCam.Subject then cam.CameraSubject=savedCam.Subject end if savedCam.Type then cam.CameraType=savedCam.Type end end
 local function fireStoreLoop() local req=ReplicatedStorage:FindFirstChild("EggGame") and ReplicatedStorage.EggGame:FindFirstChild("Requests") if not req then return end if isCollecting then local s=tick() while isCollecting and tick()-s<2.2 do pcall(function() req:FireServer("StoreEgg") end) task.wait(0.1) end else for i=1,10 do pcall(function() req:FireServer("StoreEgg") end) task.wait(0.1) end end end
 local function doSteal(model) if not model or not model.Parent then return end local eggPos=getEggPos(model) if not eggPos then return end local stayCF=nil if useSilentMethod then saveCam() stayCF=getHRP() and getHRP().CFrame or CFrame.new(BASE_POS) cloneModel=createClone(stayCF) lockCamToClone(cloneModel) setInvisible(true) end tpToPos(eggPos) task.wait(0.25) spamInteract(model) task.wait(0.15) tweenToPos(BASE_POS) task.wait(0.2) fireStoreLoop() if useSilentMethod and stayCF then tweenToPos(stayCF.Position) task.wait(0.15) setInvisible(false) restoreCam() if cloneModel then cloneModel:Destroy() cloneModel=nil end end end
-
--- ESP (tetap pakai BillboardGui bawaan Roblox)
 local function removeEggEsp(m) if m:FindFirstChild("EggVault_ESP") then m:FindFirstChild("EggVault_ESP"):Destroy() end if m:FindFirstChild("EggVault_HL") then m:FindFirstChild("EggVault_HL"):Destroy() end end
 local function clearAllEsp() for _,m in ipairs(getAllEggs()) do removeEggEsp(m) end end
-local function createEggEsp(m,luck,kg)
-    if m:FindFirstChild("EggVault_ESP") then removeEggEsp(m) end
-    local tier=getEggTier(m)
-    local bb=NI("BillboardGui") bb.Name="EggVault_ESP" bb.Size=UDim2.fromOffset(160,58) bb.StudsOffset=Vector3.new(0,4.5,0) bb.AlwaysOnTop=true bb.Parent=m
-    local main=NI("Frame") main.Size=UDim2.fromScale(1,1) main.BackgroundColor3=Color3.fromRGB(16,14,28) main.BorderSizePixel=0 main.Parent=bb
-    local c=NI("UICorner") c.CornerRadius=UDim.new(0,12) c.Parent=main
-    local st=NI("UIStroke") st.Color=Color3.fromRGB(68,61,106) st.Thickness=1 st.Transparency=0.25 st.Parent=main
-    local top=NI("Frame") top.Size=UDim2.new(1,0,0,2) top.BackgroundColor3=Color3.new(1,1,1) top.BorderSizePixel=0 top.Parent=main
-    local tg=NI("UIGradient") tg.Color=ColorSequence.new(ACCENT,CYAN) tg.Parent=top
-    local luckL=NI("TextLabel") luckL.Text="🍀 "..formatCompact(luck).." ["..tier.."]" luckL.Font=Enum.Font.GothamBold luckL.TextSize=11 luckL.TextColor3=Color3.fromRGB(246,244,255) luckL.BackgroundTransparency=1 luckL.Size=UDim2.new(1,0,0.5,0) luckL.Parent=main
-    local kgL=NI("TextLabel") kgL.Text="⚖️ "..tostring(kg).." Kg • "..formatCompact(luck) kgL.Font=Enum.Font.GothamMedium kgL.TextSize=10 kgL.TextColor3=Color3.fromRGB(150,142,186) kgL.BackgroundTransparency=1 kgL.Position=UDim2.new(0,0,0.5,0) kgL.Size=UDim2.new(1,0,0.5,0) kgL.Parent=main
-    local hl=NI("Highlight") hl.Name="EggVault_HL" hl.FillColor=ACCENT hl.FillTransparency=0.75 hl.OutlineColor=CYAN hl.OutlineTransparency=0.1 hl.Adornee=m hl.Parent=m
-end
-local function refreshEsp()
-    if not isEspEggEnabled then clearAllEsp() return end
-    for _,m in ipairs(getAllEggs()) do
-        local luck=tonumber(m:GetAttribute("EggLuck")) or 0
-        local tier=getEggTier(m)
-        ensureRarity(tier)
-        if luck>=minLuckFilter and isRarityAllowed(tier) then
-            local kg=tonumber(m:GetAttribute("EggKg")) or 0
-            createEggEsp(m,luck,kg)
-        else
-            removeEggEsp(m)
-        end
-    end
-end
+local function createEggEsp(m,luck,kg) if m:FindFirstChild("EggVault_ESP") then removeEggEsp(m) end local tier=getEggTier(m) local bb=NI("BillboardGui") bb.Name="EggVault_ESP" bb.Size=UDim2.fromOffset(160,58) bb.StudsOffset=Vector3.new(0,4.5,0) bb.AlwaysOnTop=true bb.Parent=m local main=NI("Frame") main.Size=UDim2.fromScale(1,1) main.BackgroundColor3=Color3.fromRGB(16,14,28) main.BorderSizePixel=0 main.Parent=bb local c=NI("UICorner") c.CornerRadius=UDim.new(0,12) c.Parent=main local st=NI("UIStroke") st.Color=Color3.fromRGB(68,61,106) st.Thickness=1 st.Transparency=0.25 st.Parent=main local top=NI("Frame") top.Size=UDim2.new(1,0,0,2) top.BackgroundColor3=Color3.new(1,1,1) top.BorderSizePixel=0 top.Parent=main local tg=NI("UIGradient") tg.Color=ColorSequence.new(ACCENT,CYAN) tg.Parent=top local luckL=NI("TextLabel") luckL.Text="🍀 "..formatCompact(luck).." ["..tier.."]" luckL.Font=Enum.Font.GothamBold luckL.TextSize=11 luckL.TextColor3=Color3.fromRGB(246,244,255) luckL.BackgroundTransparency=1 luckL.Size=UDim2.new(1,0,0.5,0) luckL.Parent=main local kgL=NI("TextLabel") kgL.Text="⚖️ "..tostring(kg).." Kg" kgL.Font=Enum.Font.GothamMedium kgL.TextSize=10 kgL.TextColor3=Color3.fromRGB(150,142,186) kgL.BackgroundTransparency=1 kgL.Position=UDim2.new(0,0,0.5,0) kgL.Size=UDim2.new(1,0,0.5,0) kgL.Parent=main local hl=NI("Highlight") hl.Name="EggVault_HL" hl.FillColor=ACCENT hl.FillTransparency=0.75 hl.OutlineColor=CYAN hl.OutlineTransparency=0.1 hl.Adornee=m hl.Parent=m end
+local function refreshEsp() if not isEspEggEnabled then clearAllEsp() return end for _,m in ipairs(getAllEggs()) do local luck=tonumber(m:GetAttribute("EggLuck")) or 0 local tier=getEggTier(m) ensureRarity(tier) if luck>=minLuckFilter and isRarityAllowed(tier) then local kg=tonumber(m:GetAttribute("EggKg")) or 0 createEggEsp(m,luck,kg) else removeEggEsp(m) end end end
 
--- === PANEL BARU BAWAAN LIB ===
-local function refreshLibPanel()
-    if not eggListAcc then return end
-    -- hapus tombol lama (bawaan lib)
-    for _,btn in ipairs(eggButtons) do
-        pcall(function()
-            if btn.Parent and btn.Parent.Name=="Holder" then
-                btn.Parent:Destroy()
-            else
-                btn:Destroy()
-            end
-        end)
-    end
-    eggButtons = {}
+-- PANEL BAWAAN LIB - INI YANG LU MAU ANJING
+local EggPanel = Window:Panel({Title="🥚 EGG VAULT", Width=360, OpenDrag="Right", Open=true})
+local eggStatsPara = EggPanel:Paragraph({Title="EGG VAULT", Desc="Filter: ≥ 0 | All"})
+EggPanel:Section("CONTROLS")
+EggPanel:Button({Title="🔄 Refresh List", Desc="Scan ulang egg", Callback=function() refreshLibPanel() end})
+local autoRefresh=true
+EggPanel:Toggle({Title="Auto Refresh Panel", Flag="AutoRefreshPanel", Default=true, Callback=function(v) autoRefresh=v end})
+EggPanel:Divider()
+EggPanel:Section("EGG LIST - TAP TO STEAL")
+local eggButtons={}
 
+function refreshLibPanel()
+    for _,b in ipairs(eggButtons) do pcall(function() if b.Parent and b.Parent.Name=="Holder" then b.Parent:Destroy() else b:Destroy() end end) end
+    eggButtons={}
     local eggs=getFilteredEggs()
-    table.sort(eggs,function(a,b)
-        local la,lb=tonumber(a:GetAttribute("EggLuck")) or 0, tonumber(b:GetAttribute("EggLuck")) or 0
-        if la~=lb then return la>lb end
-        local wa,wb=tonumber(a:GetAttribute("EggKg")) or 0, tonumber(b:GetAttribute("EggKg")) or 0
-        return wa>wb
-    end)
-
-    -- update stats paragraph
-    if eggStatsPara then
-        local best = #eggs>0 and formatCompact(tonumber(eggs[1]:GetAttribute("EggLuck")) or 0) or "0"
-        eggStatsPara:Set("🥚 EGG VAULT - "..#eggs.." Egg", "Filter: ≥ "..formatCompact(minLuckFilter).." | "..getSelectedRarityDisplay().." | Best: "..best)
-    end
-
+    table.sort(eggs,function(a,b) local la,lb=tonumber(a:GetAttribute("EggLuck")) or 0, tonumber(b:GetAttribute("EggLuck")) or 0 if la~=lb then return la>lb end return (tonumber(a:GetAttribute("EggKg")) or 0) > (tonumber(b:GetAttribute("EggKg")) or 0) end)
+    if eggStatsPara then eggStatsPara:Set("🥚 EGG VAULT - "..#eggs.." Egg", "Filter: ≥ "..formatCompact(minLuckFilter).." | "..getSelectedRarityDisplay().." | Best: "..(#eggs>0 and formatCompact(tonumber(eggs[1]:GetAttribute("EggLuck")) or 0) or "0")) end
     if #eggs==0 then
-        local b = eggListAcc:Button({
-            Title="Tidak ada egg sesuai filter",
-            Desc="Coba turunin Min Luck atau ubah Rarity ke All",
-            Callback=function() Window.Notify("Egg Vault","Gak ada egg yang lolos filter",Color3.fromRGB(248,113,113),1.5) end
-        })
-        table.insert(eggButtons,b)
-        return
+        local b=EggPanel:Button({Title="Gak ada egg", Desc="Filter kelonggaran dikit", Callback=function() end})
+        table.insert(eggButtons,b) return
     end
-
     for _,egg in ipairs(eggs) do
         local luck=tonumber(egg:GetAttribute("EggLuck")) or 0
         local kg=egg:GetAttribute("EggKg") or 0
         local tier=getEggTier(egg)
-        local b = eggListAcc:Button({
+        local b=EggPanel:Button({
             Title=egg.Name.." ["..tier.."] 🍀 "..formatCompact(luck),
-            Desc="⚖️ "..tostring(kg).." Kg | Luck "..formatCompact(luck).." | Tap untuk SILENT STEAL",
-            Callback=function()
-                task.spawn(function() doSteal(egg) end)
-            end
+            Desc="⚖️ "..tostring(kg).." Kg | Tap = SILENT STEAL",
+            Callback=function() task.spawn(function() doSteal(egg) end) end
         })
         table.insert(eggButtons,b)
     end
 end
 
--- TABS BAWAAN LIB
+-- TABS UTAMA (biar setting gak numpuk di panel)
 local MainTab=Window:Tab({Title="Main", Icon="M"})
-local EggAcc=MainTab:Accordion({Title="Egg", Desc=" ", Open=true})
-EggAcc:Toggle({Title="Best Luck", Desc="Prioritas luck tertinggi", Flag="BestLuck", Default=true, Callback=function(v) isBestLuck=v end})
-EggAcc:Toggle({Title="Silent Method", Desc="Clone + invisible", Flag="SilentMethod", Default=true, Callback=function(v) useSilentMethod=v end})
-EggAcc:Textbox({Title="Min Luck Filter", Desc="K=ribu | M=jt | B=miliar | T=triliun | ex: 500K, 2.5M, 1B", Flag="MinLuckFilter", Default="0", Placeholder="ex: 1M, 10M, 1B", Callback=function(val) minLuckFilter=parseLuck(val) Window.Notify("Filter Luck","Min: "..formatCompact(minLuckFilter),ACCENT,1.5) refreshLibPanel() if isEspEggEnabled then refreshEsp() end end})
-EggAcc:Slider({Title="Tween Speed", Desc="Kecepatan terbang", Flag="TweenSpeedBase", Min=20, Max=1000, Step=5, Default=120, Suffix=" stud/s", Callback=function(v) tweenSpeed=v end})
-EggAcc:Toggle({Title="Auto Collect Egg", Desc="Auto steal sesuai filter", Flag="AutoCollectEgg", Default=false, Callback=function(s) isCollecting=s if s then task.spawn(function() while isCollecting do pcall(function() local all=getFilteredEggs() if #all==0 then task.wait(1) return end local target,best=nil,-1 local hrp=getHRP() local closest=math.huge if isBestLuck then for _,m in ipairs(all) do local n=tonumber(m:GetAttribute("EggLuck")) or 0 if n>best then best=n target=m end end else for _,m in ipairs(all) do local p=getEggPos(m) if p and hrp then local d=(hrp.Position-p).Magnitude if d<closest then closest=d target=m end end end end if target then doSteal(target) else task.wait(0.8) end end) task.wait(0.3) end end) end end})
-
--- PANEL EGG VAULT - FULL BAWAAN LIB (pengganti custom GUI)
-local PanelTab=Window:Tab({Title="Egg Panel", Icon="🥚"})
-eggStatsPara=PanelTab:Paragraph({Title="🥚 EGG VAULT - 0 Egg", Desc="Filter: ≥ 0 | All | Best: 0"})
-PanelTab:Section("Controls")
-PanelTab:Button({Title="🔄 Refresh List", Desc="Scan ulang egg di workspace", Callback=function() refreshLibPanel() refreshEsp() Window.Notify("Egg Panel","Refreshed "..#getFilteredEggs().." egg",CYAN,1) end})
-PanelTab:Toggle({Title="Auto Refresh Panel", Desc="Update list otomatis 1.5 detik", Flag="AutoRefreshEggPanel", Default=true, Callback=function(v) isAutoRefreshPanel=v end})
-PanelTab:Divider()
-eggListAcc=PanelTab:Accordion({Title="Egg List (Tap to Steal)", Desc="Bawaan lib - klik langsung silent steal", Open=true})
+MainTab:Button({Title="📂 Buka/Tutup Egg Panel", Desc="Grip kanan / kiri", Callback=function() EggPanel:Switch() end})
+local EggAcc=MainTab:Accordion({Title="Egg Settings", Open=true})
+EggAcc:Toggle({Title="Best Luck", Flag="BestLuck", Default=true, Callback=function(v) isBestLuck=v end})
+EggAcc:Toggle({Title="Silent Method", Flag="SilentMethod", Default=true, Callback=function(v) useSilentMethod=v end})
+EggAcc:Textbox({Title="Min Luck Filter", Flag="MinLuckFilter", Default="0", Placeholder="1M, 10M, 1B", Callback=function(val) minLuckFilter=parseLuck(val) refreshLibPanel() end})
+EggAcc:Slider({Title="Tween Speed", Flag="TweenSpeedBase", Min=20, Max=1000, Step=5, Default=120, Suffix=" stud/s", Callback=function(v) tweenSpeed=v end})
+EggAcc:Toggle({Title="Auto Collect", Flag="AutoCollectEgg", Default=false, Callback=function(s) isCollecting=s if s then task.spawn(function() while isCollecting do pcall(function() local all=getFilteredEggs() if #all==0 then task.wait(1) return end local target,best=nil,-1 local hrp=getHRP() local closest=math.huge if isBestLuck then for _,m in ipairs(all) do local n=tonumber(m:GetAttribute("EggLuck")) or 0 if n>best then best=n target=m end end else for _,m in ipairs(all) do local p=getEggPos(m) if p and hrp then local d=(hrp.Position-p).Magnitude if d<closest then closest=d target=m end end end end if target then doSteal(target) else task.wait(0.8) end end) task.wait(0.3) end end) end end})
 
 local MiscTab=Window:Tab({Title="Misc", Icon="M"})
-local FishAcc=MiscTab:Accordion({Title="Fish", Desc=" ", Open=true})
-FishAcc:Textbox({Title="Speed", Desc=" ", Flag="FishSpeed", Default=tostring(fishSpeed), Placeholder="ex: 150", Numeric=true, Callback=function(val) fishSpeed=tonumber(val) or fishSpeed Window.Notify("Fish Speed","Set: "..fishSpeed,CYAN,1) end})
-FishAcc:Toggle({Title="Enable Speed", Desc=" ", Flag="EnableFishSpeed", Default=false, Callback=function(state) isFishSpeedEnabled=state if state then task.spawn(function() while isFishSpeedEnabled do pcall(function() local fish=getRidingFish() if fish then fish:SetAttribute("RideSpeed",fishSpeed) end end) task.wait(0.01) end end) end end})
+local ESPAcc=MiscTab:Accordion({Title="ESP", Open=true})
+ESPAcc:Toggle({Title="ESP Egg", Flag="ESPEgg", Default=false, Callback=function(v) isEspEggEnabled=v if v then task.spawn(function() while isEspEggEnabled do refreshEsp() task.wait(0.5) end end) else clearAllEsp() end end})
+rarityDropdown = ESPAcc:Dropdown({Title="Rarity Filter (Multi)", Flag="RarityFilter", Options=rarityOptions, Default={"All"}, Multi=true, Callback=function(val) selectedRaritySet={} if type(val)=="table" then if #val==0 then selectedRaritySet["All"]=true else for _,v in ipairs(val) do selectedRaritySet[tostring(v)]=true end end else selectedRaritySet[tostring(val)]=true end refreshLibPanel() end})
 
-local ESPAcc=MiscTab:Accordion({Title="ESP", Desc=" ", Open=true})
-ESPAcc:Toggle({Title="ESP Egg", Desc="Hanya egg sesuai filter luck & rarity", Flag="ESPEgg", Default=false, Callback=function(v) isEspEggEnabled=v if v then Window.Notify("ESP Egg","ON - ≥ "..formatCompact(minLuckFilter).." | "..getSelectedRarityDisplay(),ACCENT,1.5) task.spawn(function() while isEspEggEnabled do refreshEsp() task.wait(0.5) end end) else clearAllEsp() Window.Notify("ESP Egg","OFF",Color3.fromRGB(248,113,113),1) end end})
-
-rarityDropdown = ESPAcc:Dropdown({
-    Title="Rarity Filter (Multi)",
-    Desc="Pilih beberapa EggTier",
-    Flag="RarityFilter",
-    Options=rarityOptions,
-    Default={"All"},
-    Multi=true,
-    Callback=function(val)
-        selectedRaritySet={}
-        if type(val)=="table" then
-            if #val==0 then selectedRaritySet["All"]=true
-            else for _,v in ipairs(val) do selectedRaritySet[tostring(v)]=true end end
-        else
-            selectedRaritySet[tostring(val)]=true
-        end
-        Window.Notify("Rarity Filter","Set: "..getSelectedRarityDisplay(),ACCENT,1)
-        refreshLibPanel()
-        if isEspEggEnabled then refreshEsp() end
-    end
-})
-
-local StatsAcc=MiscTab:Accordion({Title="Stats", Desc="Bawaan lib", Open=true})
-statsPara=StatsAcc:Paragraph({Title="⚡ PERFORMANCE", Desc="FPS: -- | PING: --"})
-StatsAcc:Toggle({Title="Show FPS & Ping", Desc="Update di paragraph lib", Flag="ShowStats", Default=false, Callback=function(v) isStatsShow=v if v then Window.Notify("Stats","ON - cek di paragraph",CYAN,1) else Window.Notify("Stats","OFF",Color3.fromRGB(248,113,113),1) end end})
-
-local TeleportTab=Window:Tab({Title="Teleport", Icon="T"})
-local IslandAcc=TeleportTab:Accordion({Title="Island", Desc=" ", Open=true})
-IslandAcc:Dropdown({Title="Select Island", Desc="Pilih tujuan", Flag="IslandDropdown", Options={"Base"}, Default="Base", Callback=function(val) selectedIsland=val Window.Notify("Teleport","Selected: "..val,ACCENT,1) end})
-IslandAcc:Button({Title="TP to Base", Desc="Teleport ke Base 270,4,-31", Callback=function() local pos=islandPositions[selectedIsland] or BASE_POS Window.Notify("Teleport","TP ke "..selectedIsland, CYAN,1) tweenToPos(pos) end})
-
--- LOOP AUTO REFRESH PANEL LIB + RARITY SCAN
-task.spawn(function()
-    while true do
-        task.wait(1.5)
-        for _,m in ipairs(getAllEggs()) do ensureRarity(getEggTier(m)) end
-        if isAutoRefreshPanel and eggListAcc then
-            pcall(refreshLibPanel)
-        end
-    end
-end)
-
--- LOOP FPS & PING KE PARAGRAPH LIB
-task.spawn(function()
-    local frames,last=0,tick()
-    RunService.RenderStepped:Connect(function()
-        frames+=1
-        if tick()-last>=0.5 then
-            if isStatsShow and statsPara then
-                local fps=math.floor(frames/(tick()-last))
-                pcall(function()
-                    local ping=math.floor(LocalPlayer:GetNetworkPing()*1000)
-                    statsPara:Set("⚡ PERFORMANCE - FPS: "..fps, "PING: "..ping.."ms | Filter: ≥ "..formatCompact(minLuckFilter).." | "..getSelectedRarityDisplay())
-                end)
-            end
-            frames=0 last=tick()
-        end
-    end)
-end)
-
-Window.Notify("Kraken Vault","Loaded! Panel sekarang bawaan lib - Press RightShift",ACCENT,2)
--- initial refresh
-task.wait(0.5) refreshLibPanel()
---(~]&`-,%?$)
+task.spawn(function() while true do task.wait(1.5) for _,m in ipairs(getAllEggs()) do ensureRarity(getEggTier(m)) end if autoRefresh then pcall(refreshLibPanel) end end end)
+Window.Notify("Kraken Vault","Panel bawaan SORU:Panel() loaded!",ACCENT,2)
+task.wait(0.5) refreshLibPanel()--(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
 --(>#]^^=-=)
