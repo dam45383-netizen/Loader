@@ -62,5 +62,5 @@ elseif placeId == 74193805629461 then
 elseif placeId == 85738654635245 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg") 
 elseif placeId == 111543903102439 then
-    loadRaw("") 
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin") 
 end
