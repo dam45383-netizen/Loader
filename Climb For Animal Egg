@@ -11001,6 +11001,9 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
+local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+local Window = SORU:CreateWindow({Title = "Main Hub", ToggleKey = Enum.KeyCode.RightShift})
+
 getgenv().AutoBestEgg = false
 getgenv().SpamDuration = 2
 getgenv().SelectedEggArea = "All"
@@ -11136,9 +11139,9 @@ local currentPanelFilter="All"
 local currentSearch=""
 
 local VaultPanel = Window:Panel({
-    Title="Egg Panel",
-    Subtitle=" ",
-    Width=300,
+    Title="Egg Vault",
+    Subtitle="",
+    Width=400,
     Open=false,
     GripY=0.35,
 })
@@ -11200,9 +11203,7 @@ PanelTab:Button({Title="Open Vault", Desc=" ", Callback=function() VaultPanel:Sh
 PanelTab:Button({Title="Close Vault", Callback=function() VaultPanel:Hide() end})
 
 task.spawn(function() while task.wait(3) do if VaultPanel:IsOpen() then pcall(refreshVault) end end end)
-Window.Notify("Fixed","Panel vault sekarang independent dari filter rarity Egg",T.ok,4)
---(%--&_>@)
---(~]&`-,%?$)
+Window.Notify("Fixed"," ",T.ok,4)--(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
 --(>#]^^=-=)
