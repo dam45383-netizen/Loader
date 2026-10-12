@@ -68,5 +68,5 @@ elseif placeId == 85738654635245 then
 elseif placeId == 111543903102439 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin") 
 elseif placeId == 76943966208523 then
-    loadRaw("")
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
 end
