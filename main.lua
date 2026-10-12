@@ -20,7 +20,8 @@ local Window = SORU:CreateWindow({
         74193805629461, -- +1 mine per click
         85738654635245, -- Climb animal
         111543903102439, -- +1 throw coin
-        76943966208523 --Clone to steal egg
+        76943966208523, --Clone to steal egg
+        119271610514030 --break for brainrot
     },
     KickIfNotSupported = false
 })
@@ -67,6 +68,8 @@ elseif placeId == 85738654635245 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg") 
 elseif placeId == 111543903102439 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin") 
+elseif placeId == 119271610514030 then
+    loadRaw("")
 elseif placeId == 76943966208523 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
 end
