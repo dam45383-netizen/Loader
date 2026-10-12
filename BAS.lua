@@ -8044,7 +8044,7 @@ local OFFSET_DIST = 3
 local RANGE = 15
 -- === MODIFIED FOR SLIDER ===
 local SLIDER_MIN = 16
-local SLIDER_MAX = 200
+local SLIDER_MAX = 500
 local sliderSpeed = 16
 local walkSpeedSliderRef = nil
 
