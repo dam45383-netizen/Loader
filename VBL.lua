@@ -12003,11 +12003,20 @@ if not Window then return end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 local ACCENT = Color3.fromRGB(145, 96, 255)
 local CYAN = Color3.fromRGB(56, 200, 255)
 local RED = Color3.fromRGB(255, 70, 100)
+
+if not table.find then
+    function table.find(t, v)
+        for i,x in ipairs(t) do if x==v then return i end end
+        return nil
+    end
+end
 
 local Window = getgenv().SORU_Window or SORU:CreateWindow({
     Title = "Soru Hub",
@@ -12330,7 +12339,177 @@ StatsAcc:Toggle({
     end
 })
 
-Window.Notify(" "," ",ACCENT,1)--(%--&_>@)
+-- ==================== CODE TAB - NEW ====================
+local CodeTab = Window:Tab({ Title = "Code", Icon = "C" })
+local CodeAcc = CodeTab:Accordion({ Title = "Codes", Desc = "Volleyball Legends Auto Search", Open = true })
+
+local FALLBACK_CODES = {
+    {code="UPDATE_91", reward="5 Lucky Style Spins (NEW)"},
+    {code="REPLAYS", reward="5 Lucky Style Spins (NEW)"},
+    {code="MVP", reward="5 Lucky Ability Spins (NEW)"},
+    {code="UPDATE_90", reward="5 Lucky Style Spins"},
+    {code="JINX", reward="5 Lucky Ability Spins"},
+    {code="SKELETON_BUNDLE", reward="5 Lucky Style Spins"},
+    {code="SLOT_REWORK", reward="100 Gems"},
+    {code="UPDATE_89", reward="5x Lucky Style Spins"},
+    {code="SKELETON", reward="5 Lucky Ability Spins"},
+    {code="WE_CURSED", reward="5 Lucky Style Spins"},
+}
+
+local LatestCodesCache = {}
+local HasLoaded = false
+
+local function SafeNotify(t,d,c,tm) pcall(function() Window.Notify(t,d,c,tm) end) end
+
+local function TryRedeemCode(codeStr)
+    local fired = 0
+    -- coba cari semua remote yang berbau code
+    pcall(function()
+        for _,obj in ipairs(ReplicatedStorage:GetDescendants()) do
+            if obj:IsA("RemoteEvent") then
+                local n = obj.Name:lower()
+                if n:find("code") or n:find("redeem") or n:find("gift") then
+                    pcall(function() obj:FireServer(codeStr) end)
+                    fired += 1
+                end
+            elseif obj:IsA("RemoteFunction") then
+                local n = obj.Name:lower()
+                if n:find("code") then
+                    pcall(function() obj:InvokeServer(codeStr) end)
+                    fired += 1
+                end
+            end
+        end
+    end)
+    -- path umum Volleyball Legends
+    pcall(function()
+        local remotes = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage:FindFirstChild("Events")
+        if remotes then
+            for _,r in ipairs(remotes:GetDescendants()) do
+                if r:IsA("RemoteEvent") and r.Name:lower():find("code") then
+                    r:FireServer(codeStr)
+                    fired += 1
+                end
+            end
+        end
+    end)
+    return fired > 0
+end
+
+local function FetchLatestCodesOnline()
+    local urls = {
+        "https://game-zoom.net/en/volleyball-legends-codes.html",
+        "https://www.beebom.com/roblox-volleyball-legends-codes/"
+    }
+    for _, url in ipairs(urls) do
+        local ok, body = pcall(function() return game:HttpGet(url) end)
+        if ok and body and #body > 500 then
+            local parsed = {}
+            -- pattern: - **CODE** — reward
+            for code, reward in body:gmatch("%*%*([A-Z0-9_]+)%*%*%s*[—%-]+%s*([^\n<]+)") do
+                code = code:gsub("%s+","")
+                if #code >= 3 and #code <= 35 then
+                    local exists = false
+                    for _,v in ipairs(parsed) do if v.code==code then exists=true break end end
+                    if not exists then
+                        table.insert(parsed, {code=code, reward=reward:gsub("^%s+",""):gsub("%s+$",""):sub(1,80)})
+                    end
+                end
+            end
+            if #parsed > 0 then
+                return parsed, url
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function ShowCodesInUI(codeList, source)
+    LatestCodesCache = codeList
+    local desc = source and ("Source: "..source.." | Total: "..#codeList) or ("Fallback | Total: "..#codeList)
+    CodeAcc:Paragraph({ Title="Latest Codes Found", Desc=desc })
+
+    for _, data in ipairs(codeList) do
+        CodeAcc:Button({
+            Title = data.code,
+            Desc = data.reward.." | Click to Copy & Redeem",
+            Callback = function()
+                if setclipboard then pcall(function() setclipboard(data.code) end) end
+                SafeNotify("Copied: "..data.code, data.reward, ACCENT, 2)
+                TryRedeemCode(data.code)
+            end
+        })
+    end
+
+    CodeAcc:Button({
+        Title = "Copy All Codes",
+        Desc = "Copy semua code ke clipboard",
+        Callback = function()
+            local all = {}
+            for _,v in ipairs(codeList) do table.insert(all, v.code) end
+            local txt = table.concat(all, "\n")
+            if setclipboard then setclipboard(txt) end
+            SafeNotify("Copied All", #all.." codes copied", CYAN, 2)
+        end
+    })
+
+    CodeAcc:Button({
+        Title = "Redeem All Codes",
+        Desc = "Coba redeem semua otomatis",
+        Callback = function()
+            SafeNotify("Redeeming...", "Mencoba redeem "..#codeList.." codes", CYAN, 2)
+            task.spawn(function()
+                for _,v in ipairs(codeList) do
+                    TryRedeemCode(v.code)
+                    task.wait(0.4)
+                end
+                SafeNotify("Done", "Semua code dicoba redeem", Color3.fromRGB(74,222,128), 2)
+            end)
+        end
+    })
+end
+
+CodeAcc:Paragraph({ Title="Volleyball Legends Codes", Desc="UPD 91 Active: UPDATE_91, REPLAYS, MVP. Klik Show Code dibawah untuk search terbaru." })
+
+CodeAcc:Button({
+    Title = "Show Code",
+    Desc = "Searching informasi terbaru code volleyball legends",
+    Callback = function()
+        if HasLoaded then
+            SafeNotify("Already Loaded", "Codes sudah di load, rejoin untuk refresh", ACCENT, 2)
+            return
+        end
+        HasLoaded = true
+        SafeNotify("Searching...", "Mencari code terbaru Volleyball Legends...", CYAN, 3)
+
+        task.spawn(function()
+            local onlineCodes, src = FetchLatestCodesOnline()
+            if onlineCodes and #onlineCodes > 0 then
+                SafeNotify("Found "..#onlineCodes.." Codes", "Source: "..(src or "online"), Color3.fromRGB(74,222,128), 3)
+                ShowCodesInUI(onlineCodes, src)
+            else
+                SafeNotify("Offline Mode", "Http gagal, pakai fallback list UPD 91", ACCENT, 3)
+                ShowCodesInUI(FALLBACK_CODES, nil)
+            end
+        end)
+    end
+})
+
+CodeAcc:Textbox({
+    Title = "Redeem Manual",
+    Desc = "Ketik code manual",
+    Flag = "ManualCode",
+    Placeholder = "UPDATE_91",
+    Callback = function(txt)
+        if txt and #txt > 2 then
+            TryRedeemCode(txt)
+            SafeNotify("Redeem", txt, ACCENT, 1)
+        end
+    end
+})
+
+Window.Notify("Soru Hub Loaded","Code Tab Added - UPD 91",ACCENT,2)
+--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
