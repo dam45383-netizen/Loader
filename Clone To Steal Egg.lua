@@ -12056,8 +12056,18 @@ local areasList={} pcall(function() for _,v in ipairs(workspace.Areas:GetChildre
 getgenv().SelectedArea=areasList[1]
 EggAcc:Dropdown({Title="Select Area", Flag="AreaDropdown", Options=areasList, Default=areasList[1], Callback=function(v) getgenv().SelectedArea=v end})
 EggAcc:Dropdown({Title="Mode", Flag="ModeFlag", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMode=v end})
-EggAcc:Slider({Title="WalkSpeed: "..getWalkSpeed().." (asli) | TweenSpeed", Desc="WalkSpeed asli: "..getWalkSpeed(), Flag="TweenSpeedFlag", Min=10, Max=500, Step=5, Default=25, Callback=function(v) getgenv().TweenSpeed=v end})
-EggAcc:Slider({Title="WalkSpeed: "..getWalkSpeed(), Flag="WalkSpeedFlag", Min=16, Max=100, Step=1, Default=getWalkSpeed(), Callback=function(v) local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") if hum then hum.WalkSpeed=v end end})
+
+EggAcc:Slider({
+    Title="Speed: "..getgenv().TweenSpeed.." | Max 700",
+    Desc="Ngatur Tween + WalkSpeed sekaligus",
+    Flag="SpeedFlag",
+    Min=10, Max=700, Step=5, Default=25,
+    Callback=function(v)
+        getgenv().TweenSpeed=v
+        local hum=LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed=math.clamp(v,16,700) end
+    end
+})
 
 -- TAB TREADMILL BARU
 local TreadTab = Window:Tab({Title="Treadmill", Icon="T"})
@@ -12137,7 +12147,7 @@ local function createEggCardUI(parentContent, hen)
             local t=tick() repeat safeInteractHen(hen) task.wait(0.05) until tick()-t>=0.5
             tweenTo(oldCF)
             if isSilent then setInvisible(false) unlockCamera() if fClone then pcall(function() fClone:Destroy() end) end end
-            restorePrompts() -- balikin interact
+            restorePrompts()
             getgenv().SingleSteal=false
         end)
     end)
@@ -12175,9 +12185,8 @@ doStealLoop = function()
 end
 
 EggAcc:Toggle({Title="Auto Steal", Flag="AutoStealFlag", Default=false, Callback=function(v) getgenv().AutoSteal=v if v and getgenv().SelectedArea~="No Areas Found" then doStealLoop() else restorePrompts() setInvisible(false) unlockCamera() if fakeClone then pcall(function() fakeClone:Destroy() end) fakeClone=nil end end end})
-LP.CharacterAdded:Connect(function(char) char:WaitForChild("Humanoid").WalkSpeed = getWalkSpeed() end)
-task.spawn(function() while true do pcall(refreshPanelCards) task.wait(2.5) end end)
---(%--&_>@)
+LP.CharacterAdded:Connect(function(char) char:WaitForChild("Humanoid").WalkSpeed = math.clamp(getgenv().TweenSpeed,16,700) end)
+task.spawn(function() while true do pcall(refreshPanelCards) task.wait(2.5) end end)--(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
