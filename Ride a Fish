@@ -11011,6 +11011,7 @@ local LocalPlayer=Players.LocalPlayer
 
 local tweenSpeed=120
 local isCollecting,isBestLuck,useSilentMethod,isPanelShow,isEspEggEnabled=false,true,true,false,false
+local isCollectingToken=false -- NEW
 local minLuckFilter=0
 local currentTween
 local BASE_POS=Vector3.new(270.9,4.2,-31.6)
@@ -11084,6 +11085,54 @@ local function tweenToPos(p) local h=getHRP() if not h then return end if curren
 local function getEggPos(m) local cf=nil pcall(function() cf=m:GetPivot() end) if cf then return cf.Position end if m.PrimaryPart then return m.PrimaryPart.Position end for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then return v.Position end end return nil end
 local function instantInteract(m) for _,v in ipairs(m:GetDescendants()) do if v:IsA("ProximityPrompt") then v.HoldDuration=0 pcall(function() if fireproximityprompt then fireproximityprompt(v) else v:InputHoldBegin() task.wait() v:InputHoldEnd() end end) end end end
 local function spamInteract(m) local t=tick() while tick()-t<1 do if not m.Parent then break end instantInteract(m) task.wait(0.05) end end
+
+-- ===== NEW: TOKEN SYSTEM =====
+local function getAllTokens()
+    local folder=workspace:FindFirstChild("TokenClientVisuals")
+    if not folder then return {} end
+    return folder:GetChildren()
+end
+local function getTokenPos(m)
+    local pos=nil
+    pcall(function() if m.GetPivot then pos=m:GetPivot().Position end end)
+    if pos then return pos end
+    if m:IsA("BasePart") then return m.Position end
+    if m.PrimaryPart then return m.PrimaryPart.Position end
+    for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then return v.Position end end
+    return nil
+end
+local function doCollectToken(model)
+    if not model or not model.Parent then return end
+    local tokenPos=getTokenPos(model)
+    if not tokenPos then return end
+    tweenToPos(tokenPos)
+    task.wait(0.2)
+    instantInteract(model)
+    pcall(function()
+        local hrp=getHRP()
+        if not hrp then return end
+        if model:IsA("BasePart") then
+            if firetouchinterest then
+                firetouchinterest(hrp, model, 0)
+                task.wait(0.08)
+                firetouchinterest(hrp, model, 1)
+            end
+        else
+            for _,p in ipairs(model:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    if firetouchinterest then
+                        firetouchinterest(hrp, p, 0)
+                        task.wait(0.06)
+                        firetouchinterest(hrp, p, 1)
+                    end
+                end
+            end
+        end
+    end)
+    task.wait(0.1)
+end
+-- ===== END TOKEN SYSTEM =====
+
 local function getAllEggs() local list,seen={},{} local function add(m) if m and not seen[m] and m:GetAttribute("EggLuck")~=nil then seen[m]=true table.insert(list,m) end end local er=workspace:FindFirstChild("EggRuntime") if er then local w=er:FindFirstChild("WildEggs") if w then for _,m in ipairs(w:GetChildren()) do add(m) end end local k=er:FindFirstChild("KrakenBossRuntime") if k then add(k) for _,m in ipairs(k:GetChildren()) do add(m) end for _,m in ipairs(k:GetDescendants()) do if m:IsA("Model") then add(m) end end end end local kra=workspace:FindFirstChild("KrakenBossRuntime") if kra then add(kra) for _,m in ipairs(kra:GetChildren()) do add(m) end for _,m in ipairs(kra:GetDescendants()) do if m:IsA("Model") then add(m) end end end return list end
 local function getFilteredEggs()
     local all=getAllEggs()
@@ -11200,7 +11249,7 @@ local function createStatsPanel()
     local header=NI("Frame") header.Size=UDim2.new(1,0,0,20) header.BackgroundTransparency=1 header.Parent=statsPanel
     local title=NI("TextLabel") title.Text="⚡ PERFORMANCE" title.Font=Enum.Font.GothamBold title.TextSize=10 title.TextColor3=Color3.fromRGB(246,244,255) title.BackgroundTransparency=1 title.Size=UDim2.new(1,0,1,0) title.Parent=header
     fpsLabel=NI("TextLabel") fpsLabel.Text="FPS: --" fpsLabel.Font=Enum.Font.GothamBold fpsLabel.TextSize=11 fpsLabel.TextColor3=CYAN fpsLabel.BackgroundTransparency=1 fpsLabel.Position=UDim2.new(0,0,0,20) fpsLabel.Size=UDim2.new(0.5,0,0,18) fpsLabel.Parent=statsPanel
-    pingLabel=NI("TextLabel") pingLabel.Text="PING: --" pingLabel.Font=Enum.Font.GothamBold pingLabel.TextSize=11 pingLabel.TextColor3=ACCENT pingLabel.BackgroundTransparency=1 pingLabel.Position=UDim2.new(0.5,0,0,20) pingLabel.Size=UDim2.new(0.5,0,0,18) pingLabel.Parent=statsPanel
+    pingLabel=NI("TextLabel") pingLabel.Text="PING: --" pingLabel.Font=Enum.Font.GothamBold pingLabel.TextSize=11 pingLabel.TextColor3=ACCENT pingLabel.BackgroundTransparency=1 pingLabel.Position=UDim2.new(0.5,0,0,0,20) pingLabel.Size=UDim2.new(0.5,0,0,18) pingLabel.Parent=statsPanel
     makeDraggable(statsPanel,header)
     local frames,last=0,tick()
     RunService.RenderStepped:Connect(function() frames+=1 if tick()-last>=0.5 then if fpsLabel then fpsLabel.Text="FPS: "..math.floor(frames/(tick()-last)) end frames=0 last=tick() end end)
@@ -11259,8 +11308,80 @@ local IslandAcc=TeleportTab:Accordion({Title="Island", Desc=" ", Open=true})
 IslandAcc:Dropdown({Title="Select Island", Desc="Pilih tujuan", Flag="IslandDropdown", Options={"Base"}, Default="Base", Callback=function(val) selectedIsland=val Window.Notify("Teleport","Selected: "..val,ACCENT,1) end})
 IslandAcc:Button({Title="TP to Base", Desc="Teleport ke Base 270,4,-31", Callback=function() local pos=islandPositions[selectedIsland] or BASE_POS Window.Notify("Teleport","TP ke "..selectedIsland, CYAN,1) tweenToPos(pos) end})
 
-Window.Notify("Kraken Vault","Loaded! Panel Bawaan Lib Ready - Press RightShift",ACCENT,2)
---(-~&-^%)
+-- ===== NEW TAB TOKEN =====
+local TokenTab=Window:Tab({Title="Token", Icon="T"})
+local TokenAcc=TokenTab:Accordion({Title="Auto Collect Token", Desc="Farm TokenClientVisuals", Open=true})
+
+TokenAcc:Toggle({
+    Title="Auto Token",
+    Desc="Auto teleport ke semua token di workspace.TokenClientVisuals",
+    Flag="AutoToken",
+    Default=false,
+    Callback=function(s)
+        isCollectingToken=s
+        if s then
+            Window.Notify("Auto Token","ON - Farming TokenClientVisuals",CYAN,1.5)
+            task.spawn(function()
+                while isCollectingToken do
+                    pcall(function()
+                        local folder=workspace:FindFirstChild("TokenClientVisuals")
+                        if not folder then task.wait(1) return end
+                        local all=getAllTokens()
+                        if #all==0 then task.wait(1) return end
+                        -- urutkan terdekat dulu
+                        local hrp=getHRP()
+                        table.sort(all, function(a,b)
+                            local pa=getTokenPos(a)
+                            local pb=getTokenPos(b)
+                            if not pa or not pb or not hrp then return false end
+                            return (hrp.Position-pa).Magnitude < (hrp.Position-pb).Magnitude
+                        end)
+                        for _,tok in ipairs(all) do
+                            if not isCollectingToken then break end
+                            if tok.Parent then
+                                doCollectToken(tok)
+                                task.wait(0.22)
+                            end
+                        end
+                    end)
+                    task.wait(0.3)
+                end
+            end)
+        else
+            Window.Notify("Auto Token","OFF",Color3.fromRGB(248,113,113),1)
+        end
+    end
+})
+
+TokenAcc:Button({
+    Title="Collect Nearest Token Once",
+    Desc="Teleport ke token terdekat 1x",
+    Callback=function()
+        local all=getAllTokens()
+        if #all==0 then Window.Notify("Token","Ga ada token di TokenClientVisuals",Color3.fromRGB(248,113,113),1) return end
+        local hrp=getHRP()
+        local best,closest=nil,math.huge
+        for _,m in ipairs(all) do
+            local p=getTokenPos(m)
+            if p and hrp then
+                local d=(hrp.Position-p).Magnitude
+                if d<closest then closest=d best=m end
+            end
+        end
+        if best then doCollectToken(best) end
+    end
+})
+
+TokenAcc:Button({
+    Title="Check Token Count",
+    Desc="Lihat berapa token tersedia",
+    Callback=function()
+        local c=#getAllTokens()
+        Window.Notify("Token Count","Ada "..c.." token di TokenClientVisuals",ACCENT,1.5)
+    end
+})
+
+Window.Notify("Kraken Vault","Loaded! Token Tab Added - Press RightShift",ACCENT,2)--(-~&-^%)
 --('^?#)
 --(>#]^^=-=)
 --(/^^"^)
