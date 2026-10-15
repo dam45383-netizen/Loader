@@ -2003,7 +2003,7 @@ if not Window then return end
 
 local MainAPI = Window:Tab({Title = "Main"})
 local MiscAPI = Window:Tab({Title = "Misc"})
-repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"]
+repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"] and Window.Gui:FindFirstChild("Root")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2017,6 +2017,25 @@ local plr = Players.LocalPlayer
 for _,v in ipairs(workspace:GetDescendants()) do if v:IsA("Animator") then pcall(function() v:Destroy() end) end end
 workspace.DescendantAdded:Connect(function(v) if v:IsA("Animator") then task.wait(0.1) pcall(function() v:Destroy() end) end end)
 
+local function getTabScroll(name)
+    local t = Window.Tabs[name]
+    if t and t.frame then return t.frame:FindFirstChildOfClass("ScrollingFrame") or t.frame end
+    return nil
+end
+local mainFrame = getTabScroll("Main")
+local miscFrame = getTabScroll("Misc")
+repeat task.wait() until mainFrame and miscFrame
+local function clearFrame(f)
+    for _,v in ipairs(f:GetChildren()) do
+        if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then v:Destroy() end
+    end
+end
+clearFrame(mainFrame)
+clearFrame(miscFrame)
+
+local root = Window.Gui:FindFirstChild("Root")
+local rootScale = root and root:FindFirstChildOfClass("UIScale")
+
 local SAFE_BASE_POS = Vector3.new(-75, 3.5, -7.4)
 local HELPER_DROP_POS = Vector3.new(-105.2, 3.7, -6.2)
 local OFFSET_DIST = 3
@@ -2024,16 +2043,36 @@ local RANGE = 15
 local SLIDER_MIN = 16
 local SLIDER_MAX = 500
 local sliderSpeed = 16
-
+local walkSpeedSliderRef = nil
 local function getRealHumanoidSpeed()
     local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
     if hum then return hum.WalkSpeed end
     return sliderSpeed
 end
-
-local ACCENT = Color3.fromRGB(145,96,255)
-local ACCENT2 = Color3.fromRGB(94,106,255)
-local DIM = Color3.fromRGB(150,142,186)
+local ACCENT = Color3.fromRGB(139,92,246)
+local ACCENT2 = Color3.fromRGB(99,102,241)
+local DIM = Color3.fromRGB(148,140,180)
+local function tw(o,p,t,s) return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), p) end
+local function track(handle, onBegin, onMove, onEnd)
+    handle.InputBegan:Connect(function(input)
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        local start = input.Position
+        local state = onBegin and onBegin(start) or nil
+        local moved, ended = false, false
+        local conn
+        conn = UserInputService.InputChanged:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+                local dx, dy = i.Position.X - start.X, i.Position.Y - start.Y
+                if not moved and (math.abs(dx)>4 or math.abs(dy)>4) then moved = true end
+                if onMove then onMove(dx, dy, state, moved, i.Position) end
+            end
+        end)
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End and not ended then ended=true if conn then conn:Disconnect() end if onEnd then onEnd(moved, state) end end
+        end)
+    end)
+end
 
 local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Cosmic"]=9,["Divine"]=10,["Celestial"]=11}
 local rarityNames={} local rf=RS:FindFirstChild("Rarities") if rf then for _,c in ipairs(rf:GetChildren()) do table.insert(rarityNames,c.Name) end else rarityNames={"Common","Rare","Epic","Legendary","Mythic","Secret"} end
@@ -2067,6 +2106,7 @@ local function parseFilterInput(text) if not text or text=="" then return 0 end 
 local defendMode="None" local attackEnabled=false local minCashFilter=0
 local bigEggPriority=true
 local selectedFollowPlayer=nil local followEnabled=false
+local function getBaseSpeed() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then return hum:GetAttribute("BaseSpeed") or hum.WalkSpeed end return 16 end
 local function getWalkSpeed() return sliderSpeed end
 do local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then sliderSpeed = hum.WalkSpeed end end
 
@@ -2084,6 +2124,7 @@ local function walkDirect(targetPos, lookAt, keepRot)
     if distLeft()<1.2 then return end
     while distLeft() > 1.2 do
         if not char or not hrp.Parent then break end
+        if followEnabled and selectedFollowPlayer then local t=Players:FindFirstChild(selectedFollowPlayer) if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then else if getRealHumanoidSpeed() < 1 then break end end end
         local ws=getWalkSpeed() local cur=Vector3.new(hrp.Position.X,targetPos.Y,hrp.Position.Z)
         local dir=Vector3.new(targetPos.X-cur.X,0,targetPos.Z-cur.Z) if dir.Magnitude<0.1 then break end dir=dir.Unit
         local dt=RunService.Heartbeat:Wait() local step=dir*ws*dt if step.Magnitude>distLeft() then step=dir*distLeft() end
@@ -2165,138 +2206,73 @@ local zoneNames={} local zbFolder=getZoneBuildsFolder() if zbFolder then for _,m
 local defendModes={"None","ZigZag","Random","Circle","Juke"}
 local selected={} local selectedZones={} local selectedEggZone=nil
 
--- ========== UI BARU FULL LIB ==========
+-- TOGGLE CUSTOM (TETAP INSTANCE NEW - TIDAK PAKE LIB)
+local function createToggle(parent,order,title,desc)
+    local f=Instance.new("Frame",parent) f.LayoutOrder=order f.Size=UDim2.new(1,-8,0,54) f.BackgroundColor3=Color3.fromRGB(24,22,36) f.BackgroundTransparency=0.15 Instance.new("UICorner",f).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",f).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",f).Transparency=0.6
+    local dot=Instance.new("Frame",f) dot.Size=UDim2.fromOffset(6,6) dot.Position=UDim2.new(0,12,0,14) dot.BackgroundColor3=Color3.fromRGB(60,55,80) Instance.new("UICorner",dot).CornerRadius=UDim.new(1,0)
+    local t=Instance.new("TextLabel",f) t.Text=title t.Position=UDim2.new(0,26,0,8) t.Size=UDim2.new(1,-80,0,12) t.BackgroundTransparency=1 t.Font=Enum.Font.GothamBold t.TextSize=12 t.TextColor3=Color3.new(1,1,1) t.TextXAlignment=Enum.TextXAlignment.Left
+    local d=Instance.new("TextLabel",f) d.Text=desc or " " d.Position=UDim2.new(0,26,0,22) d.Size=UDim2.new(1,-80,0,10) d.BackgroundTransparency=1 d.Font=Enum.Font.GothamMedium d.TextSize=9 d.TextColor3=DIM d.TextXAlignment=Enum.TextXAlignment.Left
+    local btn=Instance.new("TextButton",f) btn.Size=UDim2.fromOffset(44,24) btn.Position=UDim2.new(1,-54,0.5,-12) btn.Text="" btn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",btn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",btn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",btn).Transparency=0.6
+    local knob=Instance.new("Frame",btn) knob.Size=UDim2.fromOffset(18,18) knob.Position=UDim2.new(0,3,0.5,-9) knob.BackgroundColor3=Color3.new(1,1,1) Instance.new("UICorner",knob).CornerRadius=UDim.new(1,0)
+    return {frame=f, btn=btn, dot=knob, accent=dot, track=btn}
+end
 
--- PANEL SORU (ganti mainExt custom)
-local SoruPanel = Window:Panel({
-    Title = "Soru Panel",
-    Subtitle = "All animals • viewport",
-    Width = 320,
-    Height = 460,
-    MinWidth = 260,
-    MaxWidth = 420,
-    MinHeight = 250,
-    MaxHeight = 700,
-    Resizable = true,
-    OpenDrag = "Right",
-    Open = false
-})
-
--- cari scroll content panel buat card custom
-local panelScroll
-task.spawn(function()
-    repeat task.wait(0.3) until Window.Gui
-    for _=1,20 do
-        for _,v in ipairs(Window.Gui:GetDescendants()) do
-            if v.Name=="Content" and v:IsA("ScrollingFrame") then
-                local cur=v
-                while cur do
-                    if cur.Name=="SORU_Panel" then panelScroll=v break end
-                    cur=cur.Parent
-                end
-            end
-            if panelScroll then break end
-        end
-        if panelScroll then break end
-        task.wait(0.3)
-    end
-end)
-
-SoruPanel:Section("STEAL MODE")
-SoruPanel:Dropdown({
-    Title="Mode",
-    Desc="Normal = langsung base, Helper = drop dulu",
-    Flag="StealModePanel_LIB",
-    Options={"Normal","Helper"},
-    Default="Normal",
-    Callback=function(v) stealMode = type(v)=="table" and v[1] or v end
-})
-SoruPanel:Section("ANIMALS LIST")
+-- EXTERNAL PANEL TETAP INSTANCE NEW
+local mainExt=Instance.new("Frame") mainExt.Name="ExternalPanel" mainExt.Size=UDim2.fromOffset(300,340) mainExt.Position=UDim2.new(1,-310,1,-360) mainExt.BackgroundColor3=Color3.fromRGB(20,18,32) mainExt.BackgroundTransparency=0.1 mainExt.Visible=false mainExt.Parent=root mainExt.ZIndex=50 mainExt.ClipsDescendants=false
+Instance.new("UICorner",mainExt).CornerRadius=UDim.new(0,14) Instance.new("UIStroke",mainExt).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",mainExt).Transparency=0.4
+local accentLine2=Instance.new("Frame",mainExt) accentLine2.Size=UDim2.new(1,0,0,1) accentLine2.BackgroundColor3=ACCENT Instance.new("UIGradient",accentLine2).Color=ColorSequence.new{ColorSequenceKeypoint.new(0,ACCENT),ColorSequenceKeypoint.new(1,ACCENT2)} Instance.new("UICorner",accentLine2).CornerRadius=UDim.new(0,99)
+local titleBar=Instance.new("Frame",mainExt) titleBar.Size=UDim2.new(1,0,0,52) titleBar.BackgroundTransparency=1 titleBar.Active=true titleBar.ZIndex=51
+local ib=Instance.new("Frame",titleBar) ib.Size=UDim2.fromOffset(36,36) ib.Position=UDim2.new(0,12,0.5,-18) ib.BackgroundColor3=Color3.fromRGB(26,24,40) Instance.new("UICorner",ib).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",ib).Color=ACCENT Instance.new("UIStroke",ib).Transparency=0.5
+local ii=Instance.new("TextLabel",ib) ii.Size=UDim2.new(1,0,1,0) ii.BackgroundTransparency=1 ii.Text="📦" ii.Font=Enum.Font.GothamBold ii.TextSize=16 ii.TextColor3=Color3.new(1,1,1)
+local tl=Instance.new("TextLabel",titleBar) tl.Text="Soru Panel" tl.Position=UDim2.new(0,58,0,10) tl.Size=UDim2.new(0,120,0,14) tl.BackgroundTransparency=1 tl.Font=Enum.Font.GothamBold tl.TextSize=13 tl.TextColor3=Color3.new(1,1,1) tl.TextXAlignment=Enum.TextXAlignment.Left
+local sub=Instance.new("TextLabel",titleBar) sub.Text="External viewport" sub.Position=UDim2.new(0,58,0,26) sub.Size=UDim2.new(0,120,0,10) sub.BackgroundTransparency=1 sub.Font=Enum.Font.GothamMedium sub.TextSize=9 sub.TextColor3=ACCENT sub.TextXAlignment=Enum.TextXAlignment.Left
+local closeBtn=Instance.new("TextButton",titleBar) closeBtn.Size=UDim2.fromOffset(32,32) closeBtn.Position=UDim2.new(1,-40,0.5,-16) closeBtn.Text="✕" closeBtn.Font=Enum.Font.GothamMedium closeBtn.TextSize=12 closeBtn.TextColor3=DIM closeBtn.BackgroundColor3=Color3.fromRGB(24,22,36) Instance.new("UICorner",closeBtn).CornerRadius=UDim.new(1,0) Instance.new("UIStroke",closeBtn).Color=Color3.fromRGB(50,45,70) Instance.new("UIStroke",closeBtn).Transparency=0.6 closeBtn.AutoButtonColor=false
+track(titleBar, function() return mainExt.Position end, function(dx,dy,st,moved) if moved and st then local s=rootScale and rootScale.Scale or 1 mainExt.Position=UDim2.new(st.X.Scale, st.X.Offset+dx/s, st.Y.Scale, st.Y.Offset+dy/s) end end)
+local modeFrame2=Instance.new("Frame",mainExt) modeFrame2.Size=UDim2.new(1,-12,0,30) modeFrame2.Position=UDim2.new(0,6,0,54) modeFrame2.BackgroundColor3=Color3.fromRGB(24,22,36) modeFrame2.BackgroundTransparency=0.15 Instance.new("UICorner",modeFrame2).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",modeFrame2).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",modeFrame2).Transparency=0.6
+local normalBtn=Instance.new("TextButton",modeFrame2) normalBtn.Size=UDim2.new(0.5,-2,1,-4) normalBtn.Position=UDim2.new(0,2,0,2) normalBtn.Text="NORMAL" normalBtn.Font=Enum.Font.GothamBold normalBtn.TextSize=10 normalBtn.TextColor3=Color3.new(1,1,1) normalBtn.BackgroundColor3=ACCENT Instance.new("UICorner",normalBtn).CornerRadius=UDim.new(0,8) normalBtn.AutoButtonColor=false
+local helperBtn=Instance.new("TextButton",modeFrame2) helperBtn.Size=UDim2.new(0.5,-2,1,-4) helperBtn.Position=UDim2.new(0.5,0,0,2) helperBtn.Text="HELPER" helperBtn.Font=Enum.Font.GothamBold helperBtn.TextSize=10 helperBtn.TextColor3=DIM helperBtn.BackgroundColor3=Color3.fromRGB(34,30,50) Instance.new("UICorner",helperBtn).CornerRadius=UDim.new(0,8) helperBtn.AutoButtonColor=false
+local function setMode(m) stealMode=m if m=="Normal" then tw(normalBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(normalBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(helperBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(helperBtn,{TextColor3=DIM},0.2):Play() else tw(helperBtn,{BackgroundColor3=ACCENT},0.2):Play() tw(helperBtn,{TextColor3=Color3.new(1,1,1)},0.2):Play() tw(normalBtn,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(normalBtn,{TextColor3=DIM},0.2):Play() end end
+normalBtn.MouseButton1Click:Connect(function() setMode("Normal") end) helperBtn.MouseButton1Click:Connect(function() setMode("Helper") end)
+local extScroll=Instance.new("ScrollingFrame",mainExt) extScroll.Size=UDim2.new(1,-12,1,-126) extScroll.Position=UDim2.new(0,6,0,90) extScroll.BackgroundTransparency=1 extScroll.ScrollBarThickness=1 extScroll.CanvasSize=UDim2.new(0,0,0,0) extScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+Instance.new("UIPadding",extScroll).PaddingTop=UDim.new(0,2) Instance.new("UIPadding",extScroll).PaddingBottom=UDim.new(0,36) Instance.new("UIPadding",extScroll).PaddingLeft=UDim.new(0,4) Instance.new("UIPadding",extScroll).PaddingRight=UDim.new(0,4) Instance.new("UIListLayout",extScroll).Padding=UDim.new(0,8)
+local resizeHandle=Instance.new("Frame",mainExt) resizeHandle.Size=UDim2.fromOffset(28,28) resizeHandle.Position=UDim2.new(1,-28,1,-28) resizeHandle.BackgroundTransparency=1 resizeHandle.Active=true resizeHandle.ZIndex=60
+local rhLabel=Instance.new("TextLabel",resizeHandle) rhLabel.Text="⋰" rhLabel.Size=UDim2.fromScale(1,1) rhLabel.BackgroundTransparency=1 rhLabel.Font=Enum.Font.GothamBold rhLabel.TextSize=16 rhLabel.TextColor3=Color3.fromRGB(100,94,130) rhLabel.TextXAlignment=Enum.TextXAlignment.Right rhLabel.TextYAlignment=Enum.TextYAlignment.Bottom
+local minSize=Vector2.new(260,250) local maxSize=Vector2.new(420,600)
+track(resizeHandle, function() return mainExt.Size end, function(dx,dy,st) local s=rootScale and rootScale.Scale or 1 local nw=math.clamp(st.X.Offset + dx/s, minSize.X, maxSize.X) local nh=math.clamp(st.Y.Offset + dy/s, minSize.Y, maxSize.Y) mainExt.Size=UDim2.fromOffset(nw,nh) end)
 
 local function createExtCard(model)
     local rarity=model:GetAttribute("Rarity") or "Unknown" local weight=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
     local zone=getAnimalZone(model) local cashPerSec=getCashPerSecond(model)
-    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,78) card.BackgroundColor3=Color3.fromRGB(28,24,48) card.BackgroundTransparency=0.15
-    Instance.new("UICorner",card).CornerRadius=UDim.new(0,14)
-    Instance.new("UIStroke",card).Color=Color3.fromRGB(78,70,124) Instance.new("UIStroke",card).Transparency=0.45
-    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(15,13,27) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) setupViewportModel(vp, model)
+    local card=Instance.new("Frame") card.Size=UDim2.new(1,0,0,78) card.BackgroundColor3=Color3.fromRGB(24,22,36) card.BackgroundTransparency=0.15 Instance.new("UICorner",card).CornerRadius=UDim.new(0,12) Instance.new("UIStroke",card).Color=Color3.fromRGB(60,55,80) Instance.new("UIStroke",card).Transparency=0.6
+    local vp=Instance.new("ViewportFrame",card) vp.Size=UDim2.fromOffset(42,42) vp.Position=UDim2.new(0,8,0,8) vp.BackgroundColor3=Color3.fromRGB(20,18,32) vp.BorderSizePixel=0 Instance.new("UICorner",vp).CornerRadius=UDim.new(0,10) Instance.new("UIStroke",vp).Color=ACCENT Instance.new("UIStroke",vp).Transparency=0.6 setupViewportModel(vp, model)
     local mid=Instance.new("Frame",card) mid.Size=UDim2.new(1,-108,1,0) mid.Position=UDim2.new(0,58,0,0) mid.BackgroundTransparency=1
     local nameLbl=Instance.new("TextLabel",mid) nameLbl.Size=UDim2.new(1,-72,0,12) nameLbl.Position=UDim2.new(0,0,0,6) nameLbl.BackgroundTransparency=1 nameLbl.Text=model.Name:upper() nameLbl.Font=Enum.Font.GothamBold nameLbl.TextSize=10 nameLbl.TextColor3=Color3.new(1,1,1) nameLbl.TextXAlignment=Enum.TextXAlignment.Left nameLbl.TextTruncate=Enum.TextTruncate.AtEnd
-    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cashPerSec cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=Color3.fromRGB(74,222,128) cashLbl.TextXAlignment=Enum.TextXAlignment.Right
+    local cashLbl=Instance.new("TextLabel",mid) cashLbl.Size=UDim2.new(0,68,0,12) cashLbl.Position=UDim2.new(1,-68,0,6) cashLbl.BackgroundTransparency=1 cashLbl.Text=cashPerSec cashLbl.Font=Enum.Font.GothamBold cashLbl.TextSize=10 cashLbl.TextColor3=Color3.fromRGB(80,255,120) cashLbl.TextXAlignment=Enum.TextXAlignment.Right cashLbl.TextTruncate=Enum.TextTruncate.AtEnd
     local kgLbl=Instance.new("TextLabel",mid) kgLbl.Size=UDim2.new(1,0,0,10) kgLbl.Position=UDim2.new(0,0,0,20) kgLbl.BackgroundTransparency=1 kgLbl.Text=tostring(weight).." KG • "..string.upper(rarity) kgLbl.Font=Enum.Font.GothamMedium kgLbl.TextSize=9 kgLbl.TextColor3=DIM kgLbl.TextXAlignment=Enum.TextXAlignment.Left
     local zoneLbl=Instance.new("TextLabel",mid) zoneLbl.Size=UDim2.new(1,0,0,10) zoneLbl.Position=UDim2.new(0,0,0,34) zoneLbl.BackgroundTransparency=1 zoneLbl.Text="📍 "..zone zoneLbl.Font=Enum.Font.GothamBold zoneLbl.TextSize=9 zoneLbl.TextColor3=ACCENT zoneLbl.TextXAlignment=Enum.TextXAlignment.Left
+    local kg2=Instance.new("TextLabel",mid) kg2.Size=UDim2.new(1,0,0,10) kg2.Position=UDim2.new(0,0,0,48) kg2.BackgroundTransparency=1 kg2.Text=string.format("3 STUDS • %d SPD • %s/s", getWalkSpeed(), cashPerSec) kg2.Font=Enum.Font.GothamMedium kg2.TextSize=8 kg2.TextColor3=Color3.fromRGB(100,95,120) kg2.TextXAlignment=Enum.TextXAlignment.Left
     local btn=Instance.new("TextButton",card) btn.Size=UDim2.fromOffset(44,26) btn.Position=UDim2.new(1,-50,0.5,-13) btn.Text="STEAL" btn.Font=Enum.Font.GothamBold btn.TextSize=9 btn.TextColor3=Color3.new(1,1,1) btn.BackgroundColor3=ACCENT Instance.new("UICorner",btn).CornerRadius=UDim.new(0,8) btn.AutoButtonColor=false btn.MouseButton1Click:Connect(function() stealMethod(model) end) return card
 end
+local function refreshExternal() for _,v in ipairs(extScroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end) for _,m in ipairs(list) do createExtCard(m).Parent=extScroll end end
+closeBtn.MouseButton1Click:Connect(function() mainExt.Visible=false end)
 
-local function refreshExternal()
-    if not panelScroll then return end
-    for _,v in ipairs(panelScroll:GetChildren()) do
-        if v:IsA("Frame") and v.Name~="Body" then v:Destroy() end
-        if v:IsA("Frame") and v:GetAttribute("IsAnimalCard") then v:Destroy() end
-    end
-    -- hapus holder custom lama (holder lib punya Deco attribute)
-    for _,v in ipairs(panelScroll:GetChildren()) do
-        if v:IsA("Frame") and v.Name=="Holder" then
-            -- jangan hapus Section asli, cuma card animal
-            if v:GetAttribute("IsAnimalCard") then v:Destroy() end
-        end
-    end
-    -- clear semua frame animal card yang kita buat sebelumnya
-    for _,v in ipairs(panelScroll:GetChildren()) do
-        if v:IsA("Frame") and v:FindFirstChild("ViewportFrame") then v:Destroy() end
-    end
+-- BUILD UI MAIN - PAKE KOMPONEN LIB BIAR NYATU
+local ord=1
 
-    local folder=workspace:FindFirstChild("AnimalPickups") if not folder then return end
-    local list={} for _,m in ipairs(folder:GetChildren()) do if m:IsA("Model") then table.insert(list,m) end end
-    table.sort(list, function(a,b) local sa=getRarityScore(a:GetAttribute("Rarity") or "") local sb=getRarityScore(b:GetAttribute("Rarity") or "") if sa~=sb then return sa>sb end return (a:GetAttribute("WeightKg") or 0) > (b:GetAttribute("WeightKg") or 0) end)
-    for _,m in ipairs(list) do
-        local c=createExtCard(m)
-        c:SetAttribute("IsAnimalCard", true)
-        c.Parent=panelScroll
-    end
-end
-
--- MAIN TAB - FULL LIB
+-- BASE SYSTEM
 MainAPI:Section("BASE SYSTEM")
-MainAPI:Toggle({
-    Title="Auto Base",
-    Desc="Balik ke base pas di steal",
-    Flag="AutoBase_LIB",
-    Default=false,
-    Callback=function(v)
-        if v then
-            Window.Notify("BASE","Auto Base ON",ACCENT,2)
-        else
-            Window.Notify("BASE","OFF",DIM,2)
-        end
-    end
-})
-local baseOn=false
-MainAPI:Toggle({
-    Title="Auto Base Logic",
-    Desc="Trigger ProximityPrompt steal -> base",
-    Flag="AutoBaseLogic_LIB",
-    Default=false,
-    Callback=function(v)
-        baseOn=v
-        if baseOn then
-            -- connect prompt
-            _G.BaseConn = ProximityPromptService.PromptTriggered:Connect(function(prompt,p)
-                if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end
-            end)
-        else
-            if _G.BaseConn then _G.BaseConn:Disconnect() end
-        end
-    end
-})
+MainAPI:Paragraph({Title="Auto Return", Desc="Balik ke base otomatis setelah trigger steal"})
+local baseToggle=createToggle(mainFrame,ord,"Auto Base","Balik ke base pas di steal") ord+=1
+MainAPI:Divider()
 
+-- MOVEMENT
 MainAPI:Section("MOVEMENT")
-MainAPI:Slider({
+MainAPI:Label("Walk speed - sinkron real humanoid")
+local walkSliderLib = MainAPI:Slider({
     Title="Walk Speed",
+    Desc="16-500 SPD - Real-time sync",
     Flag="WalkSpeed_LIB",
-    Min=SLIDER_MIN,
-    Max=SLIDER_MAX,
-    Step=1,
+    Min=SLIDER_MIN, Max=SLIDER_MAX, Step=1,
     Default=getRealHumanoidSpeed(),
     Suffix=" SPD",
     Callback=function(v)
@@ -2305,48 +2281,98 @@ MainAPI:Slider({
         if hum then hum.WalkSpeed=v hum:SetAttribute("BaseSpeed", v) end
     end
 })
+walkSpeedSliderRef = {
+    setValue=function(v) sliderSpeed=v if walkSliderLib then walkSliderLib:Set(v,true) end end,
+    getValue=function() return sliderSpeed end
+}
+MainAPI:Divider()
 
+-- STEAL CONFIG - SEMUA PAKE LIB DROPDOWN + TEXTBOX
 MainAPI:Section("STEAL CONFIG")
+MainAPI:Paragraph({Title="Filter System", Desc="Rarity, Zone & Cash filter"})
 MainAPI:Dropdown({
-    Title="Rarity",
-    Desc="Filter rarity yang mau di steal",
-    Flag="RarityFilter_LIB",
-    Options=rarityNames,
-    Multi=true,
+    Title="Rarity", Desc="Pilih rarity yang mau di steal",
+    Flag="RarityFilter_LIB", Options=rarityNames, Multi=true,
     Callback=function(val)
         selected={} if type(val)=="table" then for _,n in ipairs(val) do selected[n]=true end elseif val then selected[val]=true end
     end
 })
 MainAPI:Dropdown({
-    Title="Zone Filter",
-    Desc="Filter zone",
-    Flag="ZoneFilter_LIB",
-    Options=zoneNames,
-    Multi=true,
+    Title="Zone Filter", Desc="Filter berdasarkan zone",
+    Flag="ZoneFilter_LIB", Options=zoneNames, Multi=true,
     Callback=function(val)
         selectedZones={} if type(val)=="table" then for _,n in ipairs(val) do selectedZones[n]=true end elseif val then selectedZones[val]=true end
     end
 })
 MainAPI:Dropdown({
-    Title="Defend Mode",
-    Desc="Gaya menghindar pas bawa hewan",
-    Flag="DefendMode_LIB",
-    Options=defendModes,
-    Default="None",
-    Callback=function(val)
-        defendMode = type(val)=="table" and val[1] or val defendMode = defendMode or "None"
-    end
+    Title="Defend Mode", Desc="Pola jalan menghindar",
+    Flag="DefendMode_LIB", Options=defendModes, Default="None",
+    Callback=function(val) defendMode = type(val)=="table" and val[1] or val defendMode = defendMode or "None" end
 })
 MainAPI:Textbox({
-    Title="Min $ /Sec",
-    Desc="Contoh: $100k, $2M, $0 = off",
-    Flag="MinCash_LIB",
-    Placeholder="$ 0 = off",
+    Title="Min $ /Sec", Desc="$ 0 = filter off",
+    Flag="CashFilter_LIB", Placeholder="$ 0 = off",
     Callback=function(text)
         local v=parseFilterInput(text) minCashFilter=v
         if v>0 then Window.Notify("FILTER $","Min: $"..tostring(v),ACCENT,2) else Window.Notify("FILTER $","OFF",DIM,2) end
     end
 })
+MainAPI:Divider()
+MainAPI:Label("Action Toggles - custom instance.new tetap")
+local stealToggle=createToggle(mainFrame,ord,"Auto Steal","Steal sesuai rarity filter") ord+=1
+local attackToggle=createToggle(mainFrame,ord,"Attack Carrier","Hajar pembawa hewan") ord+=1
+MainAPI:Divider()
+
+-- PANEL
+MainAPI:Section("PANEL")
+MainAPI:Paragraph({Title="External Panel", Desc="Viewport semua hewan + tombol steal"})
+local panelToggle=createToggle(mainFrame,ord,"External Panel","Lihat semua hewan + viewport") ord+=1
+MainAPI:Divider()
+
+-- BREAK EGG + BIG FILTER
+MainAPI:Section("BREAK EGG + BIG FILTER")
+MainAPI:Dropdown({
+    Title="Egg Zone", Desc="Zone untuk break egg",
+    Flag="EggZone_LIB", Options=zoneNames, Default=nil,
+    Callback=function(val) selectedEggZone = type(val)=="table" and val[1] or val end
+})
+MainAPI:Label("Big Egg Priority - pilih telur terbesar dulu")
+local bigEggToggle=createToggle(mainFrame,ord,"Big Egg Priority","ON = pilih egg paling gede dulu") ord+=1
+local eggToggle=createToggle(mainFrame,ord,"Break Egg","Auto break egg di zone") ord+=1
+if bigEggPriority then tw(bigEggToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(bigEggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(bigEggToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() end
+MainAPI:Divider()
+
+-- FOLLOW PLAYER - PAKE ACCORDION LIB (NYATU SAMA TEMA)
+local followAcc = MainAPI:Accordion({Title="FOLLOW PLAYER", Desc="Follow target player auto update", Open=false})
+local playerDropdown
+local function getPlayerList() local l={} for _,p in ipairs(Players:GetPlayers()) do if p~=plr then table.insert(l,p.Name) end end if #l==0 then l={"No Player"} end return l end
+playerDropdown = followAcc:Dropdown({
+    Title="Player List", Desc="Pilih target follow",
+    Flag="PlayerList_LIB", Options=getPlayerList(),
+    Callback=function(val)
+        local name = type(val)=="table" and val[1] or val
+        if name and name~="No Player" then selectedFollowPlayer=name Window.Notify("FOLLOW","Target: "..name,ACCENT,2) end
+    end
+})
+followAcc:Label("Toggle Follow dibawah - tetap instance.new")
+-- toggle follow tetep instance.new tapi ditaro di bawah accordion biar grouping tetep nyatu
+local followToggle=createToggle(mainFrame,ord,"Follow Player","Ikuti player terpilih") ord+=1
+
+task.spawn(function() while task.wait(2) do pcall(function() if playerDropdown then playerDropdown:Refresh(getPlayerList()) end end) end end)
+
+-- MISC - PAKE LIB SECTION JUGA
+MiscAPI:Section("MISC UTILITY")
+MiscAPI:Paragraph({Title="Anti Ragdoll & Anti Fling", Desc="Utility stabilizer"})
+local ragdollToggle=createToggle(miscFrame,1,"No Ragdoll","Anti jatuh ragdoll")
+local antiMentalToggle=createToggle(miscFrame,2,"Anti Mental","Anti fling / mental")
+MiscAPI:Divider()
+MiscAPI:Section("GAMEPASS")
+MiscAPI:Label("Fast break bypass swing delay")
+local fastBreakToggle=createToggle(miscFrame,3,"Fast Break","Bypass swing delay")
+
+-- LOGIC (TETAP SAMA)
+local baseOn=false local baseConn=nil
+baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) Window.Notify("BASE","Auto Base ON",ACCENT,2) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
 
 local function getStealTargets()
     local folder=workspace:FindFirstChild("AnimalPickups") if not folder or next(selected)==nil then return {} end
@@ -2363,58 +2389,19 @@ local function getStealTargets()
 end
 
 local stealOn=false
-MainAPI:Toggle({
-    Title="Auto Steal",
-    Desc="Steal sesuai rarity filter",
-    Flag="AutoSteal_LIB",
-    Default=false,
-    Callback=function(v)
-        stealOn=v
-        if stealOn then
-            if next(selected)==nil then Window.Notify("ERROR","Pilih Rarity dulu!",Color3.fromRGB(248,113,113),3) stealOn=false return end
-            walkToSafeBase()
-            task.spawn(function() while stealOn do local list=getStealTargets() local found=#list>0 for _,m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end if not found then task.wait(0.8) end end end)
-            Window.Notify("STEAL","ON",ACCENT,2)
-        else
-            Window.Notify("STEAL","OFF",DIM,2)
-        end
-    end
-})
+stealToggle.btn.MouseButton1Click:Connect(function()
+    stealOn=not stealOn
+    if stealOn then
+        if next(selected)==nil then Window.Notify("ERROR","Pilih Rarity dulu!",Color3.fromRGB(248,113,113),3) stealOn=false return end
+        tw(stealToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+        walkToSafeBase()
+        task.spawn(function() while stealOn do local list=getStealTargets() local found=#list>0 for _,m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end if not found then task.wait(0.8) end end end)
+    else tw(stealToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(stealToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(stealToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() stealOn=false end
+end)
+attackToggle.btn.MouseButton1Click:Connect(function() attackEnabled=not attackEnabled if attackEnabled then tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(255,80,80)},0.2):Play() Window.Notify("ATTACK","ON",Color3.fromRGB(255,80,80),2) else tw(attackToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(attackToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(attackToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() Window.Notify("ATTACK","OFF",DIM,2) end end)
+local extOn=false panelToggle.btn.MouseButton1Click:Connect(function() extOn=not extOn if extOn then tw(panelToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() mainExt.Visible=true refreshExternal() task.spawn(function() while extOn and mainExt.Visible do refreshExternal() task.wait(2) end end) else tw(panelToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(panelToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(panelToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() mainExt.Visible=false end end)
 
-MainAPI:Toggle({
-    Title="Attack Carrier",
-    Desc="Hajar pembawa hewan",
-    Flag="AttackCarrier_LIB",
-    Default=false,
-    Callback=function(v) attackEnabled=v Window.Notify("ATTACK", v and "ON" or "OFF", v and Color3.fromRGB(255,80,80) or DIM,2) end
-})
-
-MainAPI:Section("PANEL")
-MainAPI:Toggle({
-    Title="External Panel",
-    Desc="Lihat semua hewan + viewport",
-    Flag="ExtPanel_LIB",
-    Default=false,
-    Callback=function(v)
-        if v then SoruPanel:Show() refreshExternal() task.spawn(function() while SoruPanel:IsOpen() do refreshExternal() task.wait(2) end end) else SoruPanel:Hide() end
-    end
-})
-
-MainAPI:Section("BREAK EGG + BIG FILTER")
-MainAPI:Dropdown({
-    Title="Egg Zone",
-    Flag="EggZone_LIB",
-    Options=zoneNames,
-    Callback=function(val) selectedEggZone = type(val)=="table" and val[1] or val end
-})
-MainAPI:Toggle({
-    Title="Big Egg Priority",
-    Desc="ON = pilih egg paling gede dulu",
-    Flag="BigEggPrio_LIB",
-    Default=true,
-    Callback=function(v) bigEggPriority=v Window.Notify("BIG EGG", v and "Priority ON" or "OFF", v and ACCENT or DIM,2) end
-})
-
+-- BIG EGG LOGIC
 local function getEggSize(model)
     for _,a in ipairs({"Size","EggSize","Scale","WeightKg","Weight","SizeMultiplier"}) do local v=model:GetAttribute(a) if typeof(v)=="number" then return v end end
     for _,d in ipairs(model:GetDescendants()) do if d:IsA("NumberValue") and d.Name:lower():find("size") then return d.Value end end
@@ -2431,121 +2418,99 @@ end
 local function getEggHealth(eggModel) if eggModel:GetAttribute("Health") then return eggModel:GetAttribute("Health") end for _,d in ipairs(eggModel:GetDescendants()) do local h=d:GetAttribute("Health") if h~=nil then return h end end return nil end
 local function equipPickaxe() local char=plr.Character if not char then return nil end local tool=char:FindFirstChildOfClass("Tool") if tool and tool.Name:lower():find("pickaxe") then return tool end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") and t.Name:lower():find("pickaxe") then t.Parent=char return t end end for _,t in ipairs(plr.Backpack:GetChildren()) do if t:IsA("Tool") then t.Parent=char return t end end return char:FindFirstChildOfClass("Tool") end
 
+bigEggToggle.btn.MouseButton1Click:Connect(function()
+    bigEggPriority=not bigEggPriority
+    if bigEggPriority then tw(bigEggToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(bigEggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(bigEggToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() Window.Notify("BIG EGG","Priority ON - Biggest First",ACCENT,2)
+    else tw(bigEggToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(bigEggToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(bigEggToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() Window.Notify("BIG EGG","OFF",DIM,2) end
+end)
+
 local breakOn=false
-MainAPI:Toggle({
-    Title="Break Egg",
-    Desc="Auto break egg di zone",
-    Flag="BreakEgg_LIB",
-    Default=false,
-    Callback=function(v)
-        breakOn=v
-        if breakOn then
-            if not selectedEggZone then Window.Notify("ERROR","Pilih Zone dulu!",Color3.fromRGB(248,113,113),2) breakOn=false return end
-            task.spawn(function()
-                while breakOn do
-                    local targets=getStealTargets()
-                    if #targets>0 then for _,m in ipairs(targets) do if not breakOn then break end pcall(function() stealMethod(m) end) task.wait(0.3) end continue end
-                    local eggs=getEggsInZone(selectedEggZone)
-                    if #eggs==0 then task.wait(1) continue end
-                    for _,egg in ipairs(eggs) do
-                        if not breakOn then break end
-                        if #getStealTargets()>0 then break end
-                        local pos,base=getOffsetPos(egg) if not pos then local b=getBasePos(egg) if b then pos=Vector3.new(b.X,3.5,b.Z+3) base=Vector3.new(b.X,3.5,b.Z) end end
-                        if not pos then continue end
-                        pcall(function() walkDirect(pos, base, false) equipPickaxe() while breakOn and egg.Parent do if #getStealTargets()>0 then break end local h=getEggHealth(egg) if h==nil or h<=0 then break end task.wait(0.15) end end) task.wait(0.2)
-                    end
-                    task.wait(0.5)
+eggToggle.btn.MouseButton1Click:Connect(function()
+    breakOn=not breakOn
+    if breakOn then
+        if not selectedEggZone then breakOn=false Window.Notify("ERROR","Pilih Zone dulu!",Color3.fromRGB(248,113,113),2) return end
+        tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(255,220,90)},0.25):Play()
+        task.spawn(function()
+            while breakOn do
+                local targets=getStealTargets()
+                if #targets>0 then for _,m in ipairs(targets) do if not breakOn then break end pcall(function() stealMethod(m) end) task.wait(0.3) end continue end
+                local eggs=getEggsInZone(selectedEggZone)
+                if #eggs==0 then task.wait(1) continue end
+                for _,egg in ipairs(eggs) do
+                    if not breakOn then break end
+                    if #getStealTargets()>0 then break end
+                    local pos,base=getOffsetPos(egg) if not pos then local b=getBasePos(egg) if b then pos=Vector3.new(b.X,3.5,b.Z+3) base=Vector3.new(b.X,3.5,b.Z) end end
+                    if not pos then continue end
+                    pcall(function() walkDirect(pos, base, false) equipPickaxe() while breakOn and egg.Parent do if #getStealTargets()>0 then break end local h=getEggHealth(egg) if h==nil or h<=0 then break end task.wait(0.15) end end) task.wait(0.2)
                 end
-            end)
-        end
-    end
-})
+                task.wait(0.5)
+            end
+        end)
+    else tw(eggToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.25):Play() tw(eggToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(eggToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.25):Play() end
+end)
 
--- FOLLOW PLAYER ACCORDION LIB ASLI
-local FollowAcc = MainAPI:Accordion({Title="FOLLOW PLAYER", Desc="Follow target player auto update", Open=false})
-local function getPlayerList() local l={} for _,p in ipairs(Players:GetPlayers()) do if p~=plr then table.insert(l,p.Name) end end if #l==0 then l={"No Player"} end return l end
-
-local playerDropdown = FollowAcc:Dropdown({
-    Title="Player List",
-    Flag="PlayerList_LIB2",
-    Options=getPlayerList(),
-    Callback=function(val)
-        local name = type(val)=="table" and val[1] or val
-        if name and name~="No Player" then selectedFollowPlayer=name Window.Notify("FOLLOW","Target: "..name,ACCENT,2) end
-    end
-})
-
-FollowAcc:Toggle({
-    Title="Follow Player",
-    Desc="Ikuti player terpilih",
-    Flag="FollowPlayer_LIB",
-    Default=false,
-    Callback=function(v)
-        followEnabled=v
-        if followEnabled then
-            if not selectedFollowPlayer or selectedFollowPlayer=="No Player" then Window.Notify("ERROR","Pilih player dulu!",Color3.fromRGB(248,113,113),2) followEnabled=false return end
-            Window.Notify("FOLLOW","Follow ON: "..selectedFollowPlayer,ACCENT,2)
-            task.spawn(function()
-                while followEnabled do
-                    if selectedFollowPlayer then
-                        local target=Players:FindFirstChild(selectedFollowPlayer)
-                        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                            local hrp=target.Character.HumanoidRootPart
-                            walkDirect(Vector3.new(hrp.Position.X,3.5,hrp.Position.Z), hrp.Position, false)
-                        end
+-- FOLLOW PLAYER LOGIC
+followToggle.btn.MouseButton1Click:Connect(function()
+    followEnabled=not followEnabled
+    if followEnabled then
+        if not selectedFollowPlayer or selectedFollowPlayer=="No Player" then Window.Notify("ERROR","Pilih player dulu!",Color3.fromRGB(248,113,113),2) followEnabled=false return end
+        tw(followToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(followToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(followToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+        Window.Notify("FOLLOW","Follow ON: "..selectedFollowPlayer,ACCENT,2)
+        task.spawn(function()
+            while followEnabled do
+                if selectedFollowPlayer then
+                    local target=Players:FindFirstChild(selectedFollowPlayer)
+                    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                        local hrp=target.Character.HumanoidRootPart
+                        walkDirect(Vector3.new(hrp.Position.X,3.5,hrp.Position.Z), hrp.Position, false)
                     end
-                    task.wait(0.15)
                 end
-            end)
-        else
-            Window.Notify("FOLLOW","OFF",DIM,2)
-        end
-    end
-})
-
-task.spawn(function() while task.wait(2) do pcall(function() if playerDropdown then playerDropdown:Refresh(getPlayerList()) end end) end end)
-
--- MISC
-MiscAPI:Section("MISC UTILITY")
-MiscAPI:Toggle({Title="No Ragdoll", Desc="Anti jatuh ragdoll", Flag="NoRagdoll_LIB", Default=false, Callback=function(v)
-    -- logic ragdoll sama kayak sebelumnya
-    _G.noRagdollOn=v
-    if v then
-        local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
-        if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end) end
+                task.wait(0.15)
+            end
+        end)
     else
-        local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
-        if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true) end) end
+        tw(followToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(followToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(followToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play()
+        Window.Notify("FOLLOW","OFF",DIM,2)
     end
-end})
-MiscAPI:Toggle({Title="Anti Mental", Desc="Anti fling / mental", Flag="AntiMental_LIB", Default=false, Callback=function(v) _G.antiMentalOn=v end})
+end)
 
-MiscAPI:Section("GAMEPASS")
 local fastBreakOn=false local fastBreakConn=nil
 local function setFastBreakAttribute(state) pcall(function() plr:SetAttribute("FastSwingOwned", state) end) pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end) end
-MiscAPI:Toggle({
-    Title="Fast Break",
-    Desc="Bypass swing delay",
-    Flag="FastBreak_LIB",
-    Default=false,
-    Callback=function(v)
-        fastBreakOn=v
-        if fastBreakOn then setFastBreakAttribute(true) if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end)
-        else if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end
-    end
-})
+fastBreakToggle.btn.MouseButton1Click:Connect(function()
+    fastBreakOn=not fastBreakOn
+    if fastBreakOn then tw(fastBreakToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() setFastBreakAttribute(true)
+        if fastBreakConn then fastBreakConn:Disconnect() end fastBreakConn=RunService.Heartbeat:Connect(function() if plr:GetAttribute("FastSwingOwned")~=true then setFastBreakAttribute(true) end end)
+    else tw(fastBreakToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(fastBreakToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(fastBreakToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn=nil end setFastBreakAttribute(false) end
+end)
 
-MiscAPI:Paragraph({Title="Info", Desc="Semua label sekarang pake Section lib, toggle/slider/textbox/dropdown/accordion/panel udah nyatu sama tema SORU v5.1"})
+local noRagdollOn=false local ragdollConns={}
+local function enableNoRagdoll()
+    for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={}
+    local char=plr.Character local hum=char and char:FindFirstChildOfClass("Humanoid")
+    if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) hum.BreakJointsOnDeath=false hum.PlatformStand=false end)
+        table.insert(ragdollConns, hum.StateChanged:Connect(function(_,new) if new==Enum.HumanoidStateType.Ragdoll or new==Enum.HumanoidStateType.FallingDown then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end end)) end
+    table.insert(ragdollConns, RunService.Heartbeat:Connect(function() local c=plr.Character local h=c and c:FindFirstChildOfClass("Humanoid") if h then if h:GetState()==Enum.HumanoidStateType.Ragdoll or h:GetState()==Enum.HumanoidStateType.FallingDown then h:ChangeState(Enum.HumanoidStateType.GettingUp) h.PlatformStand=false end h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,false) h:SetStateEnabled(Enum.HumanoidStateType.FallingDown,false) end end))
+end
+local function disableNoRagdoll() for _,c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end ragdollConns={} local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll,true) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown,true) hum.BreakJointsOnDeath=true end) end end
+ragdollToggle.btn.MouseButton1Click:Connect(function() noRagdollOn=not noRagdollOn if noRagdollOn then tw(ragdollToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableNoRagdoll() else tw(ragdollToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(ragdollToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(ragdollToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableNoRagdoll() end end)
+
+local antiMentalOn=false local antiMentalConns={}
+local function enableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} table.insert(antiMentalConns, RunService.Heartbeat:Connect(function() local char=plr.Character local hrp=char and char:FindFirstChild("HumanoidRootPart") if not hrp then return end local vel=hrp.AssemblyLinearVelocity local flat=Vector3.new(vel.X,0,vel.Z).Magnitude if flat>35 then hrp.AssemblyLinearVelocity=Vector3.new(0,vel.Y,0) hrp.AssemblyAngularVelocity=Vector3.zero pcall(function() hrp.Velocity=Vector3.new(0,hrp.Velocity.Y,0) end) end if hrp.AssemblyAngularVelocity.Magnitude>20 then hrp.AssemblyAngularVelocity=Vector3.zero end end)) end
+local function disableAntiMental() for _,c in ipairs(antiMentalConns) do pcall(function() c:Disconnect() end) end antiMentalConns={} end
+antiMentalToggle.btn.MouseButton1Click:Connect(function() antiMentalOn=not antiMentalOn if antiMentalOn then tw(antiMentalToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() enableAntiMental() else tw(antiMentalToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(antiMentalToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(antiMentalToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() disableAntiMental() end end)
 
 plr.CharacterAdded:Connect(function(char)
     task.wait(0.5)
     local hum=char:WaitForChild("Humanoid",15)
-    if hum then sliderSpeed=hum.WalkSpeed hum:SetAttribute("BaseSpeed", hum.WalkSpeed) end
+    if hum then local realSpeed=hum.WalkSpeed sliderSpeed=realSpeed hum:SetAttribute("BaseSpeed", realSpeed) if walkSpeedSliderRef then walkSpeedSliderRef.setValue(realSpeed) end end
+    task.wait(0.5)
+    if noRagdollOn then enableNoRagdoll() end
+    if antiMentalOn then enableAntiMental() end
+    if fastBreakOn then setFastBreakAttribute(true) end
 end)
+do local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then sliderSpeed=hum.WalkSpeed hum:SetAttribute("BaseSpeed", hum.WalkSpeed) end end
 RunService.Heartbeat:Connect(function() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then if math.abs(hum.WalkSpeed - sliderSpeed) > 0.1 then hum.WalkSpeed=sliderSpeed end end end)
-
-Window.Notify("👑","Loaded Full LIB - Semua komponen nyatu", ACCENT, 3)--(~]&`-,%?$)
---(-~&-^%)
+Window.Notify("👑","Loaded - Label nyatu LIB + Toggle & Panel custom", ACCENT, 3)--(-~&-^%)
 --('^?#)
 --(>#]^^=-=)
 --(/^^"^)
