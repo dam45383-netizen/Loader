@@ -1143,7 +1143,7 @@ EggAcc:Button({Title="Refresh Area & Rarity", Callback=function() if AreaDropdow
 EggAcc:Dropdown({Title="Steal Method", Flag="StealMethod", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMethod=v end})
 EggAcc:Slider({Title="Spam Duration", Flag="SpamDuration", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
 EggAcc:Slider({Title="Tween Speed", Flag="TweenSpeed", Min=10, Max=500, Step=5, Default=100, Suffix=" studs/s", Callback=function(v) getgenv().TweenSpeed=v end})
-EggAcc:Toggle({Title="Auto Steal (Island Tween -> Egg -> Base)", Flag="AutoBestEgg", Default=false, Callback=function(v)
+EggAcc:Toggle({Title="Auto Steal", Flag="AutoBestEgg", Default=false, Callback=function(v)
     getgenv().AutoBestEgg=v if not v then return end
     task.spawn(function()
         while getgenv().AutoBestEgg do
