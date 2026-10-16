@@ -1,0 +1,172 @@
+local Window = getgenv().SORU_Window
+if not Window then return end
+
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+
+-- REMOTES
+local TapRemote = RS:WaitForChild("RemoteServices"):WaitForChild("TapService"):WaitForChild("RE"):WaitForChild("TapRequested")
+local RebirthRemote = RS:WaitForChild("RemoteServices"):WaitForChild("RebirthService"):WaitForChild("RE"):WaitForChild("RebirthRequested")
+local EggRemote = RS:WaitForChild("RemoteServices"):WaitForChild("EggService"):WaitForChild("RE"):WaitForChild("EggHatchRequested")
+local PetRemote = RS:WaitForChild("RemoteServices"):WaitForChild("PetService"):WaitForChild("RE"):WaitForChild("PetActionRequested")
+
+-- VARS
+_G.AutoClick = false
+_G.AutoRebirth = false
+_G.AutoChest = false
+_G.AutoHatch = false
+_G.AutoBestPet = false
+_G.LoopId = _G.LoopId or 0
+_G.EggLoopId = _G.EggLoopId or 0
+_G.PetLoopId = _G.PetLoopId or 0
+_G.Sequence = _G.Sequence or math.random(2000,8000)
+_G.EggSeq = _G.EggSeq or math.random(10,100)
+_G.JumpPower = _G.JumpPower or 50
+
+local RebirthValue = 8
+local ChestMode = "Normal"
+local SelectedAmount = 3
+local SelectedEgg = "Void"
+
+local function GetHRP()
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    return char:WaitForChild("HumanoidRootPart")
+end
+
+local function ApplyJumpPower(val)
+    pcall(function()
+        local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.UseJumpPower = true hum.JumpPower = val end
+    end)
+end
+
+LP.CharacterAdded:Connect(function() task.wait(0.5) ApplyJumpPower(_G.JumpPower) end)
+
+local function GetChests()
+    local list = {}
+    for _,v in pairs(workspace:GetDescendants()) do if v.Name == "ClickerChest" then table.insert(list, v) end end
+    return list
+end
+
+local function GetEggList()
+    local folder = workspace:FindFirstChild("Eggs")
+    local names = {}
+    if folder then for _,v in pairs(folder:GetChildren()) do table.insert(names, v.Name) end end
+    if #names == 0 then names = {"Void"} end
+    table.sort(names)
+    return names
+end
+
+local function TeleportToEgg(name)
+    local folder = workspace:FindFirstChild("Eggs")
+    if not folder then return end
+    local egg = folder:FindFirstChild(name)
+    if not egg then return end
+    local pos
+    pcall(function()
+        if egg:IsA("Model") then pos = egg:GetPivot().Position
+        elseif egg:IsA("BasePart") then pos = egg.Position
+        else pos = egg:FindFirstChildWhichIsA("BasePart").Position end
+    end)
+    if pos then pcall(function() GetHRP().CFrame = CFrame.new(pos + Vector3.new(0,6,0)) end) end
+end
+
+-- ================= FARM TAB =================
+local FarmTab = Window:Tab({ Title = "Farm", Icon = "F", Group = "Main" })
+
+local AutoClickAcc = FarmTab:Accordion({ Title = "Auto Click", Desc = "", Open = true })
+AutoClickAcc:Toggle({ Title = "Auto Click", Flag = "AutoClick", Default = false, Callback = function(v)
+    _G.AutoClick = v
+    if v then _G.LoopId += 1 local myId = _G.LoopId task.spawn(function()
+        while _G.AutoClick and _G.LoopId == myId do _G.Sequence += 1 pcall(function() TapRemote:FireServer({ ClientSequence = _G.Sequence, Auto = false, Source = "screen" }) end) task.wait(0.01) end
+    end) end
+end})
+
+local AutoRebirthAcc = FarmTab:Accordion({ Title = "Auto Rebirth", Desc = "", Open = true })
+AutoRebirthAcc:Textbox({ Title = "Rebirth Index", Flag = "RebirthValue", Default = "8", Placeholder = "8", Numeric = true, Callback = function(val) RebirthValue = tonumber(val) or 8 end })
+AutoRebirthAcc:Toggle({ Title = "Auto Rebirth", Flag = "AutoRebirth", Default = false, Callback = function(v)
+    _G.AutoRebirth = v
+    if v then task.spawn(function() while _G.AutoRebirth do pcall(function() RebirthRemote:FireServer({ Index = RebirthValue }) end) task.wait(0.3) end end) end
+end})
+
+local AutoChestAcc = FarmTab:Accordion({ Title = "Auto Chest", Desc = "", Open = true })
+AutoChestAcc:Dropdown({ Title = "Chest Mode", Flag = "ChestMode", Options = {"Normal","Silent"}, Default = "Normal", Callback = function(v) ChestMode = v end })
+AutoChestAcc:Toggle({ Title = "Auto Chest", Flag = "AutoChest", Default = false, Callback = function(v)
+    _G.AutoChest = v
+    if v then task.spawn(function()
+        while _G.AutoChest do
+            local chests = GetChests()
+            if #chests > 0 then
+                local chest = chests[1]
+                local part = chest:FindFirstChildWhichIsA("BasePart") or chest
+                local pos = part:IsA("BasePart") and part.Position or part:GetPivot().Position
+                if ChestMode == "Normal" then
+                    pcall(function() GetHRP().CFrame = CFrame.new(pos + Vector3.new(0,5,0)) end)
+                    repeat task.wait(0.1) until not chest.Parent or not _G.AutoChest
+                else
+                    for _,c in pairs(chests) do pcall(function() local hb = c:FindFirstChild("Hitbox") or c:FindFirstChildWhichIsA("BasePart") if hb then hb.Size = Vector3.new(1000,1000,1000) hb.Transparency = 0.7 hb.CanCollide = false end end) end
+                    task.wait(0.5)
+                end
+            else task.wait(1) end
+        end
+    end) end
+end})
+
+-- ================= EGGS TAB =================
+local EggsTab = Window:Tab({ Title = "Eggs", Icon = "E", Group = "Main" })
+local HatchAcc = EggsTab:Accordion({ Title = "Auto Hatch Egg", Desc = "", Open = true })
+
+local EggList = GetEggList()
+SelectedEgg = EggList[1]
+
+HatchAcc:Dropdown({ Title = "Egg", Flag = "EggName", Options = EggList, Default = SelectedEgg, Callback = function(v) SelectedEgg = v end })
+HatchAcc:Dropdown({ Title = "Amount", Flag = "EggAmount", Options = {"1","3"}, Default = "3", Callback = function(v) SelectedAmount = tonumber(v) or 3 end })
+HatchAcc:Toggle({
+    Title = "Auto Hatch", Flag = "AutoHatch", Default = false,
+    Callback = function(v)
+        _G.AutoHatch = v
+        if v then
+            _G.EggLoopId += 1
+            local myId = _G.EggLoopId
+            task.spawn(function()
+                while _G.AutoHatch and _G.EggLoopId == myId do
+                    TeleportToEgg(SelectedEgg)
+                    task.wait(0.25)
+                    _G.EggSeq += 1
+                    pcall(function()
+                        EggRemote:FireServer({ Egg = SelectedEgg, Count = SelectedAmount, Seq = _G.EggSeq, Auto = false })
+                    end)
+                    task.wait(0.2)
+                end
+            end)
+        end
+    end
+})
+
+-- ================= MISC TAB =================
+local MiscTab = Window:Tab({ Title = "Misc", Icon = "M", Group = "Main" })
+
+local JumpAcc = MiscTab:Accordion({ Title = "Jump", Desc = "Jump Power", Open = true })
+JumpAcc:Slider({
+    Title = "Jump Power", Flag = "JumpPower", Min = 50, Max = 500, Step = 5, Default = _G.JumpPower, Suffix = " Power",
+    Callback = function(v) _G.JumpPower = v ApplyJumpPower(v) end
+})
+
+local PetAcc = MiscTab:Accordion({ Title = "Pet", Desc = "Best Pet", Open = true })
+PetAcc:Toggle({
+    Title = "Best Pet", Desc = "Equip Pet", Flag = "BestPet", Default = false,
+    Callback = function(v)
+        _G.AutoBestPet = v
+        if v then
+            _G.PetLoopId += 1
+            local myId = _G.PetLoopId
+            task.spawn(function()
+                while _G.AutoBestPet and _G.PetLoopId == myId do
+                    pcall(function() PetRemote:FireServer({ Action = "EquipBest", Mode = "Clicks" }) end)
+                    task.wait(1)
+                end
+            end)
+        end
+    end
+})
