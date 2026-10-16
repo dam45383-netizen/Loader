@@ -22,7 +22,8 @@ local Window = SORU:CreateWindow({
         111543903102439, -- +1 throw coin
         96802054849934,--VBL practice
         76943966208523, --Clone to steal egg
-        119271610514030 --break for brainrot
+        119271610514030, --break for brainrot
+        72858262610964 --+1 tap
     },
     KickIfNotSupported = false
 })
@@ -73,6 +74,8 @@ elseif placeId == 111543903102439 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin") 
 elseif placeId == 119271610514030 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Break%20egg%20for%20brainrot")
+elseif placeId == 72858262610964 then
+    loadRaw("") 
 elseif placeId == 76943966208523 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
 end
