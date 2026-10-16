@@ -2003,7 +2003,8 @@ if not Window then return end
 
 local MainAPI = Window:Tab({Title = "Main"})
 local MiscAPI = Window:Tab({Title = "Misc"})
-repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"] and Window.Gui:FindFirstChild("Root")
+local EspAPI = Window:Tab({Title = "Esp"})
+repeat task.wait() until Window.Tabs and Window.Tabs["Main"] and Window.Tabs["Misc"] and Window.Tabs["Esp"] and Window.Gui:FindFirstChild("Root")
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2024,7 +2025,8 @@ local function getTabScroll(name)
 end
 local mainFrame = getTabScroll("Main")
 local miscFrame = getTabScroll("Misc")
-repeat task.wait() until mainFrame and miscFrame
+local espFrame = getTabScroll("Esp")
+repeat task.wait() until mainFrame and miscFrame and espFrame
 local function clearFrame(f)
     for _,v in ipairs(f:GetChildren()) do
         if v:IsA("GuiObject") and not v:IsA("UIListLayout") and not v:IsA("UIPadding") then v:Destroy() end
@@ -2032,6 +2034,7 @@ local function clearFrame(f)
 end
 clearFrame(mainFrame)
 clearFrame(miscFrame)
+clearFrame(espFrame)
 
 local root = Window.Gui:FindFirstChild("Root")
 local rootScale = root and root:FindFirstChildOfClass("UIScale")
@@ -2075,6 +2078,21 @@ local function track(handle, onBegin, onMove, onEnd)
 end
 
 local RARITY_SCORE = {["Common"]=1,["Uncommon"]=2,["Rare"]=3,["Epic"]=4,["Legendary"]=5,["Mythic"]=6,["Secret"]=7,["Godly"]=8,["Cosmic"]=9,["Divine"]=10,["Celestial"]=11}
+local RARITY_COLOR = {
+    ["Common"]=Color3.fromRGB(180,180,180),
+    ["Uncommon"]=Color3.fromRGB(92,255,92),
+    ["Rare"]=Color3.fromRGB(85,170,255),
+    ["Epic"]=Color3.fromRGB(170,85,255),
+    ["Legendary"]=Color3.fromRGB(255,180,0),
+    ["Mythic"]=Color3.fromRGB(255,60,60),
+    ["Secret"]=Color3.fromRGB(0,0,0),
+    ["Godly"]=Color3.fromRGB(255,223,0),
+    ["Cosmic"]=Color3.fromRGB(0,255,255),
+    ["Divine"]=Color3.fromRGB(255,255,255),
+    ["Celestial"]=Color3.fromRGB(255,120,255),
+}
+local function getRarityColor(r) return RARITY_COLOR[r] or ACCENT end
+
 local rarityNames={} local rf=RS:FindFirstChild("Rarities") if rf then for _,c in ipairs(rf:GetChildren()) do table.insert(rarityNames,c.Name) end else rarityNames={"Common","Rare","Epic","Legendary","Mythic","Secret"} end
 local function getRarityScore(n) if RARITY_SCORE[n] then return RARITY_SCORE[n] end for i,v in ipairs(rarityNames) do if v==n then return i end end return 0 end
 local function getBasePos(m) local b if m.PrimaryPart then b=m.PrimaryPart.Position else local ok,cf=pcall(function() return m:GetPivot() end) if ok then b=Vector3.new(cf.X,cf.Y,cf.Z) else for _,v in ipairs(m:GetDescendants()) do if v:IsA("BasePart") then b=v.Position break end end end end return b end
@@ -2106,6 +2124,10 @@ local function parseFilterInput(text) if not text or text=="" then return 0 end 
 local defendMode="None" local attackEnabled=false local minCashFilter=0
 local bigEggPriority=true
 local selectedFollowPlayer=nil local followEnabled=false
+-- ESP VARS
+local espEnabled=false
+local selectedEspRarity={}
+local espCache={}
 local function getBaseSpeed() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then return hum:GetAttribute("BaseSpeed") or hum.WalkSpeed end return 16 end
 local function getWalkSpeed() return sliderSpeed end
 do local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then sliderSpeed = hum.WalkSpeed end end
@@ -2197,6 +2219,71 @@ local function stealMethod(targetModel)
     else
         local ok=walkToSafeBaseFallback(targetModel) if not ok then return end
     end
+end
+
+-- ====== ESP LOGIC ======
+local function removeAnimalEsp(model)
+    local data = espCache[model]
+    if data then
+        pcall(function() if data.hl then data.hl:Destroy() end end)
+        pcall(function() if data.bb then data.bb:Destroy() end end)
+        espCache[model]=nil
+    end
+end
+local function clearAllEsp()
+    for m,_ in pairs(espCache) do removeAnimalEsp(m) end
+    table.clear(espCache)
+end
+local function createAnimalEsp(model)
+    if not model or not model.Parent then return end
+    if espCache[model] then return end
+    if not model:IsA("Model") then return end
+    local rarity = model:GetAttribute("Rarity") or "Unknown"
+    if next(selectedEspRarity)~=nil and not selectedEspRarity[rarity] then return end
+    local adornee = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if not adornee then return end
+    local color = getRarityColor(rarity)
+    local hl = Instance.new("Highlight")
+    hl.Name="SoruEspHL"
+    hl.Adornee=model
+    hl.FillColor=color
+    hl.OutlineColor=color
+    hl.FillTransparency=0.65
+    hl.OutlineTransparency=0
+    hl.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent=model
+    local bb = Instance.new("BillboardGui")
+    bb.Name="SoruEspBB"
+    bb.Adornee=adornee
+    bb.Size=UDim2.fromOffset(165,56)
+    bb.StudsOffset=Vector3.new(0,4.2,0)
+    bb.AlwaysOnTop=true
+    bb.Parent=adornee
+    local f=Instance.new("Frame",bb) f.Size=UDim2.new(1,0,1,0) f.BackgroundColor3=Color3.fromRGB(20,18,32) f.BackgroundTransparency=0.12
+    Instance.new("UICorner",f).CornerRadius=UDim.new(0,8)
+    local st=Instance.new("UIStroke",f) st.Color=color st.Transparency=0.2 st.Thickness=1
+    local n=Instance.new("TextLabel",f) n.Size=UDim2.new(1,-8,0,14) n.Position=UDim2.new(0,5,0,4) n.BackgroundTransparency=1
+    n.Text=model.Name:upper() n.Font=Enum.Font.GothamBold n.TextSize=10 n.TextColor3=Color3.new(1,1,1) n.TextXAlignment=Enum.TextXAlignment.Left n.TextTruncate=Enum.TextTruncate.AtEnd
+    local rLbl=Instance.new("TextLabel",f) rLbl.Size=UDim2.new(1,-8,0,11) rLbl.Position=UDim2.new(0,5,0,18) rLbl.BackgroundTransparency=1
+    rLbl.Text=string.upper(rarity).." • "..getCashPerSecond(model) rLbl.Font=Enum.Font.GothamMedium rLbl.TextSize=9 rLbl.TextColor3=color rLbl.TextXAlignment=Enum.TextXAlignment.Left
+    local w=model:GetAttribute("WeightKg") or model:GetAttribute("Weight") or 0
+    local zone=getAnimalZone(model)
+    local wLbl=Instance.new("TextLabel",f) wLbl.Size=UDim2.new(1,-8,0,10) wLbl.Position=UDim2.new(0,5,0,30) wLbl.BackgroundTransparency=1
+    wLbl.Text=tostring(w).." KG • "..zone wLbl.Font=Enum.Font.GothamMedium wLbl.TextSize=8 wLbl.TextColor3=DIM wLbl.TextXAlignment=Enum.TextXAlignment.Left
+    espCache[model]={hl=hl, bb=bb}
+end
+local function refreshAllEsp()
+    if not espEnabled then clearAllEsp() return end
+    local folder=workspace:FindFirstChild("AnimalPickups")
+    if not folder then return end
+    for _,m in ipairs(folder:GetChildren()) do
+        if m:IsA("Model") then
+            local rarity=m:GetAttribute("Rarity") or "Unknown"
+            local allowed = next(selectedEspRarity)==nil or selectedEspRarity[rarity]
+            if allowed then createAnimalEsp(m) else removeAnimalEsp(m) end
+        end
+    end
+    for m,_ in pairs(espCache) do if not m.Parent then removeAnimalEsp(m) end end
 end
 
 workspace.DescendantAdded:Connect(function(v) if v:IsA("ProximityPrompt") then task.wait(0.1) makeBigPrompt(v) end end)
@@ -2370,6 +2457,98 @@ MiscAPI:Section("GAMEPASS")
 MiscAPI:Label("Fast break bypass swing delay")
 local fastBreakToggle=createToggle(miscFrame,3,"Fast Break","Bypass swing delay")
 
+-- ========== ESP TAB - BARU ==========
+EspAPI:Section("ESP SYSTEM")
+EspAPI:Paragraph({Title="Animal ESP", Desc="Highlight hewan + info cash/kg/zone"})
+
+local espAcc = EspAPI:Accordion({Title="ESP ANIMAL", Desc="Filter rarity & toggle ESP", Open=true})
+local espOrd = 1
+espAcc:Dropdown({
+    Title="Rarity Filter ESP",
+    Desc="Filter ESP berdasarkan rarity (kosong = semua)",
+    Flag="EspRarityFilter_LIB",
+    Options=rarityNames,
+    Multi=true,
+    Callback=function(val)
+        selectedEspRarity={}
+        if type(val)=="table" then
+            for _,n in ipairs(val) do selectedEspRarity[n]=true end
+        elseif val then
+            selectedEspRarity[val]=true
+        end
+        if espEnabled then refreshAllEsp() end
+        if next(selectedEspRarity)==nil then
+            Window.Notify("ESP FILTER","ALL RARITY",ACCENT,1.5)
+        else
+            Window.Notify("ESP FILTER",table.concat(type(val)=="table" and val or {val},", "),ACCENT,1.5)
+        end
+    end
+})
+espAcc:Label("Kosong = ESP semua rarity muncul")
+
+-- Toggle ESP (custom instance.new tetap biar nyatu sama toggle lain)
+local espToggle=createToggle(espFrame, espOrd, "Animal ESP","Highlight + Billboard info hewan") espOrd+=1
+local espClearToggle=createToggle(espFrame, espOrd, "Clear ESP On Death","Auto clear saat respawn") espOrd+=1
+local autoRefreshEsp=true
+
+espToggle.btn.MouseButton1Click:Connect(function()
+    espEnabled=not espEnabled
+    if espEnabled then
+        tw(espToggle.track,{BackgroundColor3=ACCENT},0.2):Play()
+        tw(espToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play()
+        tw(espToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+        refreshAllEsp()
+        Window.Notify("ESP","Animal ESP ON",ACCENT,2)
+        task.spawn(function()
+            while espEnabled do
+                refreshAllEsp()
+                task.wait(1.5)
+            end
+        end)
+        -- auto add new animal
+        local folder=workspace:FindFirstChild("AnimalPickups")
+        if folder then
+            folder.ChildAdded:Connect(function(m)
+                if espEnabled and m:IsA("Model") then
+                    task.wait(0.2)
+                    createAnimalEsp(m)
+                end
+            end)
+            folder.ChildRemoved:Connect(function(m)
+                removeAnimalEsp(m)
+            end)
+        end
+    else
+        tw(espToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play()
+        tw(espToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play()
+        tw(espToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play()
+        clearAllEsp()
+        Window.Notify("ESP","OFF",DIM,2)
+    end
+end)
+
+local clearOnRespawn=true
+espClearToggle.btn.MouseButton1Click:Connect(function()
+    clearOnRespawn=not clearOnRespawn
+    if clearOnRespawn then
+        tw(espClearToggle.track,{BackgroundColor3=ACCENT},0.2):Play()
+        tw(espClearToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play()
+        tw(espClearToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+    else
+        tw(espClearToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play()
+        tw(espClearToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play()
+        tw(espClearToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play()
+    end
+end)
+-- default ON
+tw(espClearToggle.track,{BackgroundColor3=ACCENT},0.2):Play()
+tw(espClearToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play()
+tw(espClearToggle.accent,{BackgroundColor3=ACCENT},0.2):Play()
+
+EspAPI:Divider()
+EspAPI:Section("INFO")
+EspAPI:Paragraph({Title="Cara pakai", Desc="1. Pilih rarity di dropdown ESP (kosong = all) | 2. Toggle ON | 3. Highlight warna = rarity color"})
+
 -- LOGIC (TETAP SAMA)
 local baseOn=false local baseConn=nil
 baseToggle.btn.MouseButton1Click:Connect(function() baseOn=not baseOn if baseOn then tw(baseToggle.track,{BackgroundColor3=ACCENT},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(1,-21,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=ACCENT},0.2):Play() baseConn=ProximityPromptService.PromptTriggered:Connect(function(prompt,p) if p==plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end end) Window.Notify("BASE","Auto Base ON",ACCENT,2) else tw(baseToggle.track,{BackgroundColor3=Color3.fromRGB(34,30,50)},0.2):Play() tw(baseToggle.dot,{Position=UDim2.new(0,3,0.5,-9)},0.25,Enum.EasingStyle.Back):Play() tw(baseToggle.accent,{BackgroundColor3=Color3.fromRGB(60,55,80)},0.2):Play() if baseConn then baseConn:Disconnect() end end end)
@@ -2507,11 +2686,12 @@ plr.CharacterAdded:Connect(function(char)
     if noRagdollOn then enableNoRagdoll() end
     if antiMentalOn then enableAntiMental() end
     if fastBreakOn then setFastBreakAttribute(true) end
+    if clearOnRespawn then clearAllEsp() end
+    if espEnabled then task.wait(0.5) refreshAllEsp() end
 end)
 do local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then sliderSpeed=hum.WalkSpeed hum:SetAttribute("BaseSpeed", hum.WalkSpeed) end end
 RunService.Heartbeat:Connect(function() local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then if math.abs(hum.WalkSpeed - sliderSpeed) > 0.1 then hum.WalkSpeed=sliderSpeed end end end)
-Window.Notify("👑","Loaded - Label nyatu LIB + Toggle & Panel custom", ACCENT, 3)--(-~&-^%)
---('^?#)
+Window.Notify("👑","Loaded - ESP TAB + Filter Rarity Added", ACCENT, 3)--('^?#)
 --(>#]^^=-=)
 --(/^^"^)
 --(<@`+%%&~^=:%)
