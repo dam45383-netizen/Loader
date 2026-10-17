@@ -1,0 +1,261 @@
+local Window = getgenv().SORU_Window
+if not Window then return end
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local plr = Players.LocalPlayer
+
+getgenv().AutoCatch = false
+getgenv().AutoBase = false
+getgenv().BaseSpeed = 25
+getgenv().BaseMode = "Tween"
+getgenv().AutoX2 = false
+getgenv().AnimalEsp = false
+getgenv().EspFilter = 0
+
+-- BASE LOCK ROT Y 15
+local BASE_V3 = V3(-2.3, 15.0, -287.8)
+local BASE_ROT_Y = 15
+local BASE_CF = CF(-2.3, 15.0, -287.8) * CFrame.Angles(0, math.rad(BASE_ROT_Y), 0)
+
+local function goToBase()
+    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    if getgenv().BaseMode == "Teleport" then
+        hrp.CFrame = BASE_CF
+    else
+        local dist = (hrp.Position - BASE_V3).Magnitude
+        local dur = math.clamp(dist / (getgenv().BaseSpeed or 25), 0.25, 12)
+        TweenService:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = BASE_CF}):Play()
+    end
+end
+
+local function isRidePrompt(p)
+    for _, txt in ipairs({p.ActionText or "", p.ObjectText or "", p.Name or "", p.Parent and p.Parent.Name or ""}) do
+        if string.lower(txt):find("ride") then return true end
+    end
+    return false
+end
+ProximityPromptService.PromptTriggered:Connect(function(prompt, player)
+    if player == plr and getgenv().AutoBase and isRidePrompt(prompt) then
+        task.wait(0.35)
+        goToBase()
+    end
+end)
+
+-- // MAIN TAB
+local MainTab = Window:Tab({Title = "Main", Icon = "M"})
+
+local CatchAcc = MainTab:Accordion({Title = "Catch", Desc = "", Open = true})
+local EggRemote = game:GetService("ReplicatedStorage").Modules.Shared.Packages.Network.rev_EggClick
+
+CatchAcc:Toggle({
+    Title = "Auto Catch",
+    Desc = "",
+    Flag = "AutoCatch",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoCatch = v
+        if v then
+            task.spawn(function()
+                while getgenv().AutoCatch do
+                    local V3, V2, CF, C3 = Vector3.new, Vector2.new, CFrame.new, Color3.new
+                    pcall(function()
+                        EggRemote:FireServer()
+                        EggRemote:FireServer()
+                    end)
+                    task.wait(0.01)
+                end
+            end)
+        end
+    end
+})
+
+local BaseAcc = MainTab:Accordion({Title = "Base", Desc = "", Open = true})
+BaseAcc:Toggle({Title = "Auto Base", Desc = "", Flag = "AutoBase", Default = false, Callback = function(v) getgenv().AutoBase = v end})
+BaseAcc:Dropdown({Title = "Mode", Flag = "BaseMode", Options = {"Tween", "Teleport"}, Default = "Tween", Callback = function(v) getgenv().BaseMode = v end})
+BaseAcc:Slider({Title = "Speed", Flag = "BaseSpeed", Min = 5, Max = 500, Step = 1, Default = 25, Suffix = " stud/s", Callback = function(v) getgenv().BaseSpeed = v end})
+BaseAcc:Button({Title = "Go To Base Now", Callback = function() goToBase() end})
+
+-- // TREADMILL TAB - NO LAG
+local TreadmillTab = Window:Tab({Title = "Treadmill", Icon = "T"})
+local TreadAcc = TreadmillTab:Accordion({Title = "Auto Treadmill", Desc = "Visible ON only - No joystick lock", Open = true})
+
+local playerGui = plr:WaitForChild("PlayerGui")
+local activeX2 = {}
+local function tryAddX2(o) if o.Name == "X2PopUp" and o:IsA("GuiButton") then activeX2[o] = true end end
+for _, o in ipairs(playerGui:GetDescendants()) do tryAddX2(o) end
+playerGui.DescendantAdded:Connect(tryAddX2)
+playerGui.DescendantRemoving:Connect(function(o) activeX2[o] = nil end)
+
+local function safeClick(btn)
+    if not btn or not btn.Parent or not btn.Visible then return end
+    local p = btn.Parent
+    while p and p ~= playerGui do if p:IsA("GuiObject") and not p.Visible then return end p = p.Parent end
+    pcall(function()
+        if firesignal then firesignal(btn.Activated)
+        elseif getconnections then for _,c in pairs(getconnections(btn.Activated)) do c:Fire() end
+        else btn:Activate() end
+    end)
+end
+
+TreadAcc:Toggle({
+    Title = "Auto x2",
+    Desc = "",
+    Flag = "AutoX2",
+    Default = false,
+    Callback = function(v)
+        getgenv().AutoX2 = v
+        if v then
+            task.spawn(function()
+                while getgenv().AutoX2 do
+                    for b,_ in pairs(activeX2) do safeClick(b) end
+                    task.wait(0.25)
+                end
+            end)
+        end
+    end
+})
+
+-- // ESP TAB - SORU CARD STYLE
+local EspTab = Window:Tab({Title = "Esp", Icon = "E"})
+local AnimalAcc = EspTab:Accordion({Title = "Animal Esp", Desc = "", Open = true})
+local espData = {}
+
+local SORU_THEME = {
+    card = Color3.fromRGB(28,24,48),
+    accent = Color3.fromRGB(145,96,255),
+    cyan = Color3.fromRGB(56,200,255),
+    pink = Color3.fromRGB(245,80,165),
+    text = Color3.fromRGB(246,244,255),
+    dim = Color3.fromRGB(150,142,186)
+}
+
+local function parseMoney(text)
+    if not text then return 0 end
+    local s = string.lower(tostring(text)):gsub("%$", ""):gsub("/s", ""):gsub(" ", ""):gsub(",", "")
+    local num = tonumber(s:match("([%d%.]+)")) or 0
+    if s:find("k") then num = num * 1000 elseif s:find("m") then num = num * 1000000 elseif s:find("b") then num = num * 1000000000 end
+    return num
+end
+local function getMoneyFromBillboard(b)
+    local info = b:FindFirstChild("InfoSort")
+    if info then for _,o in ipairs(info:GetDescendants()) do if o.Name=="MoneyPerSecond" and o:IsA("TextLabel") then return o.Text end end end
+    for _,o in ipairs(b:GetDescendants()) do if o.Name=="MoneyPerSecond" and o:IsA("TextLabel") then return o.Text end end
+    return nil
+end
+local function getModelFromBillboard(b)
+    local ad = b.Adornee
+    if ad then if ad:IsA("Model") then return ad end return ad:FindFirstAncestorOfClass("Model") or ad.Parent end
+    return b:FindFirstAncestorOfClass("Model") or b.Parent
+end
+local function clearEsp()
+    for _,d in pairs(espData) do if d.hl then d.hl:Destroy() end if d.bg then d.bg:Destroy() end end
+    espData = {}
+end
+local function createSoruCard(part, moneyText, value)
+    local bg = Instance.new("BillboardGui")
+    bg.Name = "SORU_EspCard"
+    bg.Adornee = part
+    bg.Size = UDim2.new(0, 230, 0, 64)
+    bg.StudsOffset = V3(0, 4.2, 0)
+    bg.AlwaysOnTop = true
+    bg.LightInfluence = 0
+    bg.Parent = part
+    local main = Instance.new("Frame", bg)
+    main.Size = UDim2.new(1,0,1,0)
+    main.BackgroundColor3 = SORU_THEME.card
+    main.BackgroundTransparency = 0.08
+    Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
+    local stroke = Instance.new("UIStroke", main)
+    stroke.Thickness = 1.2
+    stroke.Color = SORU_THEME.accent
+    stroke.Transparency = 0.4
+    local gradStroke = Instance.new("UIGradient", stroke)
+    gradStroke.Color = ColorSequence.new{ColorSequenceKeypoint.new(0,SORU_THEME.accent), ColorSequenceKeypoint.new(0.5,SORU_THEME.cyan), ColorSequenceKeypoint.new(1,SORU_THEME.pink)}
+    local stripe = Instance.new("Frame", main)
+    stripe.Size = UDim2.new(1,0,0,4)
+    stripe.BackgroundColor3 = SORU_THEME.accent
+    Instance.new("UICorner", stripe).CornerRadius = UDim.new(0,12)
+    local g = Instance.new("UIGradient", stripe)
+    g.Color = ColorSequence.new{ColorSequenceKeypoint.new(0,SORU_THEME.accent), ColorSequenceKeypoint.new(0.35,SORU_THEME.cyan), ColorSequenceKeypoint.new(0.7,SORU_THEME.pink), ColorSequenceKeypoint.new(1,SORU_THEME.accent)}
+    local fix = Instance.new("Frame", stripe)
+    fix.Size = UDim2.new(1,0,0,6)
+    fix.Position = UDim2.new(0,0,1,-6)
+    fix.BackgroundColor3 = SORU_THEME.card
+    fix.BorderSizePixel = 0
+    local money = Instance.new("TextLabel", main)
+    money.Size = UDim2.new(1,-14,0,26)
+    money.Position = UDim2.new(0,12,0,10)
+    money.BackgroundTransparency = 1
+    money.Text = moneyText or "$0/s"
+    money.TextColor3 = SORU_THEME.text
+    money.Font = Enum.Font.GothamBold
+    money.TextScaled = true
+    money.TextXAlignment = Enum.TextXAlignment.Left
+    local sub = Instance.new("TextLabel", main)
+    sub.Size = UDim2.new(1,-14,0,18)
+    sub.Position = UDim2.new(0,12,0,36)
+    sub.BackgroundTransparency = 1
+    sub.Text = string.format("%s $/s", tostring(value))
+    sub.TextColor3 = SORU_THEME.dim
+    sub.Font = Enum.Font.GothamMedium
+    sub.TextScaled = true
+    sub.TextXAlignment = Enum.TextXAlignment.Left
+    return bg
+end
+local function updateEsp()
+    local filter = getgenv().EspFilter or 0
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "AnimalInfo" and obj:IsA("BillboardGui") then
+            local model = getModelFromBillboard(obj)
+            if model and Players:GetPlayerFromCharacter(model) then continue end
+            if model == plr.Character then continue end
+            local moneyText = getMoneyFromBillboard(obj)
+            local value = parseMoney(moneyText)
+            if model and value >= filter then
+                if not espData[model] then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = SORU_THEME.accent
+                    hl.OutlineColor = SORU_THEME.cyan
+                    hl.FillTransparency = 0.6
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Parent = model
+                    local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+                    local bg = part and createSoruCard(part, moneyText, value) or nil
+                    espData[model] = {hl=hl, bg=bg}
+                end
+            else
+                if model and espData[model] then
+                    if espData[model].hl then espData[model].hl:Destroy() end
+                    if espData[model].bg then espData[model].bg:Destroy() end
+                    espData[model]=nil
+                end
+            end
+        end
+    end
+end
+
+AnimalAcc:Textbox({
+    Title = "Filter Money/s",
+    Desc = "Ketik 1000 / 5k / 1m",
+    Flag = "EspFilter",
+    Default = "0",
+    Placeholder = "1000",
+    Callback = function(txt)
+        local v=parseMoney(txt) if v==0 then v=tonumber(txt) or 0 end
+        getgenv().EspFilter=v if getgenv().AnimalEsp then updateEsp() end
+    end
+})
+AnimalAcc:Toggle({
+    Title = "Animal Esp",
+    Desc = "",
+    Flag = "AnimalEsp",
+    Default = false,
+    Callback = function(v)
+        getgenv().AnimalEsp=v
+        if v then task.spawn(function() while getgenv().AnimalEsp do updateEsp() task.wait(0.7) end end)
+        else clearEsp() end
+    end
+})
