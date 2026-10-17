@@ -1488,10 +1488,16 @@ function SORU:CreateWindow(C)
         local bst = stroke(badge, T.accent, 1, active and 0.2 or 0.6)
         -- ikon: huruf / simbol, atau asset gambar (rbxassetid://... / angka id)
         local ic = icon and tostring(icon) or nil
-        local asset = nil
-        if ic then
-            if ic:match("^rbxasset") then asset = ic elseif ic:match("^%d%d%d+$") then asset = "rbxassetid://"..ic end
-        end
+local asset = nil
+if ic then
+    if ic:match("^rbxasset") then
+        asset = ic
+    elseif ic:match("^%d%d%d+$") then
+        asset = "rbxassetid://"..ic
+    elseif ic:match("^https?://") then
+        asset = srcAsset(ic) -- unduh, cache ke folder SORU_HUB, balikan content id
+    end
+end
         if asset then
             new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Image = asset, ZIndex = 8}, badge)
         else
