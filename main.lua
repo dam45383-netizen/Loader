@@ -78,7 +78,7 @@ elseif placeId == 119271610514030 then
 elseif placeId == 72858262610964 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/tap%20Simulator%20reborn") 
 elseif placeId == 132945794147519 then
-    loadRaw("") 
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/rodeo%20for%20animal") 
 elseif placeId == 76943966208523 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
 end
