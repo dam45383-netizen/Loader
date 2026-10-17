@@ -9,7 +9,7 @@ local Window = SORU:CreateWindow({
 getgenv().AutoBestEgg = false
 getgenv().SpamDuration = 2
 getgenv().SelectedEggArea = "All"
-getgenv().SelectedRarityFilter = "All"
+getgenv().SelectedRarityFilter = {"All"} -- FIX MULTI
 getgenv().StealMethod = "Normal"
 getgenv().AntiGuard = false
 getgenv().MyGuardIds = {}
@@ -116,7 +116,75 @@ local function getRarityFromModel(m) local r=m:GetAttribute("Rarity") if r~=nil 
 local function getWeight(n) if not n then return 0 end local l=string.lower(tostring(n)) for k,v in pairs(RARITY_WEIGHT) do if l==string.lower(k) or l:find(string.lower(k)) then return v end end return 4 end
 local function getRarityList() local seen={} local list={"All"} local sp=workspace:FindFirstChild("SpawnedEggs") if sp then for _,folder in ipairs(sp:GetChildren()) do if folder:IsA("Folder") or folder:IsA("Model") then for _,mdl in ipairs(folder:GetChildren()) do if mdl:IsA("Model") then local rar=getRarityFromModel(mdl) if rar and rar~="" and not seen[rar] then seen[rar]=true table.insert(list,rar) end end end if folder:IsA("Model") then local rar=getRarityFromModel(folder) if rar and rar~="" and not seen[rar] then seen[rar]=true table.insert(list,rar) end end end end end table.sort(list,function(a,b) if a=="All" then return true end if b=="All" then return false end return getWeight(a)>getWeight(b) end) return list end
 local function getEggAreaList() local f=workspace:FindFirstChild("SpawnedEggs") if not f then return {"All"} end local list={"All"} for _,c in ipairs(f:GetChildren()) do table.insert(list,c.Name) end return list end
-local function getAllEggModels(area, query, rarityOverride) local sp=workspace:FindFirstChild("SpawnedEggs") if not sp then return {} end local effArea=area or getgenv().SelectedEggArea or "All" local effRarity=rarityOverride if effRarity==nil then effRarity=getgenv().SelectedRarityFilter or "All" end local toScan={} if effArea and effArea~="All" then local t=sp:FindFirstChild(effArea) if t then toScan={t} end else toScan=sp:GetChildren() end local list={} for _,folder in ipairs(toScan) do if folder:IsA("Folder") or folder:IsA("Model") then for _,mdl in ipairs(folder:GetChildren()) do if mdl:IsA("Model") and not isBlockedModel(mdl.Name) then table.insert(list,mdl) end end if folder:IsA("Model") and not isBlockedModel(folder.Name) then table.insert(list,folder) end end end if effRarity~="All" then local rf=string.lower(effRarity) local f2={} for _,m in ipairs(list) do local rar=getRarityFromModel(m) or "" if string.lower(rar)==rf then table.insert(f2,m) end end list=f2 end if query and query~="" then local q=string.lower(query) local f2={} for _,m in ipairs(list) do local rar=getRarityFromModel(m) or "" if string.lower(m.Name):find(q,1,true) or string.lower(rar):find(q,1,true) then table.insert(f2,m) end end list=f2 end table.sort(list,function(a,b) return getWeight(getRarityFromModel(a))>getWeight(getRarityFromModel(b)) end) return list end
+
+-- ==== FIX MULTI RARITY LOGIC ====
+local function normalizeFilter(input)
+    if input==nil then return {"All"} end
+    if type(input)=="string" then
+        if input=="" then return {"All"} end
+        return {input}
+    end
+    if type(input)=="table" then
+        if #input==0 then return {"All"} end
+        return input
+    end
+    return {"All"}
+end
+local function containsAll(list)
+    if not list then return true end
+    if #list==0 then return true end
+    for _,v in ipairs(list) do
+        if string.lower(tostring(v))=="all" then return true end
+    end
+    return false
+end
+
+local function getAllEggModels(area, query, rarityOverride)
+    local sp=workspace:FindFirstChild("SpawnedEggs") if not sp then return {} end
+    local effArea=area or getgenv().SelectedEggArea or "All"
+    
+    local rawRarity = rarityOverride
+    if rawRarity==nil then rawRarity=getgenv().SelectedRarityFilter end
+    local rarityList = normalizeFilter(rawRarity)
+    local useAllRarity = containsAll(rarityList)
+    local raritySet = {}
+    if not useAllRarity then
+        for _,r in ipairs(rarityList) do raritySet[string.lower(tostring(r))]=true end
+    end
+
+    local toScan={}
+    if effArea and effArea~="All" then local t=sp:FindFirstChild(effArea) if t then toScan={t} end else toScan=sp:GetChildren() end
+    local list={}
+    for _,folder in ipairs(toScan) do
+        if folder:IsA("Folder") or folder:IsA("Model") then
+            for _,mdl in ipairs(folder:GetChildren()) do
+                if mdl:IsA("Model") and not isBlockedModel(mdl.Name) then table.insert(list,mdl) end
+            end
+            if folder:IsA("Model") and not isBlockedModel(folder.Name) then table.insert(list,folder) end
+        end
+    end
+
+    if not useAllRarity then
+        local f2={}
+        for _,m in ipairs(list) do
+            local rar=string.lower(getRarityFromModel(m) or "")
+            if raritySet[rar] then table.insert(f2,m) end
+        end
+        list=f2
+    end
+    if query and query~="" then
+        local q=string.lower(query)
+        local f2={}
+        for _,m in ipairs(list) do
+            local rar=getRarityFromModel(m) or ""
+            if string.lower(m.Name):find(q,1,true) or string.lower(rar):find(q,1,true) then table.insert(f2,m) end
+        end
+        list=f2
+    end
+    table.sort(list,function(a,b) return getWeight(getRarityFromModel(a))>getWeight(getRarityFromModel(b)) end)
+    return list
+end
+
 local function getModelPos(m) if m.PrimaryPart then return m.PrimaryPart.CFrame end local ok,cf=pcall(function() return m:GetPivot() end) if ok then return cf end local p=m:FindFirstChildWhichIsA("BasePart",true) if p then return p.CFrame end return CFrame.new() end
 local function doInteract(m) local pr=m:FindFirstChildWhichIsA("ProximityPrompt",true) if pr then if fireproximityprompt then fireproximityprompt(pr) else pr:InputHoldBegin() task.wait() pr:InputHoldEnd() end return true end local cd=m:FindFirstChildWhichIsA("ClickDetector",true) if cd and fireclickdetector then fireclickdetector(cd) return true end return false end
 local function getEggInfo(m)
@@ -162,7 +230,9 @@ end
 local function stealEgg(model)
     if getgenv().IsStealing then return end
     if isBlockedModel(model.Name) then return end
+    if not model.Parent then return end
     getgenv().IsStealing = true
+    Window.Notify("Steal","Mencuri "..model.Name.." ["..(getRarityFromModel(model) or "?").."]", T.cyan, 2)
     local char=plr.Character or plr.CharacterAdded:Wait()
     local hrp=char:FindFirstChild("HumanoidRootPart")
     if hrp then
@@ -177,7 +247,14 @@ end
 local MainTab = Window:Tab({Title = "Main", Icon = "M"})
 local EggAcc = MainTab:Accordion({Title = "Egg", Open = true})
 local AreaDropdown = EggAcc:Dropdown({Title="Area Egg", Flag="EggArea", Options=getEggAreaList(), Default="All", Callback=function(v) getgenv().SelectedEggArea=v end})
-local RarityDropdown = EggAcc:Dropdown({Title="Filter Rarity", Flag="EggRarity", Options=getRarityList(), Default="All", Callback=function(v) getgenv().SelectedRarityFilter=v end})
+local RarityDropdown = EggAcc:Dropdown({Title="Filter Rarity (Multi)", Flag="EggRarity", Options=getRarityList(), Default={"All"}, Multi=true, Callback=function(v)
+    if type(v)=="table" then
+        if #v==0 then v={"All"} end
+        getgenv().SelectedRarityFilter=v
+    else
+        getgenv().SelectedRarityFilter={tostring(v)}
+    end
+end})
 EggAcc:Button({Title="Refresh Area & Rarity", Callback=function() if AreaDropdown.Refresh then AreaDropdown:Refresh(getEggAreaList()) end if RarityDropdown.Refresh then RarityDropdown:Refresh(getRarityList()) end end})
 EggAcc:Dropdown({Title="Steal Method", Flag="StealMethod", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMethod=v end})
 EggAcc:Slider({Title="Spam Duration", Flag="SpamDuration", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
@@ -219,11 +296,7 @@ GuardAcc:Toggle({Title="Anti Guard", Flag="AntiGuard", Default=false, Callback=f
 -- TREADMILL TAB - CUMA X2
 local TreadmillTab = Window:Tab({Title = "Treadmill", Icon = "T"})
 local TreadmillAcc = TreadmillTab:Accordion({Title = "Auto Treadmill", Open = true})
-
-local function isUUID(s) 
-    return s:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") ~= nil 
-end
-
+local function isUUID(s) return s:match("^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$") ~= nil end
 local function safeClick(btn)
     if not btn or not btn:IsA("GuiButton") then return end
     if firesignal then
@@ -241,7 +314,6 @@ local function safeClick(btn)
     end
     return false
 end
-
 local function getTreadmillButtons()
     local out = {}
     local pg = plr:FindFirstChild("PlayerGui")
@@ -252,9 +324,7 @@ local function getTreadmillButtons()
     end
     local root = general or pg
     for _, obj in ipairs(root:GetDescendants()) do
-        if obj:IsA("ImageButton") and isUUID(obj.Name) then
-            table.insert(out, obj)
-        end
+        if obj:IsA("ImageButton") and isUUID(obj.Name) then table.insert(out, obj) end
     end
     if #out == 0 then
         for _, obj in ipairs(root:GetDescendants()) do
@@ -267,12 +337,9 @@ local function getTreadmillButtons()
     end
     return out
 end
-
 local function clickX2()
     local btns = getTreadmillButtons()
     for _, btn in ipairs(btns) do
-        -- karena frame baru acak, kalau cuma ada 1-2 button langsung klik aja
-        -- kalau ada text cek 2x
         local should = (#btns <= 2)
         if not should then
             local p = btn.Parent
@@ -288,15 +355,12 @@ local function clickX2()
         if should then safeClick(btn) end
     end
 end
-
--- auto klik kalau ada frame baru muncul
 plr.PlayerGui.DescendantAdded:Connect(function(obj)
     if obj:IsA("ImageButton") and isUUID(obj.Name) then
         task.wait(0.01)
         if getgenv().AutoTreadmillX2 then clickX2() end
     end
 end)
-
 TreadmillAcc:Toggle({Title="Auto x2 Treadmill", Flag="AutoX2Tread", Default=false, Callback=function(v)
     getgenv().AutoTreadmillX2=v
     if not v then return end
@@ -308,39 +372,97 @@ TreadmillAcc:Toggle({Title="Auto x2 Treadmill", Flag="AutoX2Tread", Default=fals
     end)
 end})
 
--- PANEL VAULT
+-- PANEL VAULT - FIXED CLICK
 local function setupViewport(vp, mdl) pcall(function() vp:ClearAllChildren() local clone=mdl:Clone() for _,d in ipairs(clone:GetDescendants()) do if d:IsA("Script") or d:IsA("LocalScript") then d:Destroy() end if d:IsA("BasePart") then d.Anchored=true d.CanCollide=false end end clone.Parent=vp local cam=New("Camera", {}, vp) vp.CurrentCamera=cam local cf,size=clone:GetBoundingBox() local md=math.max(size.X,size.Y,size.Z) if md<0.5 then md=4 end cam.CFrame=CFrame.new(cf.Position+Vector3.new(0, md*0.2, md*1.8), cf.Position) cam.FieldOfView=42 end) end
-local currentPanelFilter="All" local currentSearch="" local VaultPanel = Window:Panel({Title="Egg Vault", Subtitle="", Width=400, Open=false, GripY=0.35,})
-local function getPanelScroll() local gui=plr.PlayerGui:FindFirstChild("SORU_HUB") if not gui then return nil end for _,v in ipairs(gui:GetDescendants()) do if v.Name=="SORU_Panel" then local body=v:FindFirstChild("Body") if body then for _,ch in ipairs(body:GetChildren()) do if ch:IsA("ScrollingFrame") then return ch end end end end end return nil end
+
+local currentPanelFilter="All"
+local currentSearch=""
+local VaultPanel = Window:Panel({Title="Egg Vault", Subtitle="", Width=400, Open=false, GripY=0.35,})
+
+local function getPanelScroll()
+    local timeout = tick()+5
+    while tick()<timeout do
+        local gui=plr.PlayerGui:FindFirstChild("SORU_HUB")
+        if gui then
+            for _,v in ipairs(gui:GetDescendants()) do
+                if v.Name=="SORU_Panel" then
+                    local body=v:FindFirstChild("Body")
+                    if body then
+                        for _,ch in ipairs(body:GetChildren()) do
+                            if ch:IsA("ScrollingFrame") then return ch end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.2)
+    end
+    return nil
+end
+
 task.wait(0.4)
 local scroll=getPanelScroll()
 local countLabel=VaultPanel:Label("0 eggs • All")
 VaultPanel:Dropdown({Title="Filter Area", Flag="VaultArea", Options=getEggAreaList(), Default="All", Callback=function(v) currentPanelFilter=v if _G._refreshVault then _G._refreshVault() end end})
+VaultPanel:Dropdown({Title="Filter Rarity Vault (Multi)", Flag="VaultRarityMulti", Options=getRarityList(), Default={"All"}, Multi=true, Callback=function(v)
+    getgenv().SelectedRarityFilter = (#v==0 and {"All"} or v)
+    if _G._refreshVault then _G._refreshVault() end
+end})
 VaultPanel:Textbox({Title="Search", Placeholder="egg / rarity / mutation...", Flag="VaultSearch", Live=true, Callback=function(t) currentSearch=t if _G._refreshVault then _G._refreshVault() end end})
 VaultPanel:Button({Title="Refresh Vault", Callback=function() if _G._refreshVault then _G._refreshVault() end end})
 VaultPanel:Divider()
 VaultPanel:Section("Eggs")
-local eggContainer=New("Frame", {Name="EggContainer", Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=100}, scroll)
-New("UIListLayout", {Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder}, eggContainer)
+
+local eggContainer
+if scroll then
+    eggContainer=New("Frame", {Name="EggContainer", Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=100}, scroll)
+    New("UIListLayout", {Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder}, eggContainer)
+else
+    warn("[Vault] scroll not found, container will be created on open")
+end
+
 local function createEggCard(parent, mdl)
+    if not parent then return end
     local rarity, mutation, weightStr = getEggInfo(mdl)
-    local hold=New("Frame", {Size=UDim2.new(1,0,0,82), BackgroundTransparency=1}, parent)
-    local btn=New("TextButton", {Size=UDim2.fromScale(1,1), BackgroundColor3=T.card, AutoButtonColor=false, Text=""}, hold)
-    New("UICorner", {CornerRadius=UDim.new(0,12)}, btn)
-    New("UIStroke", {Color=T.stroke, Transparency=0.55, Thickness=1}, btn)
-    local thumb=New("Frame", {Size=UDim2.fromOffset(56,56), Position=UDim2.fromOffset(8,13), BackgroundColor3=T.input}, btn)
+    local hold=New("Frame", {Size=UDim2.new(1,0,0,82), BackgroundTransparency=1, ClipsDescendants=true}, parent)
+    
+    -- visual card
+    local card=New("Frame", {Size=UDim2.fromScale(1,1), BackgroundColor3=T.card, BorderSizePixel=0}, hold)
+    New("UICorner", {CornerRadius=UDim.new(0,12)}, card)
+    New("UIStroke", {Color=T.stroke, Transparency=0.55, Thickness=1}, card)
+
+    local thumb=New("Frame", {Size=UDim2.fromOffset(56,56), Position=UDim2.fromOffset(8,13), BackgroundColor3=T.input, Active=false}, card)
     New("UICorner", {CornerRadius=UDim.new(0,10)}, thumb)
-    local vp=New("ViewportFrame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1}, thumb)
+    local vp=New("ViewportFrame", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Active=false}, thumb)
     New("UICorner", {CornerRadius=UDim.new(0,10)}, vp)
     task.spawn(function() setupViewport(vp, mdl) end)
-    New("TextLabel", {Text=mdl.Name, Position=UDim2.fromOffset(74,8), Size=UDim2.new(1,-84,0,18), Font=Enum.Font.GothamBold, TextSize=13, TextColor3=T.text, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd}, btn)
-    New("TextLabel", {Text="Rarity: "..rarity.." • Mut: "..mutation, Position=UDim2.fromOffset(74,26), Size=UDim2.new(1,-84,0,16), Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.dim, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd}, btn)
-    New("TextLabel", {Text=weightStr.." • "..(mdl.Parent and mdl.Parent.Name or ""), Position=UDim2.fromOffset(74,42), Size=UDim2.new(1,-84,0,16), Font=Enum.Font.GothamBold, TextSize=11, TextColor3=T.ok, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd}, btn)
-    btn.MouseButton1Click:Connect(function() task.spawn(function() stealEgg(mdl) end) end)
+
+    New("TextLabel", {Text=mdl.Name, Position=UDim2.fromOffset(74,8), Size=UDim2.new(1,-84,0,18), Font=Enum.Font.GothamBold, TextSize=13, TextColor3=T.text, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Active=false}, card)
+    New("TextLabel", {Text="Rarity: "..rarity.." • Mut: "..mutation, Position=UDim2.fromOffset(74,26), Size=UDim2.new(1,-84,0,16), Font=Enum.Font.GothamMedium, TextSize=11, TextColor3=T.dim, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Active=false}, card)
+    New("TextLabel", {Text=weightStr.." • "..(mdl.Parent and mdl.Parent.Name or ""), Position=UDim2.fromOffset(74,42), Size=UDim2.new(1,-84,0,16), Font=Enum.Font.GothamBold, TextSize=11, TextColor3=T.ok, BackgroundTransparency=1, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd, Active=false}, card)
+
+    -- overlay button paling atas, ini yang bikin klik pasti ketangkep
+    local btn=New("TextButton", {Size=UDim2.fromScale(1,1), BackgroundTransparency=1, Text="", AutoButtonColor=false, ZIndex=10}, hold)
+    btn.MouseEnter:Connect(function() pcall(function() card.BackgroundColor3 = Color3.fromRGB(35,30,60) end) end)
+    btn.MouseLeave:Connect(function() pcall(function() card.BackgroundColor3 = T.card end) end)
+    btn.MouseButton1Click:Connect(function()
+        if not mdl.Parent then Window.Notify("Egg Vault","Egg sudah hilang", T.bad,1.5) return end
+        task.spawn(function() stealEgg(mdl) end)
+    end)
 end
+
 local function refreshVault()
+    if not eggContainer then
+        local sc = getPanelScroll()
+        if sc then
+            eggContainer=New("Frame", {Name="EggContainer", Size=UDim2.new(1,0,0,0), AutomaticSize=Enum.AutomaticSize.Y, BackgroundTransparency=1, LayoutOrder=100}, sc)
+            New("UIListLayout", {Padding=UDim.new(0,8), SortOrder=Enum.SortOrder.LayoutOrder}, eggContainer)
+        else
+            return
+        end
+    end
     for _,c in ipairs(eggContainer:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-    local models=getAllEggModels(currentPanelFilter, currentSearch, "All")
+    local models=getAllEggModels(currentPanelFilter, currentSearch, getgenv().SelectedRarityFilter)
     table.sort(models, function(a,b)
         local _,_,_,wA = getEggInfo(a)
         local _,_,_,wB = getEggInfo(b)
@@ -353,9 +475,10 @@ local function refreshVault()
     for _,m in ipairs(models) do if m.Parent then createEggCard(eggContainer,m) end end
 end
 _G._refreshVault=refreshVault
+
 local PanelTab=Window:Tab({Title="Panel", Icon="P"})
-PanelTab:Button({Title="Open Vault", Callback=function() VaultPanel:Show() refreshVault() end})
+PanelTab:Button({Title="Open Vault", Callback=function() VaultPanel:Show() task.wait(0.2) refreshVault() end})
 PanelTab:Button({Title="Close Vault", Callback=function() VaultPanel:Hide() end})
 task.spawn(function() while task.wait(3) do if VaultPanel:IsOpen() then pcall(refreshVault) end end end)
 
-Window.Notify("Ready","Egg Vault + x2 ready",T.ok,2)
+Window.Notify("Ready","Egg Vault + x2 ready [Multi Rarity FIXED]",T.ok,2)
