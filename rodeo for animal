@@ -1,6 +1,15 @@
 local Window = getgenv().SORU_Window
 if not Window then return end
 
+local V3, V2, CF, C3 = Vector3.new, Vector2.new, CFrame.new, Color3.new
+local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+
+local Window = SORU:CreateWindow({
+    Title = "Soru Hub",
+    ToggleKey = Enum.KeyCode.RightShift,
+    Demo = false,
+})
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -47,7 +56,7 @@ end)
 -- // MAIN TAB
 local MainTab = Window:Tab({Title = "Main", Icon = "M"})
 
-local CatchAcc = MainTab:Accordion({Title = "Catch", Desc = "", Open = true})
+local CatchAcc = MainTab:Accordion({Title = "Auto Catch", Desc = "", Open = true})
 local EggRemote = game:GetService("ReplicatedStorage").Modules.Shared.Packages.Network.rev_EggClick
 
 CatchAcc:Toggle({
@@ -80,7 +89,7 @@ BaseAcc:Button({Title = "Go To Base Now", Callback = function() goToBase() end})
 
 -- // TREADMILL TAB - NO LAG
 local TreadmillTab = Window:Tab({Title = "Treadmill", Icon = "T"})
-local TreadAcc = TreadmillTab:Accordion({Title = "Auto Treadmill", Desc = "Visible ON only - No joystick lock", Open = true})
+local TreadAcc = TreadmillTab:Accordion({Title = "Auto Treadmill", Desc = "", Open = true})
 
 local playerGui = plr:WaitForChild("PlayerGui")
 local activeX2 = {}
@@ -102,7 +111,7 @@ end
 
 TreadAcc:Toggle({
     Title = "Auto x2",
-    Desc = "",
+    Desc = "Klik hanya jika Visible = ON",
     Flag = "AutoX2",
     Default = false,
     Callback = function(v)
@@ -250,7 +259,7 @@ AnimalAcc:Textbox({
 })
 AnimalAcc:Toggle({
     Title = "Animal Esp",
-    Desc = "",
+    Desc = "SORU card style + highlight",
     Flag = "AnimalEsp",
     Default = false,
     Callback = function(v)
