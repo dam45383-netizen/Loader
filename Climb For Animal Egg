@@ -4010,6 +4010,7 @@ local Window = SORU:CreateWindow({
 })
 
 getgenv().AutoBestEgg = false
+getgenv().SpamDuration = 2
 getgenv().SelectedEggArea = "All"
 getgenv().SelectedRarityFilter = {"All"}
 getgenv().StealMethod = "Normal"
@@ -4022,7 +4023,7 @@ getgenv().IsStealing = false
 getgenv().AutoTreadmillX2 = false
 
 local BASE_CF = CFrame.new(2240.4, 73.8, -734.2)
-local FALLBACK_CF = CFrame.new(2215.5, 73.8, -748.7)
+local STAGING_CF = CFrame.new(2214.2, 72.4, -751.3)
 
 local T = {
     accent = Color3.fromRGB(145,96,255), cyan = Color3.fromRGB(56,200,255),
@@ -4035,70 +4036,54 @@ local TS = game:GetService("TweenService")
 local plr = game.Players.LocalPlayer
 local function New(c,p,par) local o=Instance.new(c) if p then for k,v in pairs(p) do pcall(function() o[k]=v end) end end if par then o.Parent=par end return o end
 
+-- TWEEN STABIL SESUAI SLIDER
 local function tweenTo(hrp, targetCf)
     if not hrp or not hrp.Parent then return end
-    hrp.Anchored = false
     local speed = getgenv().TweenSpeed or 100
     local dist = (hrp.Position - targetCf.Position).Magnitude
-    local dur = math.clamp(dist / speed, 0.08, 6)
+    local dur = dist / speed
+    if dur < 0.08 then dur = 0.08 end
     pcall(function()
         local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCf})
         tw:Play()
         tw.Completed:Wait()
     end)
 end
+local function tweenToY(hrp, targetY)
+    if not hrp or not hrp.Parent then return end
+    local cur = hrp.Position
+    tweenTo(hrp, CFrame.new(cur.X, targetY, cur.Z))
+end
+local function tweenToXZ(hrp, targetPos)
+    if not hrp or not hrp.Parent then return end
+    local cur = hrp.Position
+    tweenTo(hrp, CFrame.new(targetPos.X, cur.Y, targetPos.Z))
+end
+-- Y TURUN FIX 6 DETIK
+local function tweenToY6Sec(hrp, targetY)
+    if not hrp or not hrp.Parent then return end
+    local cur = hrp.Position
+    local cf = CFrame.new(cur.X, targetY, cur.Z)
+    pcall(function()
+        local tw = TS:Create(hrp, TweenInfo.new(6, Enum.EasingStyle.Linear), {CFrame = cf})
+        tw:Play()
+        tw.Completed:Wait()
+    end)
+end
 
--- GET DROP BUTTON
 local function getDropButton()
     local pg = plr:FindFirstChild("PlayerGui")
     if not pg then return nil end
     local general = pg:FindFirstChild("General")
     if not general then
-        for _,v in ipairs(pg:GetDescendants()) do
-            if v.Name == "General" then general = v break end
-        end
+        for _,v in ipairs(pg:GetDescendants()) do if v.Name=="General" then general=v break end end
     end
     if not general then return nil end
-    local btn = general:FindFirstChild("DropButton", true)
-    if btn then return btn end
-    for _,v in ipairs(general:GetDescendants()) do
-        if v.Name == "DropButton" then return v end
-    end
-    return nil
+    return general:FindFirstChild("DropButton", true)
 end
-
 local function isDropVisible()
     local btn = getDropButton()
-    if btn then
-        return btn.Visible
-    end
-    return false
-end
-
-local function getAllIslandInfos()
-    local infos = {}
-    local s = workspace:FindFirstChild("Structures") or workspace:FindFirstChild("Structure")
-    if not s then return infos end
-    local islands = s:FindFirstChild("Islands")
-    if not islands then return infos end
-    for _, isl in ipairs(islands:GetChildren()) do
-        local cf, pos = nil, nil
-        if isl:IsA("Model") then
-            local ok, pivot = pcall(function() return isl:GetPivot() end)
-            if ok and pivot then cf = pivot + Vector3.new(0,12,0); pos = pivot.Position
-            elseif isl.PrimaryPart then cf = isl.PrimaryPart.CFrame + Vector3.new(0,12,0); pos = isl.PrimaryPart.Position
-            else local bp = isl:FindFirstChildWhichIsA("BasePart", true) if bp then cf = bp.CFrame + Vector3.new(0,12,0); pos = bp.Position end end
-        elseif isl:IsA("BasePart") then cf = isl.CFrame + Vector3.new(0,12,0); pos = isl.Position end
-        if cf and pos then table.insert(infos, {name=isl.Name, cf=cf, pos=pos}) end
-    end
-    return infos
-end
-local function getIslandCF(name) if not name or name=="All" then return nil end for _, info in ipairs(getAllIslandInfos()) do if info.name==name then return info.cf end end return nil end
-local function getIslandNameFromModel(model) local area=getgenv().SelectedEggArea if area and area~="All" then return area end if model.Parent and model.Parent.Name~="SpawnedEggs" then return model.Parent.Name end return "All" end
-local function doGradualTweenToIsland(hrp, destName)
-    if not destName or destName == "All" then return end
-    local cf = getIslandCF(destName)
-    if cf then tweenTo(hrp, cf) else tweenTo(hrp, FALLBACK_CF) end
+    return btn and btn.Visible
 end
 
 local RARITY_WEIGHT = {["Common"]=1,["Rare"]=3,["Epic"]=5,["Legendary"]=6,["Mythic"]=7,["Secret"]=8,["Divine"]=9,["Godly"]=10,["Exclusive"]=27}
@@ -4139,27 +4124,20 @@ local function getEggInfo(m)
     return tostring(rarity), tostring(mutation), tostring(weightStr), weightRaw
 end
 
--- ========== STEAL FULL TWEEN + DROP BUTTON LOGIC ==========
 local function doNormalSteal(model, hrp)
-    if not model or not model.Parent then return end
-    local islandName = getIslandNameFromModel(model)
-    local eggCF = getModelPos(model)
-    local targetCF = eggCF + Vector3.new(0, 3, 0)
-
-    doGradualTweenToIsland(hrp, islandName)
-    task.wait(0.05)
-    tweenTo(hrp, targetCF)
+    local eggPos=(getModelPos(model)+Vector3.new(0,3,0)).Position
+    tweenTo(hrp, STAGING_CF)
+    tweenToY(hrp, eggPos.Y)
+    tweenToXZ(hrp, eggPos)
     task.wait(0.1)
-
-    -- SPAM TERUS SELAMA DropButton BELUM VISIBLE
-    while model.Parent do
-        if isDropVisible() then
-            break -- visible ON = udah dapet, balik base
-        end
-        doInteract(model)
-        task.wait(0.08)
+    local maxTime = getgenv().SpamDuration or 2
+    local start = tick()
+    while tick()-start < maxTime and model.Parent do
+        if isDropVisible() then break end
+        doInteract(model) task.wait(0.08)
     end
-
+    tweenToXZ(hrp, STAGING_CF.Position)
+    tweenToY6Sec(hrp, STAGING_CF.Position.Y)
     tweenTo(hrp, BASE_CF)
 end
 
@@ -4170,24 +4148,19 @@ local function doSilentSteal(model, hrp, oldCf, char)
     local cam=workspace.CurrentCamera local hc=clone:FindFirstChildOfClass("Humanoid") local hr=char:FindFirstChildOfClass("Humanoid")
     if hc then cam.CameraSubject=hc end
     for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=1 end end
-
-    local islandName=getIslandNameFromModel(model)
-    local eggCF=getModelPos(model)
-    local targetCF=eggCF + Vector3.new(0,3,0)
-
-    doGradualTweenToIsland(hrp, islandName)
-    task.wait(0.05)
-    tweenTo(hrp, targetCF)
+    local eggPos=(getModelPos(model)+Vector3.new(0,3,0)).Position
+    tweenTo(hrp, STAGING_CF)
+    tweenToY(hrp, eggPos.Y)
+    tweenToXZ(hrp, eggPos)
     task.wait(0.1)
-
-    while model.Parent do
-        if isDropVisible() then
-            break
-        end
-        doInteract(model)
-        task.wait(0.08)
+    local maxTime = getgenv().SpamDuration or 2
+    local start = tick()
+    while tick()-start < maxTime and model.Parent do
+        if isDropVisible() then break end
+        doInteract(model) task.wait(0.08)
     end
-    
+    tweenToXZ(hrp, STAGING_CF.Position)
+    tweenToY6Sec(hrp, STAGING_CF.Position.Y)
     tweenTo(hrp, BASE_CF)
     task.wait(0.2)
     for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end
@@ -4212,6 +4185,8 @@ local function stealEgg(model)
     getgenv().IsStealing = false
 end
 
+plr.CharacterAdded:Connect(function() getgenv().IsStealing = false end)
+
 local MainTab = Window:Tab({Title = "Main", Icon = "M"})
 local EggAcc = MainTab:Accordion({Title = "Egg", Open = true})
 local AreaDropdown = EggAcc:Dropdown({Title="Area Egg", Flag="EggArea", Options=getEggAreaList(), Default="All", Callback=function(v) getgenv().SelectedEggArea=v end})
@@ -4220,6 +4195,7 @@ local RarityDropdown = EggAcc:Dropdown({Title="Filter Rarity (Multi)", Flag="Egg
 end})
 EggAcc:Button({Title="Refresh Area & Rarity", Callback=function() if AreaDropdown.Refresh then AreaDropdown:Refresh(getEggAreaList()) end if RarityDropdown.Refresh then RarityDropdown:Refresh(getRarityList()) end end})
 EggAcc:Dropdown({Title="Steal Method", Flag="StealMethod", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMethod=v end})
+EggAcc:Slider({Title="Spam Duration", Flag="SpamDuration", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
 EggAcc:Slider({Title="Tween Speed", Flag="TweenSpeed", Min=10, Max=500, Step=5, Default=100, Suffix=" studs/s", Callback=function(v) getgenv().TweenSpeed=v end})
 EggAcc:Toggle({Title="Auto Steal", Flag="AutoBestEgg", Default=false, Callback=function(v)
     getgenv().AutoBestEgg=v if not v then return end
@@ -4390,8 +4366,7 @@ task.spawn(function()
     sp.DescendantRemoving:Connect(function(d) if d:IsA("Model") then trigger() end end)
     while task.wait(5) do trigger() end
 end)
-Window.Notify("Ready","DropButton Logic • No Spam Slider",T.ok,2)
---(%--&_>@)
+Window.Notify("Ready","Y Down 6 Detik Fixed",T.ok,2)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
