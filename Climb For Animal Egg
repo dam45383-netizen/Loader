@@ -4035,58 +4035,20 @@ local TS = game:GetService("TweenService")
 local plr = game.Players.LocalPlayer
 local function New(c,p,par) local o=Instance.new(c) if p then for k,v in pairs(p) do pcall(function() o[k]=v end) end end if par then o.Parent=par end return o end
 
--- ========== TWEEN HALUS ANTI GETER ==========
 local function tweenTo(hrp, targetCf)
     if not hrp or not hrp.Parent then return end
-    local char = hrp.Parent
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    
-    local oldCollide = {}
-    for _, p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") then
-            oldCollide[p] = p.CanCollide
-            p.CanCollide = false
-        end
-    end
-
-    pcall(function()
-        if hum then
-            hum.PlatformStand = true
-            hum.AutoRotate = false
-        end
-        hrp.Anchored = true
-        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-        hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
-    end)
-
+    hrp.Anchored = false
     local speed = getgenv().TweenSpeed or 100
     local dist = (hrp.Position - targetCf.Position).Magnitude
-    if dist < 1.5 then
-        hrp.CFrame = targetCf
-    else
-        local dur = math.clamp(dist / speed, 0.15, 10)
-        local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {CFrame = targetCf})
+    local dur = math.clamp(dist / speed, 0.08, 6)
+    pcall(function()
+        local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCf})
         tw:Play()
         tw.Completed:Wait()
-    end
-
-    pcall(function()
-        hrp.Anchored = false
-        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
-        hrp.AssemblyAngularVelocity = Vector3.new(0,0,0)
-        if hum then
-            hum.PlatformStand = false
-            hum.AutoRotate = true
-            hum:ChangeState(Enum.HumanoidStateType.Running)
-        end
-        for part, can in pairs(oldCollide) do
-            if part and part.Parent and part.Name ~= "HumanoidRootPart" then
-                part.CanCollide = can
-            end
-        end
     end)
 end
 
+-- GET DROP BUTTON
 local function getDropButton()
     local pg = plr:FindFirstChild("PlayerGui")
     if not pg then return nil end
@@ -4107,7 +4069,9 @@ end
 
 local function isDropVisible()
     local btn = getDropButton()
-    if btn then return btn.Visible end
+    if btn then
+        return btn.Visible
+    end
     return false
 end
 
@@ -4175,23 +4139,27 @@ local function getEggInfo(m)
     return tostring(rarity), tostring(mutation), tostring(weightStr), weightRaw
 end
 
--- ========== STEAL LOGIC BARU ==========
+-- ========== STEAL FULL TWEEN + DROP BUTTON LOGIC ==========
 local function doNormalSteal(model, hrp)
     if not model or not model.Parent then return end
     local islandName = getIslandNameFromModel(model)
     local eggCF = getModelPos(model)
-    local targetCF = CFrame.new(eggCF.Position + Vector3.new(0, 5, 0))
+    local targetCF = eggCF + Vector3.new(0, 3, 0)
 
     doGradualTweenToIsland(hrp, islandName)
-    task.wait(0.1)
+    task.wait(0.05)
     tweenTo(hrp, targetCF)
-    task.wait(0.15)
+    task.wait(0.1)
 
+    -- SPAM TERUS SELAMA DropButton BELUM VISIBLE
     while model.Parent do
-        if isDropVisible() then break end
+        if isDropVisible() then
+            break -- visible ON = udah dapet, balik base
+        end
         doInteract(model)
         task.wait(0.08)
     end
+
     tweenTo(hrp, BASE_CF)
 end
 
@@ -4205,15 +4173,17 @@ local function doSilentSteal(model, hrp, oldCf, char)
 
     local islandName=getIslandNameFromModel(model)
     local eggCF=getModelPos(model)
-    local targetCF=CFrame.new(eggCF.Position + Vector3.new(0, 5, 0))
+    local targetCF=eggCF + Vector3.new(0,3,0)
 
     doGradualTweenToIsland(hrp, islandName)
-    task.wait(0.1)
+    task.wait(0.05)
     tweenTo(hrp, targetCF)
-    task.wait(0.15)
+    task.wait(0.1)
 
     while model.Parent do
-        if isDropVisible() then break end
+        if isDropVisible() then
+            break
+        end
         doInteract(model)
         task.wait(0.08)
     end
@@ -4420,7 +4390,7 @@ task.spawn(function()
     sp.DescendantRemoving:Connect(function(d) if d:IsA("Model") then trigger() end end)
     while task.wait(5) do trigger() end
 end)
-Window.Notify("Ready","Full Fix • Smooth Tween + DropButton",T.ok,2)
+Window.Notify("Ready","DropButton Logic • No Spam Slider",T.ok,2)
 --(%--&_>@)
 --(~]&`-,%?$)
 --(-~&-^%)
