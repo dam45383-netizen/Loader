@@ -4014,6 +4014,8 @@ getgenv().SpamDuration = 2
 getgenv().SelectedEggArea = "All"
 getgenv().SelectedRarityFilter = {"All"}
 getgenv().StealMethod = "Normal"
+getgenv().BackToBaseMode = "Blatant"
+getgenv().BackToBaseDuration = 1
 getgenv().AntiGuard = false
 getgenv().MyGuardIds = {}
 getgenv().MyGuardNames = {}
@@ -4036,7 +4038,14 @@ local TS = game:GetService("TweenService")
 local plr = game.Players.LocalPlayer
 local function New(c,p,par) local o=Instance.new(c) if p then for k,v in pairs(p) do pcall(function() o[k]=v end) end end if par then o.Parent=par end return o end
 
--- TWEEN STABIL SESUAI SLIDER
+local function getWalkSpeed()
+    local char = plr.Character
+    if not char then return 16 end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum.WalkSpeed > 0 then return hum.WalkSpeed end
+    return 16
+end
+
 local function tweenTo(hrp, targetCf)
     if not hrp or not hrp.Parent then return end
     local speed = getgenv().TweenSpeed or 100
@@ -4045,10 +4054,32 @@ local function tweenTo(hrp, targetCf)
     if dur < 0.08 then dur = 0.08 end
     pcall(function()
         local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCf})
-        tw:Play()
-        tw.Completed:Wait()
+        tw:Play() tw.Completed:Wait()
     end)
 end
+
+local function tweenToSpeed(hrp, targetCf, speed)
+    if not hrp or not hrp.Parent then return end
+    speed = speed or 16
+    local dist = (hrp.Position - targetCf.Position).Magnitude
+    local dur = dist / speed
+    if dur < 0.08 then dur = 0.08 end
+    pcall(function()
+        local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCf})
+        tw:Play() tw.Completed:Wait()
+    end)
+end
+
+local function tweenToDuration(hrp, targetCf, dur)
+    if not hrp or not hrp.Parent then return end
+    dur = dur or 1
+    if dur < 0.05 then dur = 0.05 end
+    pcall(function()
+        local tw = TS:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), {CFrame = targetCf})
+        tw:Play() tw.Completed:Wait()
+    end)
+end
+
 local function tweenToY(hrp, targetY)
     if not hrp or not hrp.Parent then return end
     local cur = hrp.Position
@@ -4059,16 +4090,20 @@ local function tweenToXZ(hrp, targetPos)
     local cur = hrp.Position
     tweenTo(hrp, CFrame.new(targetPos.X, cur.Y, targetPos.Z))
 end
--- Y TURUN FIX 6 DETIK
-local function tweenToY6Sec(hrp, targetY)
-    if not hrp or not hrp.Parent then return end
-    local cur = hrp.Position
-    local cf = CFrame.new(cur.X, targetY, cur.Z)
-    pcall(function()
-        local tw = TS:Create(hrp, TweenInfo.new(6, Enum.EasingStyle.Linear), {CFrame = cf})
-        tw:Play()
-        tw.Completed:Wait()
-    end)
+
+local function doReturnToBase(hrp)
+    local mode = getgenv().BackToBaseMode or "Blatant"
+    if mode == "Legit" then
+        local ws = getWalkSpeed()
+        tweenToSpeed(hrp, CFrame.new(STAGING_CF.Position.X, hrp.Position.Y, STAGING_CF.Position.Z), ws)
+        tweenToSpeed(hrp, STAGING_CF, ws)
+        tweenToSpeed(hrp, BASE_CF, ws)
+    else
+        local d = getgenv().BackToBaseDuration or 1
+        tweenToDuration(hrp, CFrame.new(STAGING_CF.Position.X, hrp.Position.Y, STAGING_CF.Position.Z), d)
+        tweenToDuration(hrp, STAGING_CF, d)
+        tweenToDuration(hrp, BASE_CF, d)
+    end
 end
 
 local function getDropButton()
@@ -4136,9 +4171,7 @@ local function doNormalSteal(model, hrp)
         if isDropVisible() then break end
         doInteract(model) task.wait(0.08)
     end
-    tweenToXZ(hrp, STAGING_CF.Position)
-    tweenToY6Sec(hrp, STAGING_CF.Position.Y)
-    tweenTo(hrp, BASE_CF)
+    doReturnToBase(hrp)
 end
 
 local function doSilentSteal(model, hrp, oldCf, char)
@@ -4159,9 +4192,7 @@ local function doSilentSteal(model, hrp, oldCf, char)
         if isDropVisible() then break end
         doInteract(model) task.wait(0.08)
     end
-    tweenToXZ(hrp, STAGING_CF.Position)
-    tweenToY6Sec(hrp, STAGING_CF.Position.Y)
-    tweenTo(hrp, BASE_CF)
+    doReturnToBase(hrp)
     task.wait(0.2)
     for _,p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end
     if hr then cam.CameraSubject=hr end
@@ -4196,7 +4227,24 @@ end})
 EggAcc:Button({Title="Refresh Area & Rarity", Callback=function() if AreaDropdown.Refresh then AreaDropdown:Refresh(getEggAreaList()) end if RarityDropdown.Refresh then RarityDropdown:Refresh(getRarityList()) end end})
 EggAcc:Dropdown({Title="Steal Method", Flag="StealMethod", Options={"Normal","Silent"}, Default="Normal", Callback=function(v) getgenv().StealMethod=v end})
 EggAcc:Slider({Title="Spam Duration", Flag="SpamDuration", Min=0.5, Max=10, Step=0.5, Default=2, Suffix="s", Callback=function(v) getgenv().SpamDuration=v end})
-EggAcc:Slider({Title="Tween Speed", Flag="TweenSpeed", Min=10, Max=500, Step=5, Default=100, Suffix=" studs/s", Callback=function(v) getgenv().TweenSpeed=v end})
+
+local TweenSpeedSlider
+TweenSpeedSlider = EggAcc:Slider({Title="Tween Speed", Flag="TweenSpeed", Min=1, Max=1000, Step=5, Default=100, Suffix=" studs/s", Callback=function(v) getgenv().TweenSpeed=v end})
+
+EggAcc:Button({Title="Cek Speed (WalkSpeed -> Tween)", Callback=function()
+    local ws = getWalkSpeed()
+    getgenv().TweenSpeed = ws
+    pcall(function()
+        if TweenSpeedSlider and TweenSpeedSlider.Set then TweenSpeedSlider:Set(ws) end
+        if TweenSpeedSlider and TweenSpeedSlider.SetValue then TweenSpeedSlider:SetValue(ws) end
+    end)
+    Window.Notify("Cek Speed","WalkSpeed = "..ws.." -> TweenSpeed = "..ws, T.ok, 3)
+end})
+
+-- NEW: Back To Base
+EggAcc:Dropdown({Title="Back To Base Mode", Flag="BackToBaseMode", Options={"Blatant","Legit"}, Default="Blatant", Callback=function(v) getgenv().BackToBaseMode=v end})
+EggAcc:Slider({Title="Back To Base Duration (Blatant)", Flag="BackToBaseDuration", Min=0.5, Max=10, Step=0.5, Default=1, Suffix="s", Callback=function(v) getgenv().BackToBaseDuration=v end})
+
 EggAcc:Toggle({Title="Auto Steal", Flag="AutoBestEgg", Default=false, Callback=function(v)
     getgenv().AutoBestEgg=v if not v then return end
     task.spawn(function()
@@ -4366,7 +4414,7 @@ task.spawn(function()
     sp.DescendantRemoving:Connect(function(d) if d:IsA("Model") then trigger() end end)
     while task.wait(5) do trigger() end
 end)
-Window.Notify("Ready","Y Down 6 Detik Fixed",T.ok,2)
+Window.Notify("Ready","Back To Base Ready",T.ok,2)
 --(~]&`-,%?$)
 --(-~&-^%)
 --('^?#)
