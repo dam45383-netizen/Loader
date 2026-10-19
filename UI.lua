@@ -259,13 +259,38 @@ local RING2 = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSeq
 
 -- preset warna: {accent, accent2, cyan, pink}
 local THEMES = {
-    Violet  = {Color3.fromRGB(145, 96, 255), Color3.fromRGB(94, 106, 255), Color3.fromRGB(56, 200, 255), Color3.fromRGB(245, 80, 165)},
-    Ocean   = {Color3.fromRGB(40, 160, 255), Color3.fromRGB(56, 112, 255), Color3.fromRGB(45, 230, 205), Color3.fromRGB(120, 130, 255)},
-    Crimson = {Color3.fromRGB(255, 70, 100), Color3.fromRGB(220, 38, 80), Color3.fromRGB(255, 160, 70), Color3.fromRGB(255, 90, 170)},
-    Emerald = {Color3.fromRGB(45, 212, 150), Color3.fromRGB(16, 170, 120), Color3.fromRGB(60, 190, 255), Color3.fromRGB(190, 235, 80)},
-    Sunset  = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(240, 70, 90), Color3.fromRGB(255, 205, 70), Color3.fromRGB(255, 90, 170)},
+    -- bawaan
+    Violet   = {Color3.fromRGB(145, 96, 255),  Color3.fromRGB(94, 106, 255),  Color3.fromRGB(56, 200, 255),  Color3.fromRGB(245, 80, 165)},
+    Ocean    = {Color3.fromRGB(40, 160, 255),  Color3.fromRGB(56, 112, 255),  Color3.fromRGB(45, 230, 205),  Color3.fromRGB(120, 130, 255)},
+    Crimson  = {Color3.fromRGB(255, 70, 100),  Color3.fromRGB(220, 38, 80),   Color3.fromRGB(255, 160, 70),  Color3.fromRGB(255, 90, 170)},
+    Emerald  = {Color3.fromRGB(45, 212, 150),  Color3.fromRGB(16, 170, 120),  Color3.fromRGB(60, 190, 255),  Color3.fromRGB(190, 235, 80)},
+    Sunset   = {Color3.fromRGB(255, 150, 60),  Color3.fromRGB(240, 70, 90),   Color3.fromRGB(255, 205, 70),  Color3.fromRGB(255, 90, 170)},
+    -- baru
+    Rose     = {Color3.fromRGB(255, 105, 150), Color3.fromRGB(230, 60, 120),  Color3.fromRGB(255, 190, 120), Color3.fromRGB(200, 110, 255)},
+    Sakura   = {Color3.fromRGB(255, 150, 190), Color3.fromRGB(220, 110, 210), Color3.fromRGB(150, 210, 255), Color3.fromRGB(255, 200, 120)},
+    Mint     = {Color3.fromRGB(80, 230, 190),  Color3.fromRGB(40, 190, 170),  Color3.fromRGB(130, 200, 255), Color3.fromRGB(210, 240, 110)},
+    Aqua     = {Color3.fromRGB(30, 210, 230),  Color3.fromRGB(40, 150, 235),  Color3.fromRGB(120, 255, 210), Color3.fromRGB(170, 140, 255)},
+    Ice      = {Color3.fromRGB(130, 200, 255), Color3.fromRGB(100, 140, 255), Color3.fromRGB(200, 235, 255), Color3.fromRGB(190, 160, 255)},
+    Sky      = {Color3.fromRGB(70, 170, 255),  Color3.fromRGB(50, 120, 230),  Color3.fromRGB(130, 230, 255), Color3.fromRGB(255, 170, 200)},
+    Midnight = {Color3.fromRGB(90, 110, 255),  Color3.fromRGB(60, 70, 200),   Color3.fromRGB(80, 200, 255),  Color3.fromRGB(170, 100, 255)},
+    Gold     = {Color3.fromRGB(250, 190, 40),  Color3.fromRGB(235, 140, 30),  Color3.fromRGB(255, 230, 120), Color3.fromRGB(255, 120, 90)},
+    Lava     = {Color3.fromRGB(255, 95, 50),   Color3.fromRGB(225, 45, 45),   Color3.fromRGB(255, 180, 60),  Color3.fromRGB(255, 80, 140)},
+    Toxic    = {Color3.fromRGB(160, 240, 40),  Color3.fromRGB(90, 200, 60),   Color3.fromRGB(230, 255, 80),  Color3.fromRGB(60, 220, 170)},
+    Cyber    = {Color3.fromRGB(255, 40, 200),  Color3.fromRGB(140, 60, 255),  Color3.fromRGB(40, 240, 255),  Color3.fromRGB(255, 220, 50)},
+    Orchid   = {Color3.fromRGB(210, 110, 255), Color3.fromRGB(160, 80, 230),  Color3.fromRGB(120, 170, 255), Color3.fromRGB(255, 120, 200)},
+    Berry    = {Color3.fromRGB(190, 60, 170),  Color3.fromRGB(130, 50, 200),  Color3.fromRGB(255, 110, 170), Color3.fromRGB(90, 170, 255)},
+    Forest   = {Color3.fromRGB(80, 190, 100),  Color3.fromRGB(40, 140, 90),   Color3.fromRGB(190, 220, 90),  Color3.fromRGB(80, 200, 200)},
+    Coffee   = {Color3.fromRGB(210, 150, 100), Color3.fromRGB(170, 110, 70),  Color3.fromRGB(240, 200, 140), Color3.fromRGB(230, 120, 110)},
+    Peach    = {Color3.fromRGB(255, 160, 120), Color3.fromRGB(245, 110, 100), Color3.fromRGB(255, 215, 150), Color3.fromRGB(240, 130, 180)},
+    Steel    = {Color3.fromRGB(120, 150, 190), Color3.fromRGB(80, 110, 160),  Color3.fromRGB(150, 220, 240), Color3.fromRGB(200, 170, 255)},
+    Mono     = {Color3.fromRGB(190, 194, 214), Color3.fromRGB(120, 126, 160), Color3.fromRGB(235, 238, 250), Color3.fromRGB(150, 170, 255)},
 }
-local THEME_ORDER = {"Violet", "Ocean", "Crimson", "Emerald", "Sunset"}
+local THEME_ORDER = {
+    "Violet", "Ocean", "Crimson", "Emerald", "Sunset",
+    "Rose", "Sakura", "Mint", "Aqua", "Ice", "Sky", "Midnight",
+    "Gold", "Lava", "Toxic", "Cyber", "Orchid", "Berry",
+    "Forest", "Coffee", "Peach", "Steel", "Mono",
+}
 local function applyPalette(name)
     local p = THEMES[name]
     if not p then return nil end
