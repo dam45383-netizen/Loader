@@ -1256,76 +1256,90 @@ function SORU:CreateWindow(C)
         minB = hbtn(-82, "–")
         xB = hbtn(-44, "✕", T.bad, Color3.fromRGB(82, 36, 50))
     end
-
     ------------------------------------------------------------------
-    -- SIDEBAR + CONTENT (bisa dilipat jadi mode ikon; keadaan tersimpan di config)
+    -- TAB BAR HORIZONTAL (icon saja, geser kiri-kanan) + CONTENT
     ------------------------------------------------------------------
-    local SIDE_W, SIDE_MIN = 160, 64
-    local TAB_H, TAB_P = 42, 48
-    local sideCollapsed = (Data.Features["SideCollapsed"] == true)
-    local sideW = sideCollapsed and SIDE_MIN or SIDE_W
-    local sideFx = {}   -- {inst, propsTerbuka, propsLipat}: elemen yang berubah saat sidebar dilipat
-    local function regSide(inst, open, closed)
-        sideFx[#sideFx + 1] = {inst, open, closed}
-        for k, v in pairs(sideCollapsed and closed or open) do inst[k] = v end
-    end
+    local BAR_H = 50
+    local CONT_Y = TOPY + BAR_H + 6
+    local TAB_W, TAB_H2, TAB_GAP, PADX, TAB_Y = 44, 40, 4, 8, 5
 
-    local side = new("Frame", {Position = UDim2.fromOffset(10, TOPY), Size = UDim2.new(0, sideW, 1, -(TOPY + 10)), BackgroundColor3 = T.panel, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 5}, win)
-    corner(side, 18) stroke(side, T.stroke, 1, 0.55) regTrans(side, 0.05)
-    grad(side, WHITE, Color3.fromRGB(190, 186, 214), 90)
-    regSide(side, {Size = UDim2.new(0, SIDE_W, 1, -(TOPY + 10))}, {Size = UDim2.new(0, SIDE_MIN, 1, -(TOPY + 10))})
-    local colB
-    do
-        local navL = label(side, {Text = "NAVIGATION", Position = UDim2.fromOffset(18, 12), Size = UDim2.new(1, -60, 0, 12), Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Color3.fromRGB(116, 110, 156), ZIndex = 6})
-        regSide(navL, {TextTransparency = 0}, {TextTransparency = 1})
-        -- tombol lipat / buka sidebar
-        colB = new("TextButton", {Size = UDim2.fromOffset(24, 24), Position = UDim2.new(1, -34, 0, 7), Text = "", BackgroundColor3 = Color3.fromRGB(28, 25, 44), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 8}, side)
-        corner(colB, FULL)
-        stroke(colB, T.stroke, 1, 0.55)
-        hover(colB, nil, Color3.fromRGB(42, 38, 66), T.cardDown)
-        local colArrow = label(colB, {Text = "‹", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = DIM, ZIndex = 9, TextTruncate = Enum.TextTruncate.None})
-        regSide(colB, {Position = UDim2.new(1, -34, 0, 7)}, {Position = UDim2.new(0.5, -12, 0, 7)})
-        regSide(colArrow, {Rotation = 0}, {Rotation = 180})
-    end
-    local tabList = new("ScrollingFrame", {Position = UDim2.fromOffset(0, 38), Size = UDim2.new(1, 0, 1, -94), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0, CanvasSize = UDim2.fromOffset(0, 0), ZIndex = 6}, side)
+    local bar = new("Frame", {Name = "TabBar", Position = UDim2.fromOffset(10, TOPY), Size = UDim2.new(1, -20, 0, BAR_H), BackgroundColor3 = T.panel, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 5}, win)
+    corner(bar, 16) stroke(bar, T.stroke, 1, 0.55) regTrans(bar, 0.05)
+    grad(bar, WHITE, Color3.fromRGB(190, 186, 214), 90)
 
-    do -- profil mini di sidebar (mengecil jadi avatar saja saat dilipat)
-        local foot = new("Frame", {Position = UDim2.new(0, 6, 1, -52), Size = UDim2.new(1, -12, 0, 46), BackgroundColor3 = T.card, BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 6}, side)
-        corner(foot, 14) stroke(foot, T.stroke, 1, 0.6) regTrans(foot, 0.1)
-        local ringA = new("Frame", {Size = UDim2.fromOffset(34, 34), Position = UDim2.fromOffset(6, 6), BackgroundColor3 = T.panel, BorderSizePixel = 0, ZIndex = 7}, foot)
-        corner(ringA, FULL)
-        wspin(new("UIGradient", {Color = RING2}, stroke(ringA, WHITE, 1.6, 0)), 4)
-        regSide(ringA, {Position = UDim2.fromOffset(6, 6)}, {Position = UDim2.fromOffset(9, 6)})
-        local fav = new("ImageLabel", {Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 8}, ringA)
-        corner(fav, FULL)
-        task.spawn(function()
-            local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
-            if ok and fav.Parent then fav.Image = img end
-        end)
-        local od = new("Frame", {Size = UDim2.fromOffset(9, 9), Position = UDim2.fromOffset(31, 31), BackgroundColor3 = T.ok, BorderSizePixel = 0, ZIndex = 9}, foot)
-        corner(od, FULL)
-        stroke(od, T.panel, 2, 0)
-        regSide(od, {Position = UDim2.fromOffset(31, 31)}, {Position = UDim2.fromOffset(34, 31)})
-        local fnL = label(foot, {Text = pl.DisplayName, Position = UDim2.fromOffset(48, 8), Size = UDim2.new(1, -54, 0, 15), Font = Enum.Font.GothamBold, TextSize = 11, ZIndex = 7})
-        regSide(fnL, {TextTransparency = 0}, {TextTransparency = 1})
-        local fsL = label(foot, {Text = "Online  •  v"..VERSION, Position = UDim2.fromOffset(48, 24), Size = UDim2.new(1, -54, 0, 12), TextSize = 9, TextColor3 = Color3.fromRGB(116, 110, 156), ZIndex = 7})
-        regSide(fsL, {TextTransparency = 0}, {TextTransparency = 1})
-    end
+    local tabList = new("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.None, ScrollingDirection = Enum.ScrollingDirection.X, ZIndex = 6}, bar)
 
-    local pill = new("Frame", {Size = UDim2.new(1, -12, 0, TAB_H), Position = UDim2.fromOffset(6, 6), BackgroundColor3 = WHITE, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 5}, tabList)
+    -- pill aktif (meregang saat pindah, lalu mengendap)
+    local pill = new("Frame", {Name = "Pill", Position = UDim2.fromOffset(PADX, TAB_Y), Size = UDim2.fromOffset(TAB_W, TAB_H2), BackgroundColor3 = WHITE, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 5}, tabList)
     corner(pill, 13) stroke(pill, ACCENT, 1.2, 0.3)
     grad(pill, T.accent, T.accent2, 0)
     do
-        local rim = new("Frame", {Position = UDim2.fromOffset(-4, -4), Size = UDim2.new(1, 8, 1, 8), BackgroundColor3 = T.accent, BackgroundTransparency = 0.9, BorderSizePixel = 0, ZIndex = 4}, pill)
-        corner(rim, 17)
-        local ind = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(3, 22), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6}, pill)
+        local rim = new("Frame", {Position = UDim2.fromOffset(-3, -3), Size = UDim2.new(1, 6, 1, 6), BackgroundColor3 = T.accent, BackgroundTransparency = 0.9, BorderSizePixel = 0, ZIndex = 4}, pill)
+        corner(rim, 16)
+        wloop(rim, 1.5, {BackgroundTransparency = 0.96})
+        local ind = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.fromOffset(16, 3), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 7}, pill)
         corner(ind, FULL)
-        grad(ind, T.cyan, T.accent, 90)
+        grad(ind, T.cyan, T.accent, 0)
     end
 
-    local content = new("Frame", {Position = UDim2.new(0, sideW + 20, 0, TOPY), Size = UDim2.new(1, -(sideW + 30), 1, -(TOPY + 10)), BackgroundColor3 = T.panel, BackgroundTransparency = 0.25, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 5}, win)
+    -- panah + pudar di ujung kiri/kanan (muncul otomatis kalau tab lebih lebar dari bar, bisa diklik)
+    local function mkFade(left)
+        local btn = new("TextButton", {Name = left and "FadeL" or "FadeR", AnchorPoint = Vector2.new(left and 0 or 1, 0), Position = UDim2.new(left and 0 or 1, 0, 0, 0), Size = UDim2.new(0, 34, 1, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Visible = false, ZIndex = 9}, bar)
+        local bg = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.panel, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, btn)
+        corner(bg, 16)
+        new("UIGradient", {Transparency = NumberSequence.new(0.05, 1), Rotation = left and 0 or 180}, bg)
+        local ar = label(btn, {Text = left and "‹" or "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(left and 2 or -2, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 20, TextColor3 = T.text, TextTransparency = 1, TextTruncate = Enum.TextTruncate.None, ZIndex = 10})
+        return {btn = btn, bg = bg, ar = ar}
+    end
+    local fadeL, fadeR = mkFade(true), mkFade(false)
+    local showL, showR = false, false
+
+    local function viewW()
+        return tabList.AbsoluteWindowSize.X / math.max(rootScale.Scale * winScale.Scale, 0.01)
+    end
+    local function setFade(f, on)
+        if on then f.btn.Visible = true end
+        play(f.bg, {BackgroundTransparency = on and 0 or 1}, 0.25)
+        play(f.ar, {TextTransparency = on and 0.1 or 1}, 0.25)
+        if not on then
+            task.delay(0.28, function()
+                if f.btn.Parent and f.bg.BackgroundTransparency >= 0.99 then f.btn.Visible = false end
+            end)
+        end
+    end
+    local function updFade()
+        local view = viewW()
+        if view < 1 then return end
+        local cw, cx = tabList.CanvasSize.X.Offset, tabList.CanvasPosition.X
+        local l, r = cx > 3, cx < cw - view - 3
+        if l ~= showL then showL = l setFade(fadeL, l) end
+        if r ~= showR then showR = r setFade(fadeR, r) end
+    end
+    tabList:GetPropertyChangedSignal("CanvasPosition"):Connect(updFade)
+    tabList:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(updFade)
+    tabList:GetPropertyChangedSignal("CanvasSize"):Connect(updFade)
+
+    local function scrollBy(dir)
+        local view = viewW()
+        local cw = tabList.CanvasSize.X.Offset
+        local nx = math.clamp(tabList.CanvasPosition.X + dir * view * 0.6, 0, math.max(0, cw - view))
+        play(tabList, {CanvasPosition = Vector2.new(nx, 0)}, 0.4, Enum.EasingStyle.Quint)
+    end
+    fadeL.btn.MouseButton1Click:Connect(function() sfx("tick") scrollBy(-1) end)
+    fadeR.btn.MouseButton1Click:Connect(function() sfx("tick") scrollBy(1) end)
+
+    -- tab aktif otomatis digeser ke tengah kalau belum kelihatan penuh
+    local function revealTab(t)
+        local view = viewW()
+        if view < 1 then return end
+        local cw, cx = tabList.CanvasSize.X.Offset, tabList.CanvasPosition.X
+        if t.x - 6 >= cx and t.x + TAB_W + 6 <= cx + view then return end
+        local nx = math.clamp(t.x + TAB_W / 2 - view / 2, 0, math.max(0, cw - view))
+        play(tabList, {CanvasPosition = Vector2.new(nx, 0)}, 0.45, Enum.EasingStyle.Quint)
+    end
+
+    local content = new("Frame", {Position = UDim2.fromOffset(10, CONT_Y), Size = UDim2.new(1, -20, 1, -(CONT_Y + 10)), BackgroundColor3 = T.panel, BackgroundTransparency = 0.25, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 5}, win)
     corner(content, 18) stroke(content, T.stroke, 1, 0.65) regTrans(content, 0.1)
-    regSide(content, {Position = UDim2.new(0, SIDE_W + 20, 0, TOPY), Size = UDim2.new(1, -(SIDE_W + 30), 1, -(TOPY + 10))}, {Position = UDim2.new(0, SIDE_MIN + 20, 0, TOPY), Size = UDim2.new(1, -(SIDE_MIN + 30), 1, -(TOPY + 10))})
 
     local rh = new("Frame", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -28, 1, -28), BackgroundTransparency = 1, Active = true, ZIndex = 30}, win)
     do
@@ -1334,46 +1348,30 @@ function SORU:CreateWindow(C)
         rh.MouseLeave:Connect(function() play(rhL, {TextColor3 = Color3.fromRGB(100, 94, 130)}, 0.2) end)
     end
 
-    -- lipat / buka sidebar: semua elemen terdaftar di sideFx bergerak bersamaan
-    local function setSide(c, animate)
-        sideCollapsed = c and true or false
-        sideW = sideCollapsed and SIDE_MIN or SIDE_W
-        Data.Features["SideCollapsed"] = sideCollapsed
-        for _, e in ipairs(sideFx) do
-            local props = sideCollapsed and e[3] or e[2]
-            if animate then
-                play(e[1], props, 0.4, Enum.EasingStyle.Quint)
-            else
-                for k, v in pairs(props) do e[1][k] = v end
-            end
-        end
-        if animate then
-            sfx(sideCollapsed and "collapse" or "expand")
-            persist()
-        end
-    end
-    colB.MouseButton1Click:Connect(function() setSide(not sideCollapsed, true) end)
-
-    -- tooltip nama tab (hanya muncul saat sidebar dilipat)
+    -- tooltip nama tab (muncul di bawah icon)
     local showTip, hideTip
     do
-        local tipF = new("Frame", {Name = "SideTip", AnchorPoint = Vector2.new(0, 0.5), Size = UDim2.fromOffset(80, 28), BackgroundColor3 = Color3.fromRGB(26, 23, 44), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 95}, root)
+        local tipF = new("Frame", {Name = "TabTip", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(80, 26), BackgroundColor3 = Color3.fromRGB(26, 23, 44), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 95}, root)
         corner(tipF, 10)
         local tipS = stroke(tipF, T.accent, 1, 1)
         local tipL = label(tipF, {Text = "", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, TextTransparency = 1, TextTruncate = Enum.TextTruncate.None, ZIndex = 96})
         local tipTok = 0
-        showTip = function(b, name)
-            if not sideCollapsed then return end
+        showTip = function(b, text)
             tipTok = tipTok + 1
+            local tok = tipTok
             local rs = math.max(rootScale.Scale, 0.01)
             local ap, asz = b.AbsolutePosition, b.AbsoluteSize
-            tipL.Text = name
-            tipF.Size = UDim2.fromOffset(textW(name, 12) + 26, 28)
-            tipF.Position = UDim2.fromOffset((ap.X + asz.X) / rs + 8, (ap.Y + asz.Y / 2) / rs)
+            local w = textW(text, 12) + 26
+            local x = math.clamp((ap.X + asz.X / 2) / rs, w / 2 + 6, virt.X - w / 2 - 6)
+            local y = (ap.Y + asz.Y) / rs + 8
+            tipL.Text = text
+            tipF.Size = UDim2.fromOffset(w, 26)
+            if not tipF.Visible then tipF.Position = UDim2.fromOffset(x, y + 8) end
             tipF.Visible = true
-            play(tipF, {BackgroundTransparency = 0.05}, 0.15)
+            play(tipF, {Position = UDim2.fromOffset(x, y), BackgroundTransparency = 0.05}, 0.25, Enum.EasingStyle.Back)
             play(tipS, {Transparency = 0.35}, 0.15)
             play(tipL, {TextTransparency = 0}, 0.15)
+            task.delay(2.2, function() if tok == tipTok then hideTip() end end)
         end
         hideTip = function()
             tipTok = tipTok + 1
@@ -1385,14 +1383,20 @@ function SORU:CreateWindow(C)
         end
     end
 
-    -- animasi masuk: header turun, sidebar + konten menyusul, glint menyapu window
+    -- animasi masuk: header turun, tab bar + konten menyusul, icon tab muncul berurutan, glint menyapu window
     openFx = function()
-        side.Position = UDim2.fromOffset(-30, TOPY)
-        content.Position = UDim2.new(0, sideW + 50, 0, TOPY)
+        bar.Position = UDim2.fromOffset(10, TOPY - 14)
+        content.Position = UDim2.fromOffset(10, CONT_Y + 34)
         tb.Position = UDim2.fromOffset(0, -16)
         play(tb, {Position = UDim2.fromOffset(0, 0)}, 0.6, Enum.EasingStyle.Back)
-        play(side, {Position = UDim2.fromOffset(10, TOPY)}, 0.75, Enum.EasingStyle.Back)
-        task.delay(0.07, function() play(content, {Position = UDim2.new(0, sideW + 20, 0, TOPY)}, 0.75, Enum.EasingStyle.Back) end)
+        play(bar, {Position = UDim2.fromOffset(10, TOPY)}, 0.75, Enum.EasingStyle.Back)
+        task.delay(0.07, function() play(content, {Position = UDim2.fromOffset(10, CONT_Y)}, 0.75, Enum.EasingStyle.Back) end)
+        for _, t in pairs(tabs) do
+            t.bsc.Scale = 0
+            task.delay(0.2 + math.min(t.index - 1, 12) * 0.05, function()
+                if t.badge.Parent then play(t.bsc, {Scale = 1}, 0.5, Enum.EasingStyle.Back) end
+            end)
+        end
         local gl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 110, 2.4, 0), Position = UDim2.new(-0.3, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 40}, win)
         new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.88), NumberSequenceKeypoint.new(1, 1)}}, gl)
         task.delay(0.25, function() play(gl, {Position = UDim2.new(1.3, 0, 0.5, 0)}, 0.9, Enum.EasingStyle.Quad) end)
@@ -1442,17 +1446,25 @@ function SORU:CreateWindow(C)
     local tabOrder = 0
     local pillTok = 0
 
-    local function movePill(y)
+        local function movePill(x)
         pillTok = pillTok + 1
         local tok = pillTok
-        local y0 = pill.Position.Y.Offset
-        local top = math.min(y0, y)
-        local span = math.abs(y - y0) + TAB_H
-        play(pill, {Position = UDim2.fromOffset(6, top), Size = UDim2.new(1, -12, 0, span)}, 0.18, Enum.EasingStyle.Quad)
+        local x0 = pill.Position.X.Offset
+        local left = math.min(x0, x)
+        local span = math.abs(x - x0) + TAB_W
+        play(pill, {Position = UDim2.fromOffset(left, TAB_Y), Size = UDim2.fromOffset(span, TAB_H2)}, 0.18, Enum.EasingStyle.Quad)
         task.delay(0.16, function()
             if tok ~= pillTok then return end
-            play(pill, {Position = UDim2.fromOffset(6, y), Size = UDim2.new(1, -12, 0, TAB_H)}, 0.38, Enum.EasingStyle.Back)
+            play(pill, {Position = UDim2.fromOffset(x, TAB_Y), Size = UDim2.fromOffset(TAB_W, TAB_H2)}, 0.38, Enum.EasingStyle.Back)
         end)
+    end
+
+    local function tint(t, on)
+        if t.glyph:IsA("TextLabel") then
+            play(t.glyph, {TextColor3 = on and T.text or DIM}, 0.2)
+        else
+            play(t.glyph, {ImageTransparency = on and 0 or 0.3}, 0.2)
+        end
     end
 
     local function switchTab(n)
@@ -1464,77 +1476,89 @@ function SORU:CreateWindow(C)
         cur = n
         sfx("tab")
         if old then
-            play(old.label, {TextColor3 = DIM}, 0.2)
+            tint(old, false)
             play(old.badge, {BackgroundTransparency = 0.72}, 0.2)
             play(old.bst, {Transparency = 0.6}, 0.2)
-            play(old.dot, {BackgroundTransparency = 1}, 0.2)
-            play(old.frame, {GroupTransparency = 1, Position = UDim2.new(0.5, 0, 0.5, -14 * dir)}, 0.2)
+            play(old.frame, {GroupTransparency = 1, Position = UDim2.new(0.5, -24 * dir, 0.5, 0)}, 0.2)
             play(old.zoom, {Scale = 0.96}, 0.2)
             task.delay(0.21, function() if cur ~= oldName then old.frame.Visible = false end end)
         end
+        -- halaman baru masuk dari samping (searah urutan tab)
         ne.frame.Visible = true
         ne.frame.GroupTransparency = 1
-        ne.frame.Position = UDim2.new(0.5, 0, 0.5, 22 * dir)
+        ne.frame.Position = UDim2.new(0.5, 30 * dir, 0.5, 0)
         ne.zoom.Scale = 1.035
         play(ne.frame, {GroupTransparency = 0, Position = UDim2.fromScale(0.5, 0.5)}, 0.5, Enum.EasingStyle.Quint)
         play(ne.zoom, {Scale = 1}, 0.55, Enum.EasingStyle.Quint)
         entrance(ne.scroll)
-        play(ne.label, {TextColor3 = T.text}, 0.2)
+        tint(ne, true)
         play(ne.badge, {BackgroundTransparency = 0.1}, 0.2)
         play(ne.bst, {Transparency = 0.2}, 0.2)
-        play(ne.dot, {BackgroundTransparency = 0}, 0.2)
         setCrumb(n)
         play(ne.btn, {BackgroundTransparency = 1}, 0.1)
+        -- icon memantul + cincin
+        ne.bsc.Scale = 0.65
+        play(ne.bsc, {Scale = 1}, 0.6, Enum.EasingStyle.Back)
         ne.badge.Rotation = -28
         play(ne.badge, {Rotation = 0}, 0.7, Enum.EasingStyle.Elastic)
-        movePill(ne.y)
+        local ring = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(28, 28), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 8}, ne.btn)
+        corner(ring, 12)
+        local rst = stroke(ring, T.cyan, 1.5, 0.2)
+        play(ring, {Size = UDim2.fromOffset(46, 46)}, 0.5)
+        play(rst, {Transparency = 1}, 0.5)
+        task.delay(0.55, function() ring:Destroy() end)
+        movePill(ne.x)
+        revealTab(ne)
     end
 
-    local tabY, lastGroup = 6, nil   -- kursor vertikal berikutnya di sidebar + grup terakhir
+    local tabX, lastGroup = PADX, nil
     local function createTab(name, active, icon, group)
         tabOrder = tabOrder + 1
         local idx = tabOrder
-        -- header grup (opsional): garis pemisah + judul kecil, hilang saat sidebar dilipat
+        -- ganti grup = garis pemisah vertikal tipis
         if group and group ~= lastGroup then
             lastGroup = group
-            local ln = new("Frame", {Position = UDim2.fromOffset(16, tabY + 2), Size = UDim2.new(1, -32, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6}, tabList)
-            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(1, 1)}}, ln)
-            local gh = label(tabList, {Text = string.upper(tostring(group)), Position = UDim2.fromOffset(18, tabY + 10), Size = UDim2.new(1, -30, 0, 12), Font = Enum.Font.GothamBold, TextSize = 9, TextColor3 = Color3.fromRGB(116, 110, 156), ZIndex = 6})
-            regSide(gh, {TextTransparency = 0}, {TextTransparency = 1})
-            tabY = tabY + 30
+            if tabX > PADX then
+                tabX = tabX + 5
+                local ln = new("Frame", {Position = UDim2.fromOffset(tabX, 14), Size = UDim2.fromOffset(1, 22), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6}, tabList)
+                new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 1)}, Rotation = 90}, ln)
+                tabX = tabX + 10
+            end
         end
-        local y = tabY
-        tabY = tabY + TAB_P
-        local b = new("TextButton", {Name = name, Size = UDim2.new(1, -12, 0, TAB_H), Position = UDim2.fromOffset(6, y), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 6}, tabList)
+        local x = tabX
+        tabX = tabX + TAB_W + TAB_GAP
+        local g = group or lastGroup
+        local tipText = g and (tostring(g).."  ›  "..tostring(name)) or tostring(name)
+
+        local b = new("TextButton", {Name = name, Size = UDim2.fromOffset(TAB_W, TAB_H2), Position = UDim2.fromOffset(x, TAB_Y), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 6}, tabList)
         corner(b, 13)
-        local badge = new("Frame", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(0, 8, 0.5, -14), BackgroundColor3 = WHITE, BackgroundTransparency = active and 0.1 or 0.72, BorderSizePixel = 0, ZIndex = 7}, b)
+        local badge = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = WHITE, BackgroundTransparency = active and 0.1 or 0.72, BorderSizePixel = 0, ZIndex = 7}, b)
         corner(badge, 10)
         grad(badge, T.accent, T.accent2, 45)
         local bst = stroke(badge, T.accent, 1, active and 0.2 or 0.6)
-        -- ikon: huruf / simbol, atau asset gambar (rbxassetid://... / angka id)
+        local bsc = new("UIScale", {Scale = 1}, badge)
+
+        -- ikon: huruf / simbol, atau asset gambar (rbxassetid / angka id / url)
         local ic = icon and tostring(icon) or nil
-local asset = nil
-if ic then
-    if ic:match("^rbxasset") then
-        asset = ic
-    elseif ic:match("^%d%d%d+$") then
-        asset = "rbxassetid://"..ic
-    elseif ic:match("^https?://") then
-        asset = srcAsset(ic) -- unduh, cache ke folder SORU_HUB, balikan content id
-    end
-end
-        if asset then
-            new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Image = asset, ZIndex = 8}, badge)
-        else
-            label(badge, {Text = ic or string.upper(string.sub(name, 1, 1)), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 13, ZIndex = 8, TextTruncate = Enum.TextTruncate.None})
+        local asset = nil
+        if ic then
+            if ic:match("^rbxasset") then
+                asset = ic
+            elseif ic:match("^%d%d%d+$") then
+                asset = "rbxassetid://"..ic
+            elseif ic:match("^https?://") then
+                asset = srcAsset(ic)
+            end
         end
-        local tx = label(b, {Text = name, Position = UDim2.fromOffset(46, 0), Size = UDim2.new(1, -66, 1, 0), Font = Enum.Font.GothamSemibold, TextColor3 = active and T.text or DIM, ZIndex = 7})
-        local dotR = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = T.cyan, BackgroundTransparency = active and 0 or 1, BorderSizePixel = 0, ZIndex = 7}, b)
-        corner(dotR, FULL)
-        regSide(tx, {TextTransparency = 0}, {TextTransparency = 1})
-        regSide(badge, {Position = UDim2.new(0, 8, 0.5, -14)}, {Position = UDim2.new(0, 12, 0.5, -14)})
-        regSide(dotR, {Size = UDim2.fromOffset(6, 6)}, {Size = UDim2.fromOffset(0, 0)})
-        tabList.CanvasSize = UDim2.fromOffset(0, tabY + 6)
+        local glyph
+        if asset then
+            glyph = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Image = asset, ImageTransparency = active and 0 or 0.3, ZIndex = 8}, badge)
+        else
+            glyph = label(badge, {Text = ic or string.upper(string.sub(name, 1, 1)), Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = active and T.text or DIM, ZIndex = 8, TextTruncate = Enum.TextTruncate.None})
+        end
+
+        tabList.CanvasSize = UDim2.fromOffset(tabX + PADX - TAB_GAP, 0)
+        task.defer(updFade)
 
         local page = new("CanvasGroup", {Name = name, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = active, GroupTransparency = active and 0 or 1, ZIndex = 6}, content)
         local zoom = new("UIScale", {Scale = 1}, page)
@@ -1542,12 +1566,13 @@ end
         new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
         new("UIPadding", {PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 16), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14)}, scroll)
 
-        tabs[name] = {btn = b, frame = page, scroll = scroll, label = tx, badge = badge, bst = bst, dot = dotR, index = idx, y = y, zoom = zoom}
+        tabs[name] = {btn = b, frame = page, scroll = scroll, glyph = glyph, badge = badge, bst = bst, bsc = bsc, index = idx, x = x, zoom = zoom}
+
         b.MouseEnter:Connect(function()
-            showTip(b, name)
+            showTip(b, tipText)
             if cur ~= name then
                 play(b, {BackgroundTransparency = 0.9}, 0.15)
-                play(tx, {Position = UDim2.fromOffset(50, 0)}, 0.2)
+                play(bsc, {Scale = 1.14}, 0.25, Enum.EasingStyle.Back)
                 badge.Rotation = -16
                 play(badge, {Rotation = 0}, 0.6, Enum.EasingStyle.Elastic)
             end
@@ -1555,12 +1580,11 @@ end
         b.MouseLeave:Connect(function()
             hideTip()
             play(b, {BackgroundTransparency = 1}, 0.2)
-            play(tx, {Position = UDim2.fromOffset(46, 0)}, 0.25)
+            play(bsc, {Scale = 1}, 0.25)
         end)
         b.MouseButton1Click:Connect(function() switchTab(name) end)
         return scroll
     end
-
     ------------------------------------------------------------------
     -- KOMPONEN
     ------------------------------------------------------------------
