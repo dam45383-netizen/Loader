@@ -257,41 +257,171 @@ local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
 local RING2 = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.accent)}
 
--- preset warna: {accent, accent2, cyan, pink}
-local THEMES = {
-    -- bawaan
-    Violet   = {Color3.fromRGB(145, 96, 255),  Color3.fromRGB(94, 106, 255),  Color3.fromRGB(56, 200, 255),  Color3.fromRGB(245, 80, 165)},
-    Ocean    = {Color3.fromRGB(40, 160, 255),  Color3.fromRGB(56, 112, 255),  Color3.fromRGB(45, 230, 205),  Color3.fromRGB(120, 130, 255)},
-    Crimson  = {Color3.fromRGB(255, 70, 100),  Color3.fromRGB(220, 38, 80),   Color3.fromRGB(255, 160, 70),  Color3.fromRGB(255, 90, 170)},
-    Emerald  = {Color3.fromRGB(45, 212, 150),  Color3.fromRGB(16, 170, 120),  Color3.fromRGB(60, 190, 255),  Color3.fromRGB(190, 235, 80)},
-    Sunset   = {Color3.fromRGB(255, 150, 60),  Color3.fromRGB(240, 70, 90),   Color3.fromRGB(255, 205, 70),  Color3.fromRGB(255, 90, 170)},
-    -- baru
-    Rose     = {Color3.fromRGB(255, 105, 150), Color3.fromRGB(230, 60, 120),  Color3.fromRGB(255, 190, 120), Color3.fromRGB(200, 110, 255)},
-    Sakura   = {Color3.fromRGB(255, 150, 190), Color3.fromRGB(220, 110, 210), Color3.fromRGB(150, 210, 255), Color3.fromRGB(255, 200, 120)},
-    Mint     = {Color3.fromRGB(80, 230, 190),  Color3.fromRGB(40, 190, 170),  Color3.fromRGB(130, 200, 255), Color3.fromRGB(210, 240, 110)},
-    Aqua     = {Color3.fromRGB(30, 210, 230),  Color3.fromRGB(40, 150, 235),  Color3.fromRGB(120, 255, 210), Color3.fromRGB(170, 140, 255)},
-    Ice      = {Color3.fromRGB(130, 200, 255), Color3.fromRGB(100, 140, 255), Color3.fromRGB(200, 235, 255), Color3.fromRGB(190, 160, 255)},
-    Sky      = {Color3.fromRGB(70, 170, 255),  Color3.fromRGB(50, 120, 230),  Color3.fromRGB(130, 230, 255), Color3.fromRGB(255, 170, 200)},
-    Midnight = {Color3.fromRGB(90, 110, 255),  Color3.fromRGB(60, 70, 200),   Color3.fromRGB(80, 200, 255),  Color3.fromRGB(170, 100, 255)},
-    Gold     = {Color3.fromRGB(250, 190, 40),  Color3.fromRGB(235, 140, 30),  Color3.fromRGB(255, 230, 120), Color3.fromRGB(255, 120, 90)},
-    Lava     = {Color3.fromRGB(255, 95, 50),   Color3.fromRGB(225, 45, 45),   Color3.fromRGB(255, 180, 60),  Color3.fromRGB(255, 80, 140)},
-    Toxic    = {Color3.fromRGB(160, 240, 40),  Color3.fromRGB(90, 200, 60),   Color3.fromRGB(230, 255, 80),  Color3.fromRGB(60, 220, 170)},
-    Cyber    = {Color3.fromRGB(255, 40, 200),  Color3.fromRGB(140, 60, 255),  Color3.fromRGB(40, 240, 255),  Color3.fromRGB(255, 220, 50)},
-    Orchid   = {Color3.fromRGB(210, 110, 255), Color3.fromRGB(160, 80, 230),  Color3.fromRGB(120, 170, 255), Color3.fromRGB(255, 120, 200)},
-    Berry    = {Color3.fromRGB(190, 60, 170),  Color3.fromRGB(130, 50, 200),  Color3.fromRGB(255, 110, 170), Color3.fromRGB(90, 170, 255)},
-    Forest   = {Color3.fromRGB(80, 190, 100),  Color3.fromRGB(40, 140, 90),   Color3.fromRGB(190, 220, 90),  Color3.fromRGB(80, 200, 200)},
-    Coffee   = {Color3.fromRGB(210, 150, 100), Color3.fromRGB(170, 110, 70),  Color3.fromRGB(240, 200, 140), Color3.fromRGB(230, 120, 110)},
-    Peach    = {Color3.fromRGB(255, 160, 120), Color3.fromRGB(245, 110, 100), Color3.fromRGB(255, 215, 150), Color3.fromRGB(240, 130, 180)},
-    Steel    = {Color3.fromRGB(120, 150, 190), Color3.fromRGB(80, 110, 160),  Color3.fromRGB(150, 220, 240), Color3.fromRGB(200, 170, 255)},
-    Mono     = {Color3.fromRGB(190, 194, 214), Color3.fromRGB(120, 126, 160), Color3.fromRGB(235, 238, 250), Color3.fromRGB(150, 170, 255)},
-}
-local THEME_ORDER = {
-    "Violet", "Ocean", "Crimson", "Emerald", "Sunset",
-    "Rose", "Sakura", "Mint", "Aqua", "Ice", "Sky", "Midnight",
-    "Gold", "Lava", "Toxic", "Cyber", "Orchid", "Berry",
-    "Forest", "Coffee", "Peach", "Steel", "Mono",
-}
-local function applyPalette(name)
+-- preset warna: {accent, accent2, cyan, pink}  (126 tema, ditulis dengan hex)
+local THEMES, THEME_ORDER = {}, {}
+do
+    local function hx(s)
+        s = s:gsub("#", "")
+        return Color3.fromRGB(tonumber(s:sub(1, 2), 16), tonumber(s:sub(3, 4), 16), tonumber(s:sub(5, 6), 16))
+    end
+    local function add(name, a, b, c, d)
+        THEMES[name] = {hx(a), hx(b), hx(c), hx(d)}
+        THEME_ORDER[#THEME_ORDER + 1] = name
+    end
+
+    -- bawaan + sebelumnya
+    add("Violet", "9160FF", "5E6AFF", "38C8FF", "F550A5")
+    add("Ocean", "28A0FF", "3870FF", "2DE6CD", "7882FF")
+    add("Crimson", "FF4664", "DC2650", "FFA046", "FF5AAA")
+    add("Emerald", "2DD496", "10AA78", "3CBEFF", "BEEB50")
+    add("Sunset", "FF963C", "F0465A", "FFCD46", "FF5AAA")
+    add("Rose", "FF6996", "E63C78", "FFBE78", "C86EFF")
+    add("Sakura", "FF96BE", "DC6ED2", "96D2FF", "FFC878")
+    add("Mint", "50E6BE", "28BEAA", "82C8FF", "D2F06E")
+    add("Aqua", "1ED2E6", "2896EB", "78FFD2", "AA8CFF")
+    add("Ice", "82C8FF", "648CFF", "C8EBFF", "BEA0FF")
+    add("Sky", "46AAFF", "3278E6", "82E6FF", "FFAAC8")
+    add("Midnight", "5A6EFF", "3C46C8", "50C8FF", "AA64FF")
+    add("Gold", "FABE28", "EB8C1E", "FFE678", "FF785A")
+    add("Lava", "FF5F32", "E12D2D", "FFB43C", "FF508C")
+    add("Toxic", "A0F028", "5AC83C", "E6FF50", "3CDCAA")
+    add("Cyber", "FF28C8", "8C3CFF", "28F0FF", "FFDC32")
+    add("Orchid", "D26EFF", "A050E6", "78AAFF", "FF78C8")
+    add("Berry", "BE3CAA", "8232C8", "FF6EAA", "5AAAFF")
+    add("Forest", "50BE64", "288C5A", "BEDC5A", "50C8C8")
+    add("Coffee", "D29664", "AA6E46", "F0C88C", "E6786E")
+    add("Peach", "FFA078", "F56E64", "FFD796", "F082B4")
+    add("Steel", "7896BE", "506EA0", "96DCF0", "C8AAFF")
+    add("Mono", "BEC2D6", "787EA0", "EBEEFA", "96AAFF")
+
+    -- merah & oranye
+    add("Ruby", "E0314B", "B3203F", "FF8A5C", "FF5FA2")
+    add("Cherry", "F2385A", "C2184B", "FFA07A", "FF6FB5")
+    add("Blood", "D61F2C", "9E1220", "FF6B4A", "E8457A")
+    add("Coral", "FF6F61", "F2496B", "FFC27A", "E96AD0")
+    add("Tangerine", "FF8A1F", "F25C05", "FFC93C", "FF4F7B")
+    add("Amber", "FFB000", "E08700", "FFE066", "FF6B3D")
+    add("Mango", "FFA62B", "FF6F3C", "FFD470", "F05C9C")
+    add("Ember", "FF7A18", "E0401C", "FFD04A", "FF3D7F")
+    add("Flame", "FF5E2B", "FF2E4F", "FFB347", "FF7EB6")
+    add("Rust", "C8623A", "9A4326", "F0B26B", "D9567A")
+    add("Copper", "D98550", "B0643A", "F5C98E", "E0607E")
+
+    -- kuning & krem
+    add("Lemon", "F5E34A", "D9B91E", "FFF59A", "8DE07A")
+    add("Honey", "F2B84B", "D98E2B", "FFE19A", "F08A6B")
+    add("Sand", "E3C48A", "BF9A5E", "F5E6C0", "D9887A")
+
+    -- hijau
+    add("Lime", "B6F03C", "7CCB2B", "E4FF7A", "3DE0A0")
+    add("Venom", "7DFF4D", "3DC21E", "C8FF3D", "18E0A8")
+    add("Jade", "2FBF8F", "1F8F6B", "7FE3C2", "6AA8FF")
+    add("Pine", "2E8B63", "1F6B4A", "8FD0A0", "4FB7C9")
+    add("Moss", "8DB255", "5F8A3A", "C9DE8A", "6FBF9B")
+    add("Sage", "9CC5A1", "6F9F7E", "D4E8C2", "7FB7C4")
+    add("Clover", "4CC764", "2E9E4B", "A6E86B", "3AC9C0")
+    add("Matcha", "A7D676", "78B04A", "DDF0A8", "7ECFA6")
+    add("Spring", "7EE36B", "3FC46B", "D2F57A", "4FD8E0")
+    add("Kiwi", "9BD44A", "5FA82E", "D6F27A", "4FD0B0")
+    add("Seafoam", "5FE0B7", "2FB39A", "A8F0DC", "6EC1F0")
+    add("Matrix", "00FF66", "00B347", "7CFFB2", "00E5FF")
+
+    -- teal & cyan
+    add("Teal", "14B8A6", "0E8F83", "5EEAD4", "60A5FA")
+    add("Lagoon", "21C5C5", "1790B8", "7CF0E6", "8E9BFF")
+    add("Glacier", "7FDBE8", "4FA3D9", "D3F6FB", "A9A2F5")
+    add("Cyan", "00D8FF", "0094E0", "7DF9FF", "FF4FD8")
+    add("Tidal", "2AA7C9", "1D6FA3", "6FE0D2", "F28AB2")
+    add("Deepsea", "1B8FB5", "12608F", "4FD1C5", "7A8CFF")
+    add("Peacock", "1AA6A0", "126F8F", "66E0A8", "A66CFF")
+    add("Reef", "FF7F6B", "1FB8C9", "FFD36B", "8F7CF0")
+    add("Tropical", "1FD6A2", "FF6B8B", "FFC93C", "2EB8F5")
+
+    -- biru
+    add("Cobalt", "3D6BFF", "2447D6", "6FA8FF", "B06BFF")
+    add("Royal", "4B5CF0", "3037C4", "7AA2FF", "C76BF0")
+    add("Sapphire", "2F6FED", "1B49B8", "5FC3FF", "8F7CFF")
+    add("Azure", "3AA0FF", "2272E0", "7FE0FF", "FF7FB0")
+    add("Denim", "5B84C4", "3F5F99", "9EC5F0", "C08FD6")
+    add("Navy", "3E5BC4", "28388F", "6FA8E8", "9A7BE0")
+    add("Indigo", "6366F1", "4338CA", "38BDF8", "E879F9")
+    add("Cornflower", "7C9CFF", "5577E6", "B7D0FF", "E6A0F5")
+    add("Electric", "2D7DFF", "1E3FFF", "00E0FF", "FF2DA8")
+    add("Blueberry", "5A6BE6", "3A3FA8", "8FA8FF", "C46BE0")
+
+    -- ungu
+    add("Grape", "9B4DE0", "6A2FB8", "D28CFF", "FF6FB5")
+    add("Amethyst", "9966CC", "6F3FA3", "C9A0F0", "F081C8")
+    add("Lavender", "B49CFF", "8E78E6", "E1D6FF", "FFA6D9")
+    add("Wisteria", "A78BFA", "7C6AD8", "D9CCFF", "F5A8D0")
+    add("Plum", "A64D9E", "7A2F75", "E08CC6", "7C8CFF")
+    add("Mulberry", "8E3A8C", "5E2460", "D07FC9", "6F96E6")
+    add("Ultraviolet", "8B3DFF", "5A1FE0", "C77DFF", "3DE0FF")
+    add("Twilight", "7C6CF2", "4F3FBF", "5ECBF0", "F28FC0")
+    add("Dusk", "8F7AD6", "5E4FA3", "7FBDE0", "F0A0B8")
+    add("Galaxy", "6D4BFF", "2F1FA8", "00C2FF", "B05CFF")
+    add("Nebula", "7B5CFF", "4A2FBF", "46D9FF", "FF5CC2")
+    add("Cosmos", "5B4FE0", "2A2490", "4FC8F0", "E05CC8")
+    add("Vapor", "C084FC", "818CF8", "7DD3FC", "F0ABFC")
+
+    -- pink
+    add("Bubblegum", "FF7EC8", "E255A8", "7FD8FF", "FFB8E0")
+    add("Flamingo", "FF6FA8", "E5427F", "FFA77A", "FFB0C8")
+    add("Candy", "FF5FA8", "C23BD6", "5FE0FF", "FFD84A")
+    add("Blush", "F7A8B8", "E07A96", "C9A7F0", "FFD9E0")
+    add("HotPink", "FF2E93", "D6106F", "8C5CFF", "FF8CC6")
+    add("Raspberry", "D81B6A", "A30F52", "B06BE0", "FF6FA3")
+    add("Strawberry", "F2406A", "C01F4A", "8EDB7A", "FF8FA3")
+    add("Lychee", "FF9EB5", "E8738F", "B79CF0", "FFD6C2")
+    add("Cotton", "FFB3DE", "B8A3FF", "A3E6FF", "FFE0A3")
+    add("Magenta", "E52BC8", "A81F9E", "5AC8FF", "FF7AE5")
+
+    -- netral & gelap
+    add("Graphite", "8A93A8", "5C6478", "7EA6E8", "C5CCDC")
+    add("Slate", "7B8BA6", "55637E", "9C8CE0", "B4C2DA")
+    add("Silver", "C0C6D4", "8F97AB", "9FB4FF", "F0F2F8")
+    add("Obsidian", "6B5BD2", "3E3490", "3CB4E6", "D6478F")
+    add("Noir", "B8B8D0", "7A7A9A", "FF4D6D", "E8E8F5")
+    add("Carbon", "5FA8D3", "3C6E91", "E87D7D", "A8D8F0")
+
+    -- cokelat
+    add("Cocoa", "B5805A", "8A5A3C", "E0B88F", "D9707A")
+    add("Chocolate", "A0684A", "70402C", "D9A07A", "C45E6E")
+
+    -- alam & musim
+    add("Autumn", "E07B39", "B5502A", "F2C14E", "C7506A")
+    add("Winter", "8FB8E8", "5D8BC4", "DDEBFA", "B5A3E0")
+    add("Summer", "FFB830", "FF7A3D", "3DD6E0", "FF5C8A")
+    add("Aurora", "4DE8B0", "5C7CFA", "3DD6F5", "C26BFF")
+    add("Eclipse", "F2A33A", "5A3FC0", "FFD27A", "8A5CF0")
+    add("Sunrise", "FF9A5C", "FF5E7E", "FFD36B", "B879FF")
+    add("Horizon", "F28C5C", "C2527A", "FFC38A", "6C7CE0")
+    add("Watermelon", "FF4F6D", "2ECF7A", "FF9AAE", "9AF0B8")
+
+    -- retro & neon
+    add("Synthwave", "FF2E97", "7B2FF7", "2DE2E6", "F9C80E")
+    add("Retrowave", "FF4FD8", "5B3FFF", "00E5FF", "FFB000")
+    add("Vaporwave", "FF71CE", "B967FF", "01CDFE", "05FFA1")
+    add("Outrun", "FF3F7F", "6A1FD6", "29D3FF", "FFD23F")
+    add("Tokyo", "F72585", "7209B7", "4CC9F0", "4361EE")
+    add("Miami", "FF5E9C", "22D3C5", "FFD166", "7B6CFF")
+    add("Cyberpunk", "FCEE21", "00E5FF", "FF2A6D", "9B5CFF")
+
+    -- palet populer
+    add("Dracula", "BD93F9", "6272A4", "8BE9FD", "FF79C6")
+    add("Nord", "88C0D0", "5E81AC", "8FBCBB", "B48EAD")
+    add("Gruvbox", "FABD2F", "D65D0E", "8EC07C", "FB4934")
+    add("Monokai", "A6E22E", "F92672", "66D9EF", "FD971F")
+    add("Solarized", "268BD2", "6C71C4", "2AA198", "D33682")
+    add("TokyoNight", "7AA2F7", "3D59A1", "7DCFFF", "BB9AF7")
+    add("Mocha", "CBA6F7", "89B4FA", "94E2D5", "F5C2E7")
+    add("RosePine", "C4A7E7", "31748F", "9CCFD8", "EBBCBA")
+    add("Everforest", "A7C080", "5C8A6E", "7FBBB3", "E67E80")
+    add("Ayu", "FFB454", "59C2FF", "95E6CB", "F07178")
+    add("OneDark", "61AFEF", "528BFF", "56B6C2", "C678DD")
+    add("Palenight", "82AAFF", "6A7BD8", "89DDFF", "C792EA")
+end
+    local function applyPalette(name)
     local p = THEMES[name]
     if not p then return nil end
     local old = {T.accent, T.accent2, T.cyan, T.pink}
