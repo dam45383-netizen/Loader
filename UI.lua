@@ -2738,45 +2738,103 @@ function SORU:CreateWindow(C)
         --   A:Toggle({...}) A:Slider({...}) A:Button({...}) A:Dropdown({...}) dst
         --   A:Expand() A:Collapse() A:SetOpen(bool) A:IsOpen()
         ----------------------------------------------------------------
+                ----------------------------------------------------------------
+        -- ACCORDION v2: sekali dibuka tetap terbuka (klik hanya bisa membuka)
+        --   local A = Tab:Accordion({Title = "Farm", Desc = "opsional", Open = false})
+        --   A:Toggle({...}) A:Slider({...}) A:Button({...}) A:Dropdown({...}) dst
+        --   A:Expand() A:Collapse() A:SetOpen(bool) A:IsOpen()
+        --   (Collapse / SetOpen(false) hanya bisa lewat script, klik user tidak bisa menutup)
+        ----------------------------------------------------------------
         function K:Accordion(o)
             o = o or {}
             local hasDesc = o.Desc ~= nil
-            local HEAD = hasDesc and 62 or 50
-            local PADT, PADB = 10, 14
+            local HEAD = hasDesc and 62 or 52
+            local PADT, PADB = 14, 16
+            local PILL_W = 84
+            local R = nested and 12 or 16
             local open, animating, tok = false, false, 0
-            local f, st, hf, fx = card(HEAD, false, "group")
+            local f, st, hf, fx, tile = card(HEAD, false, "group", math.floor((HEAD - ICN) / 2))
             f.ClipsDescendants = true
 
-            -- aksen header: gradien tipis dari kiri, muncul saat terbuka
-            local hglow = new("Frame", {Size = UDim2.new(1, 0, 0, HEAD), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
-            corner(hglow, nested and 12 or 16)
+            local function setP(inst, props, t)
+                if t and t > 0 then
+                    play(inst, props, t)
+                else
+                    for k, v in pairs(props) do inst[k] = v end
+                end
+            end
+
+            -- wash aksen di header, menyala saat terbuka
+            local hglow = new("Frame", {Name = "HeadGlow", Size = UDim2.new(1, 0, 0, HEAD), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            corner(hglow, R)
             new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0, 1)}, hglow)
 
-            local head = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, HEAD)}, f)
-            ripple(head)
-            spotlight(f, head)
-            fx.bindHover(head)
-            rowLabels(head, o, o.Title or "Accordion", 1, -118, HEAD, 2)
-            -- badge jumlah item + chevron bulat
-            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -46, 0.5, 0), Size = UDim2.fromOffset(26, 20), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 2}, head)
+            -- header
+            local head = new("Frame", {Name = "Head", Size = UDim2.new(1, 0, 0, HEAD), BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            local hit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1)}, head)
+            local tLbl, dLbl = rowLabels(head, o, o.Title or "Accordion", 1, -140, HEAD, 2)
+            if dLbl then
+                tLbl.Position = UDim2.fromOffset(TXL, 13)
+                dLbl.Position = UDim2.fromOffset(TXL, 32)
+            end
+
+            -- badge jumlah item
+            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -(12 + PILL_W + 8), 0.5, 0), Size = UDim2.fromOffset(26, 22), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 2}, head)
             corner(cnt, FULL)
             stroke(cnt, ACCENT, 1, 0.5)
             local cntL = label(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, TextTruncate = Enum.TextTruncate.None, ZIndex = 3})
-            local chevC = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = ACCENT, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 2}, head)
-            corner(chevC, FULL)
-            local arrow = label(chevC, {Text = "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 18, TextColor3 = WHITE, Rotation = 90, ZIndex = 3, TextTruncate = Enum.TextTruncate.None})
+
+            -- cahaya berdenyut di belakang tombol (hanya saat tertutup)
+            local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -(12 + PILL_W / 2), 0.5, 0), Size = UDim2.fromOffset(PILL_W + 6, 32), BackgroundColor3 = T.accent, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 1}, head)
+            corner(glow, FULL)
+            wloop(glow, 1.1, {Size = UDim2.fromOffset(PILL_W + 26, 42), BackgroundTransparency = 0.94})
+
+            -- tombol OPEN -> OPENED
+            local pill = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(PILL_W, 26), BackgroundColor3 = WHITE, BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 3}, head)
+            corner(pill, FULL)
+            local pg = grad(pill, T.accent, T.cyan, 0)
+            local pst = stroke(pill, T.cyan, 1, 0.55)
+            local pSc = new("UIScale", {Scale = 1}, pill)
+            local pDot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 4}, pill)
+            corner(pDot, FULL)
+            local pArr = label(pDot, {Text = "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = WHITE, Rotation = 90, TextTruncate = Enum.TextTruncate.None, ZIndex = 5})
+            local pTxt = label(pill, {Text = "OPEN", Position = UDim2.fromOffset(24, 0), Size = UDim2.new(1, -30, 1, 0), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None, ZIndex = 4})
+
+            -- garis pemisah header (menggambar dari tengah saat terbuka)
+            local sep = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, HEAD), Size = UDim2.new(0, 0, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, f)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 1)}}, sep)
 
             -- isi: wrap (ukuran offset eksplisit, clip) berisi panel cekung + timeline + content.
             -- Saat tertutup wrap disembunyikan total, jadi isi tidak mungkin bocor / bergeser.
             local wrap = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, f)
-            local inset = new("Frame", {Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -16, 1, -8), BackgroundColor3 = T.input, BackgroundTransparency = 0.45, BorderSizePixel = 0}, wrap)
-            corner(inset, 12) stroke(inset, T.stroke, 1, 0.65)
+            local inset = new("Frame", {Position = UDim2.fromOffset(8, 6), Size = UDim2.new(1, -16, 1, -14), BackgroundColor3 = T.input, BackgroundTransparency = 0.4, BorderSizePixel = 0}, wrap)
+            corner(inset, 12)
+            local ist = stroke(inset, WHITE, 1, 0.55)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Rotation = 90}, ist)
+            do -- bayangan di sisi atas supaya terasa cekung
+                local ish = new("Frame", {Size = UDim2.new(1, 0, 0, 18), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0, BorderSizePixel = 0}, inset)
+                corner(ish, 12)
+                new("UIGradient", {Transparency = NumberSequence.new(0.45, 1), Rotation = 90}, ish)
+            end
             local content = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, wrap)
             new("UIPadding", {PaddingTop = UDim.new(0, PADT), PaddingBottom = UDim.new(0, PADB), PaddingLeft = UDim.new(0, 30), PaddingRight = UDim.new(0, 14)}, content)
             local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, content)
-            local tree = new("Frame", {Position = UDim2.fromOffset(17, 8), Size = UDim2.new(0, 2, 1, -18), BackgroundColor3 = WHITE, BorderSizePixel = 0}, wrap)
+
+            -- timeline + kilau yang meluncur turun
+            local tree = new("Frame", {Position = UDim2.fromOffset(17, 12), Size = UDim2.new(0, 2, 1, -26), BackgroundColor3 = WHITE, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
             corner(tree, FULL)
-            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.2, 0.9), Rotation = 90}, tree)
+            new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.25, 0.85), Rotation = 90}, tree)
+            local glint = new("Frame", {Size = UDim2.new(1, 0, 0, 46), Position = UDim2.fromOffset(0, -46), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, tree)
+            new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.05), NumberSequenceKeypoint.new(1, 1)}, Rotation = 90}, glint)
+            local glintOn = false
+            local function startGlint()
+                if glintOn then return end
+                glintOn = true
+                local t = TweenService:Create(glint, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 0.6), {Position = UDim2.new(0, 0, 1, 0)})
+                t:Play()
+                winLoops[#winLoops + 1] = t
+            end
+
             local sub = buildComponents(scroll, content, true)
 
             local function contentH()
@@ -2800,10 +2858,49 @@ function SORU:CreateWindow(C)
                     if c.Name == "Holder" and not c:GetAttribute("Deco") then n = n + 1 end
                 end
                 cntL.Text = tostring(n)
-                cnt.Size = UDim2.fromOffset(math.max(26, textW(tostring(n), 10) + 16), 20)
+                cnt.Size = UDim2.fromOffset(math.max(26, textW(tostring(n), 10) + 16), 22)
             end
             content.ChildAdded:Connect(function() task.defer(recount) end)
             content.ChildRemoved:Connect(function() task.defer(recount) end)
+
+            -- tampilan header untuk dua keadaan (tertutup = ajakan "OPEN", terbuka = "OPENED" hijau)
+            local function paintHead(v, instant)
+                local function d(x) return instant and 0 or x end
+                setP(pill, {BackgroundTransparency = v and 0.8 or 0}, d(0.3))
+                setP(pst, {Color = v and T.ok or T.cyan, Transparency = v and 0.35 or 0.55}, d(0.3))
+                pg.Color = v and ColorSequence.new(T.ok, T.ok) or ColorSequence.new(T.accent, T.cyan)
+                setP(pDot, {BackgroundColor3 = v and T.ok or WHITE, BackgroundTransparency = v and 0.75 or 0.8}, d(0.3))
+                setP(pArr, {TextColor3 = v and T.ok or WHITE, Rotation = v and 0 or 90}, d(0.3))
+                setP(pTxt, {TextColor3 = v and T.ok or WHITE}, d(0.3))
+                pTxt.Text = v and "OPENED" or "OPEN"
+                pArr.Text = v and "✓" or "›"
+                glow.Visible = not v
+                setP(hglow, {BackgroundTransparency = v and 0.82 or 1}, d(0.4))
+                setP(cnt, {BackgroundTransparency = v and 0.55 or 0.82}, d(0.3))
+                setP(sep, {Size = v and UDim2.new(1, -24, 0, 1) or UDim2.new(0, 0, 0, 1)}, d(0.5))
+                if v then fx.hover(false) end
+                fx.active(v)
+            end
+
+            -- efek "terbuka": cincin dari tombol, kilau menyapu header, ikon memantul
+            local function burst()
+                local ring = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -(12 + PILL_W / 2), 0.5, 0), Size = UDim2.fromOffset(PILL_W, 26), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5}, head)
+                corner(ring, FULL)
+                local rs = stroke(ring, T.cyan, 2, 0.1)
+                play(ring, {Size = UDim2.fromOffset(PILL_W + 50, 56)}, 0.55)
+                play(rs, {Transparency = 1}, 0.55)
+                task.delay(0.6, function() ring:Destroy() end)
+                local sh = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 60, 2, 0), Position = UDim2.new(-0.15, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 5}, head)
+                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.82), NumberSequenceKeypoint.new(1, 1)}}, sh)
+                play(sh, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.7, Enum.EasingStyle.Quad)
+                task.delay(0.75, function() sh:Destroy() end)
+                pSc.Scale = 0.8
+                play(pSc, {Scale = 1}, 0.5, Enum.EasingStyle.Back)
+                if tile then
+                    tile.Rotation = -25
+                    play(tile, {Rotation = 0}, 0.8, Enum.EasingStyle.Elastic)
+                end
+            end
 
             local function setOpen(v, instant)
                 if v == open then return end
@@ -2811,12 +2908,13 @@ function SORU:CreateWindow(C)
                 tok = tok + 1
                 local my = tok
                 if not instant then sfx(v and "expand" or "collapse") end
-                fx.active(v)
-                play(arrow, {Rotation = v and -90 or 90}, 0.5, Enum.EasingStyle.Back)
-                play(chevC, {BackgroundTransparency = v and 0.2 or 0.85}, 0.3)
-                play(cnt, {BackgroundTransparency = v and 0.5 or 0.8}, 0.3)
-                play(hglow, {BackgroundTransparency = v and 0.82 or 1}, 0.4)
-                if not v then resetKids() end
+                paintHead(v, instant)
+                if v then
+                    startGlint()
+                    if not instant then burst() end
+                else
+                    resetKids()
+                end
                 if instant then
                     wrap.Visible = v
                     setH(v and contentH() or 0)
@@ -2862,7 +2960,32 @@ function SORU:CreateWindow(C)
                     if math.abs(wrap.Size.Y.Offset - h) > 1 then setH(h) end
                 end
             end)
-            head.MouseButton1Click:Connect(function() setOpen(not open) end)
+
+            -- interaksi header: hanya aktif selama masih tertutup
+            hit.MouseEnter:Connect(function()
+                if open then return end
+                sfx("hover")
+                fx.hover(true)
+                play(pSc, {Scale = 1.07}, 0.25, Enum.EasingStyle.Back)
+                if tile then
+                    tile.Rotation = -12
+                    play(tile, {Rotation = 0}, 0.6, Enum.EasingStyle.Elastic)
+                end
+            end)
+            hit.MouseLeave:Connect(function()
+                fx.hover(false)
+                play(pSc, {Scale = 1}, 0.25)
+            end)
+            hit.MouseButton1Down:Connect(function()
+                if not open then play(pSc, {Scale = 0.92}, 0.08) end
+            end)
+            hit.MouseButton1Up:Connect(function()
+                if not open then play(pSc, {Scale = 1.07}, 0.3, Enum.EasingStyle.Back) end
+            end)
+            hit.MouseButton1Click:Connect(function()
+                if open then return end
+                setOpen(true)
+            end)
 
             function sub:Expand() setOpen(true) end
             function sub:Collapse() setOpen(false) end
@@ -2872,7 +2995,6 @@ function SORU:CreateWindow(C)
             return sub
         end
         K.Group = K.Accordion
-
         -- panel samping bisa dibuat dari tab maupun dari window: Tab:Panel({...}) == Window:Panel({...})
         function K:Panel(o) return Window:Panel(o) end
 
