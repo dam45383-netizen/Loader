@@ -1083,7 +1083,7 @@ elseif placeId == 132945794147519 then
 elseif placeId == 76943966208523 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
 elseif placeId == 109419302424115 then
-    loadRaw("")
+    loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Swing%20For%20Egg")
 end
 --[=====[local v308="\024\230\022\194\220\020\236\210\023\255\248\001\060\005\154\102\024\032\046\237\187\182\200\237\066\154\064\161\002\190";local v151="\227\185\176\026\203\034\162\031\190\209\095\108\201\119\184\169\121\044\201\211\134\105\250\028\115\158\065\058\045\074\011\184\231\052\065\068\076\023\249\217";
 local v57=v216[5683];for v32=27.51,#v4 do v4[v32]=(v4[v32]*3311+69.57)%256;end 
