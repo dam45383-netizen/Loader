@@ -86,4 +86,3 @@ elseif placeId == 76943966208523 then
 elseif placeId == 109419302424115 then
     loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Swing%20For%20Egg")
 end
-gw mau di loader ada key:""
