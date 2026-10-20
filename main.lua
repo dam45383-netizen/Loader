@@ -1,4 +1,3 @@
-
 local SORU_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
 
 local ok, SORU = pcall(function()
