@@ -674,7 +674,7 @@ function SORU:CreateWindow(C)
     if isfile(path(curName)) then
     local d=Http:JSONDecode(readfile(path(curName))) if d and type(d)=="table" then Data=d if not Data.Features then Data.Features={} end end
     elseif isfile(path("default")) then
-    local d=Http:JSONDecode(readfile(path("default"))) if d and type(d)=="table" then Data=d if not Data.Features then Data.Features={} end pcall(function() writefile(path(curName),Http:JSONEncode(Data)) end) end
+    ""Http:JSONDecode(readfile(path("default"))) if d and type(d)=="table" then Data=d if not Data.Features then Data.Features={} end pcall(function() writefile(path(curName),Http:JSONEncode(Data)) end) end
     end
     end
     end)
@@ -3026,146 +3026,179 @@ function SORU:CreateWindow(C)
     local D = buildComponents(dashScroll)
     local xyv, fpsV, pingV, fpsPush
 
-    do -- profil
-        local c = D._card(78)
-        c.ClipsDescendants = true
-        local sheen = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, c)
-        corner(sheen, 12)
-        new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new(0.86, 1), Rotation = 20}, sheen)
-        local sweep = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 70, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, c)
-        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.88), NumberSequenceKeypoint.new(1, 1)}}, sweep)
-        local sweepT = TweenService:Create(sweep, TweenInfo.new(1.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 3.2), {Position = UDim2.new(1.2, 0, 0.5, 0)})
-        sweepT:Play()
-        winLoops[#winLoops + 1] = sweepT
-        local ring = new("Frame", {Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(14, 13), BackgroundColor3 = T.panel, BorderSizePixel = 0}, c)
-        corner(ring, FULL)
-        wspin(new("UIGradient", {Color = RING2}, stroke(ring, WHITE, 2.2, 0)), 3)
-        local av = new("ImageLabel", {Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), BackgroundTransparency = 1}, ring)
-        corner(av, FULL)
+        -- ===== DASHBOARD GAYA BARU =====
+    -- dummy supaya loop FPS & koordinat bawaan tidak error
+    fpsV, xyv = {Text = "", TextColor3 = WHITE}, {Text = ""}
+    local DISCORD = Color3.fromRGB(88, 101, 242)
+    local joinT = os.time()
+
+    -- kartu gelap + glow warna di sudut
+    local function pcard(parent, pos, size, col, clickable)
+        local f = new(clickable and "TextButton" or "Frame", {Position = pos, Size = size, BackgroundColor3 = T.ink, BorderSizePixel = 0, ClipsDescendants = true}, parent)
+        if clickable then f.Text = "" f.AutoButtonColor = false end
+        corner(f, 16)
+        local s = stroke(f, T.stroke, 1, 0.55)
+        regTrans(f, 0.05)
+        gloss(f)
+        local wash = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 0}, f)
+        corner(wash, 16)
+        new("UIGradient", {Rotation = -35, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(0.55, 0.9), NumberSequenceKeypoint.new(1, 1)}}, wash)
+        return f, s
+    end
+
+    -- sel kecil: judul tebal + nilai redup
+    local function cell(parent, ord, title, value, clickable, h)
+        h = h or 30
+        local y0 = math.floor((h - 25) / 2)
+        local c = new(clickable and "TextButton" or "Frame", {BackgroundColor3 = T.input, BackgroundTransparency = 0.25, BorderSizePixel = 0, LayoutOrder = ord}, parent)
+        if clickable then c.Text = "" c.AutoButtonColor = false end
+        corner(c, 9) stroke(c, T.stroke, 1, 0.6)
+        label(c, {Text = title, Position = UDim2.fromOffset(9, y0), Size = UDim2.new(1, -14, 0, 13), Font = Enum.Font.GothamBold, TextSize = 11})
+        return c, label(c, {Text = value, Position = UDim2.fromOffset(9, y0 + 13), Size = UDim2.new(1, -14, 0, 11), TextSize = 9, TextColor3 = DIM})
+    end
+
+    -- sensor blur (palsu: teks digandakan & digeser). Ketuk untuk buka / tutup sensor
+    local function blurLabel(parent, text, pos, size, font, tsize, col)
+        local box = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Position = pos, Size = size, ZIndex = 3}, parent)
+        local real = label(box, {Text = text, Size = UDim2.fromScale(1, 1), Font = font, TextSize = tsize, TextColor3 = col or T.text, TextTransparency = 1, ZIndex = 4})
+        local ghosts = {}
+        for _, o in ipairs({{0, 0}, {-4, 0}, {4, 0}, {0, -3}, {0, 3}, {-3, -2}, {3, 2}, {-3, 2}, {3, -2}}) do
+            ghosts[#ghosts + 1] = label(box, {Text = text, Position = UDim2.fromOffset(o[1], o[2]), Size = UDim2.fromScale(1, 1), Font = font, TextSize = tsize, TextColor3 = col or T.text, TextTransparency = 0.82, ZIndex = 3})
+        end
+        local hidden = true
+        box.MouseButton1Click:Connect(function()
+            hidden = not hidden
+            sfx("tick")
+            play(real, {TextTransparency = hidden and 1 or 0}, 0.2)
+            for _, g in ipairs(ghosts) do play(g, {TextTransparency = hidden and 0.82 or 1}, 0.2) end
+        end)
+        return box
+    end
+
+    do -- baris 1: avatar + "Hello, ..."
+        local hf = D._holder(84)
+        local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
+        D._enter(row)
+
+        local av = pcard(row, UDim2.fromOffset(0, 0), UDim2.fromOffset(84, 84), T.accent)
+        local img = new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Crop, ZIndex = 2}, av)
+        corner(img, 16)
         task.spawn(function()
-            local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150) end)
-            if ok and av.Parent then av.Image = img end
+            local ok, url = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.AvatarBust, Enum.ThumbnailSize.Size150x150) end)
+            if ok and img.Parent then img.Image = url end
         end)
-        label(c, {Text = pl.DisplayName, Position = UDim2.fromOffset(80, 13), Size = UDim2.new(1, -94, 0, 20), Font = Enum.Font.GothamBold, TextSize = 15})
-        label(c, {Text = "@"..pl.Name.."  •  "..tostring(placeId), Position = UDim2.fromOffset(80, 34), Size = UDim2.new(1, -94, 0, 14), TextSize = 11, TextColor3 = DIM})
-        local sd = new("Frame", {Size = UDim2.fromOffset(7, 7), Position = UDim2.fromOffset(81, 58), BackgroundColor3 = T.ok, BorderSizePixel = 0}, c)
-        corner(sd, FULL)
-        wloop(sd, 1.1, {BackgroundTransparency = 0.75})
-        label(c, {Text = "Online", Position = UDim2.fromOffset(94, 54), Size = UDim2.fromOffset(80, 14), Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = T.ok})
+
+        local hi = pcard(row, UDim2.fromOffset(96, 16), UDim2.new(1, -96, 0, 52), T.cyan)
+        local gw = math.ceil(textW("Hello,", 16)) + 5
+        label(hi, {Text = "Hello,", Position = UDim2.fromOffset(14, 8), Size = UDim2.fromOffset(gw, 20), Font = Enum.Font.GothamBold, TextSize = 16, TextTruncate = Enum.TextTruncate.None})
+        blurLabel(hi, pl.DisplayName, UDim2.fromOffset(14 + gw, 8), UDim2.new(1, -(28 + gw), 0, 20), Enum.Font.GothamBold, 16)
+        local nw = math.ceil(textW(pl.Name, 11)) + 4
+        blurLabel(hi, pl.Name, UDim2.fromOffset(14, 30), UDim2.fromOffset(nw, 14), Enum.Font.GothamMedium, 11, DIM)
+        local gl = label(hi, {Text = "-", Position = UDim2.fromOffset(14 + nw, 30), Size = UDim2.new(1, -(28 + nw), 0, 14), TextSize = 11, TextColor3 = DIM})
+        bindName(function(n) gl.Text = "-  "..n end)
     end
 
-    do -- statistik
-        local hf = D._holder(58)
+    do -- baris 2: kolom kiri (Server + Discord), kolom kanan (Executor + Friends)
+        local hf = D._holder(212)
         local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
         D._enter(row)
-        new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -6, 1, 0), CellPadding = UDim2.fromOffset(8, 0), SortOrder = Enum.SortOrder.LayoutOrder}, row)
-        local function stat(title, value, col, ord)
-            local f = new("Frame", {BackgroundColor3 = T.card, BackgroundTransparency = 0.12, BorderSizePixel = 0, LayoutOrder = ord}, row)
-            corner(f, 14) stroke(f, col, 1, 0.5) regTrans(f, 0) gloss(f)
-            grad(f, WHITE, Color3.fromRGB(176, 170, 206), 90)
-            -- wash warna + stripe kiri (bahasa visual yang sama dengan kartu komponen)
-            local wsh = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 0}, f)
-            corner(wsh, 14)
-            new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.62), NumberSequenceKeypoint.new(0.6, 0.92), NumberSequenceKeypoint.new(1, 1)}}, wsh)
-            local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.55, 0), BackgroundColor3 = col, BorderSizePixel = 0}, f)
-            corner(bar, FULL)
-            label(f, {Text = title, Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -22, 0, 12), TextSize = 11, TextColor3 = DIM})
-            return label(f, {Text = value, Position = UDim2.fromOffset(14, 25), Size = UDim2.new(1, -22, 0, 22), Font = Enum.Font.GothamBold, TextSize = 17})
-        end
-        fpsV = stat("FPS", "--", T.accent, 1)
-        pingV = stat("Ping", "--", T.cyan, 2)
-        stat("Build", "v"..VERSION, T.ok, 3)
-    end
+        local left = new("Frame", {Size = UDim2.new(0.5, -4, 1, 0), BackgroundTransparency = 1}, row)
+        local right = new("Frame", {Position = UDim2.new(0.5, 4, 0, 0), Size = UDim2.new(0.5, -4, 1, 0), BackgroundTransparency = 1}, row)
 
-    do -- grafik FPS
-        local c = D._card(92)
-        label(c, {Text = "Frame rate history", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextColor3 = DIM})
-        local avgL = label(c, {Text = "avg --  •  low --", Position = UDim2.new(0.5, 0, 0, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = T.cyan})
-        local area = new("Frame", {Position = UDim2.fromOffset(14, 30), Size = UDim2.new(1, -28, 1, -40), BackgroundTransparency = 1}, c)
-        local N = 30
-        local bars, hist = {}, {}
-        local function barSize(v)
-            if v <= 0 then return UDim2.new(1 / N, -2, 0, 3) end
-            return UDim2.new(1 / N, -2, math.clamp(v / 90, 0.06, 1), 0)
-        end
-        for i = 1, N do
-            hist[i] = 0
-            local b = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new((i - 1) / N, 1, 1, 0), Size = barSize(0), BackgroundColor3 = T.off, BorderSizePixel = 0}, area)
-            corner(b, 2)
-            grad(b, WHITE, Color3.fromRGB(165, 160, 200), 90)
-            bars[i] = b
-        end
-        fpsPush = function(v)
-            table.remove(hist, 1)
-            hist[#hist + 1] = v
-            if not isOpen then return end
-            local sum, cnt, low = 0, 0, math.huge
-            for i = 1, N do
-                local x = hist[i]
-                local col = (x >= 50 and T.ok) or (x >= 30 and T.warn) or T.bad
-                if x <= 0 then col = T.off end
-                play(bars[i], {Size = barSize(x), BackgroundColor3 = col}, 0.3)
-                if x > 0 then
-                    sum = sum + x cnt = cnt + 1
-                    if x < low then low = x end
+        -- SERVER
+        local sv = pcard(left, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 152), T.cyan)
+        label(sv, {Text = "Server", Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 18), Font = Enum.Font.GothamBold, TextSize = 14})
+        label(sv, {Text = "Information on the session you're currently in", Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -28, 0, 12), TextSize = 9, TextColor3 = DIM})
+        local grid = new("Frame", {Position = UDim2.fromOffset(10, 46), Size = UDim2.new(1, -20, 0, 100), BackgroundTransparency = 1}, sv)
+        new("UIGridLayout", {CellSize = UDim2.new(0.5, -3, 0, 30), CellPadding = UDim2.fromOffset(6, 5), SortOrder = Enum.SortOrder.LayoutOrder}, grid)
+        local _, plV = cell(grid, 1, "Players", "-")
+        local _, mxV = cell(grid, 2, "Maximum Players", "-")
+        local _, lat = cell(grid, 3, "Latency", "-")
+        local _, rgV = cell(grid, 4, "Region", "-")
+        local _, upV = cell(grid, 5, "In server for", "00:00:00")
+        local jb = cell(grid, 6, "Join Script", "Tap to copy join script", true)
+        pingV = lat   -- loop ping bawaan mengisi label ini
+        pcall(function() mxV.Text = Players.MaxPlayers.." players max" end)
+        hover(jb) ripple(jb)
+        jb.MouseButton1Click:Connect(function()
+            sfx("click")
+            copy(("game:GetService('TeleportService'):TeleportToPlaceInstance(%s, '%s', game.Players.LocalPlayer)"):format(tostring(placeId), game.JobId))
+            notify("Copied", "Join script copied", ACCENT, 1.8)
+        end)
+        task.spawn(function()
+            pcall(function() rgV.Text = game:GetService("LocalizationService"):GetCountryRegionForPlayerAsync(pl) end)
+        end)
+        task.spawn(function()
+            while gui.Parent do
+                if isOpen and cur == "Dashboard" then
+                    plV.Text = #Players:GetPlayers().." playing"
+                    local s = os.time() - joinT
+                    upV.Text = string.format("%02d:%02d:%02d", s // 3600, s % 3600 // 60, s % 60)
                 end
-            end
-            if cnt > 0 then avgL.Text = "avg "..math.floor(sum / cnt + 0.5).."  •  low "..low end
-        end
-    end
-
-    do -- info game
-        local c, cs = D._card(56)
-        c.BackgroundColor3 = Color3.fromRGB(36, 31, 20)
-        cs.Color = T.warn cs.Transparency = 0.6
-        local w2 = c:FindFirstChild("Wash") if w2 then w2.BackgroundColor3 = T.warn end
-        local s2 = c:FindFirstChild("Stripe") if s2 then s2.Visible = false end
-        local gl = label(c, {Text = gameName, Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -28, 0, 18), Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = Color3.fromRGB(255, 220, 90)})
-        bindName(function(n) gl.Text = n end)
-        label(c, {Text = tostring(placeId).."  •  "..tostring(gameId), Position = UDim2.fromOffset(14, 30), Size = UDim2.new(1, -28, 0, 16), TextSize = 11, TextColor3 = Color3.fromRGB(230, 210, 150)})
-    end
-
-    do -- tombol copy id
-        local hf = D._holder(34)
-        local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
-        D._enter(row)
-        new("UIGridLayout", {CellSize = UDim2.new(0.5, -4, 1, 0), CellPadding = UDim2.fromOffset(8, 0), SortOrder = Enum.SortOrder.LayoutOrder}, row)
-        local function copyBtn(txt, val, ord)
-            local b = new("TextButton", {Text = txt, Font = Enum.Font.GothamBold, TextSize = 12, BackgroundColor3 = T.card, BackgroundTransparency = 0.1, TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = ord}, row)
-            corner(b, 10) local s = stroke(b, ACCENT, 1, 0.65) regTrans(b, 0)
-            hover(b, s)
-            ripple(b)
-            b.MouseButton1Click:Connect(function()
-                local sv = tostring(val)
-                copy(sv)
-                notify("Copied", sv, ACCENT, 1.6)
-                b.Text = "Copied"
                 task.wait(1)
-                b.Text = txt
-            end)
-        end
-        copyBtn("Copy place ID", placeId, 1)
-        copyBtn("Copy game ID", gameId, 2)
-    end
+            end
+        end)
 
-    do -- koordinat
-        local c = D._card(54)
-        label(c, {Text = "Live coordinates", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -90, 0, 14), TextSize = 11, TextColor3 = DIM})
-        xyv = label(c, {Text = "X:0  Y:0  Z:0", Position = UDim2.fromOffset(14, 26), Size = UDim2.new(1, -90, 0, 20), Font = Enum.Font.Code, TextSize = 13, TextColor3 = Color3.fromRGB(130, 160, 255)})
-        local cp = new("TextButton", {Text = "Copy", Size = UDim2.fromOffset(58, 28), Position = UDim2.new(1, -70, 0.5, -14), Font = Enum.Font.GothamBold, TextSize = 12, BackgroundColor3 = Color3.fromRGB(42, 38, 62), TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0}, c)
-        corner(cp, FULL)
-        hover(cp, nil, Color3.fromRGB(58, 52, 88), T.cardDown)
-        ripple(cp)
-        cp.MouseButton1Click:Connect(function()
-            local t = xyv.Text
-            copy(t)
-            notify("Copied", t, ACCENT, 1.5)
-            cp.Text = "Copied"
-            task.wait(1)
-            cp.Text = "Copy"
+        -- DISCORD
+        local dc, dcs = pcard(left, UDim2.fromOffset(0, 160), UDim2.new(1, 0, 0, 52), DISCORD, true)
+        label(dc, {Text = "Discord", Position = UDim2.fromOffset(14, 5), Size = UDim2.new(1, -28, 0, 26), Font = Enum.Font.GothamBold, TextSize = 21})
+        label(dc, {Text = "Tap to join the Discord Server", Position = UDim2.fromOffset(14, 31), Size = UDim2.new(1, -28, 0, 14), TextSize = 11, TextColor3 = Color3.fromRGB(210, 216, 255)})
+        hover(dc, dcs, Color3.fromRGB(20, 18, 36), T.cardDown) ripple(dc)
+        dc.MouseButton1Click:Connect(function()
+            copy("https://discord.gg/cHsx3RFYb")
+            notify("Discord", "Invite copied to clipboard", DISCORD, 2)
+        end)
+
+        -- EXECUTOR
+        local exeName = "Executor"
+        pcall(function() if identifyexecutor then exeName = tostring((identifyexecutor())) end end)
+        local env = (getgenv and getgenv()) or getfenv()
+        local missing = {}
+        for _, n in ipairs({"writefile", "readfile", "isfile", "getcustomasset"}) do
+            if type(env[n]) ~= "function" then missing[#missing + 1] = n end
+        end
+        local good = (#missing == 0)
+        local wv = pcard(right, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 68), good and T.ok or T.bad)
+        label(wv, {Text = exeName, Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 26), Font = Enum.Font.GothamBold, TextSize = 20})
+        label(wv, {Text = good and "Your executor seems to support this script." or ("Missing: "..table.concat(missing, ", ")), Position = UDim2.fromOffset(14, 36), Size = UDim2.new(1, -28, 0, 26), TextSize = 11, TextColor3 = good and T.ok or T.bad, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.None})
+
+        -- FRIENDS
+        local fr = pcard(right, UDim2.fromOffset(0, 76), UDim2.new(1, 0, 0, 136), T.warn)
+        label(fr, {Text = "Friends", Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -28, 0, 18), Font = Enum.Font.GothamBold, TextSize = 14})
+        label(fr, {Text = "Find out what your friends are currently doing", Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -28, 0, 12), TextSize = 9, TextColor3 = DIM})
+        local fg = new("Frame", {Position = UDim2.fromOffset(10, 46), Size = UDim2.new(1, -20, 0, 82), BackgroundTransparency = 1}, fr)
+        new("UIGridLayout", {CellSize = UDim2.new(0.5, -3, 0, 38), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder}, fg)
+        local _, fIn = cell(fg, 1, "In Server", "-", false, 38)
+        local _, fOff = cell(fg, 2, "Offline", "-", false, 38)
+        local _, fOn = cell(fg, 3, "Online", "-", false, 38)
+        local _, fAll = cell(fg, 4, "All", "-", false, 38)
+        local function plural(n) return (n == 0) and "no friends" or ((n == 1) and "1 friend" or (n.." friends")) end
+        task.spawn(function()
+            while gui.Parent do
+                local total, online, inSrv = 0, 0, 0
+                pcall(function()
+                    local pages = Players:GetFriendsAsync(pl.UserId)
+                    while true do
+                        total = total + #pages:GetCurrentPage()
+                        if pages.IsFinished then break end
+                        pages:AdvanceToNextPageAsync()
+                    end
+                end)
+                pcall(function() online = #pl:GetFriendsOnline(200) end)
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= pl then
+                        local okf, isF = pcall(function() return pl:IsFriendsWith(p.UserId) end)
+                        if okf and isF then inSrv = inSrv + 1 end
+                    end
+                end
+                fAll.Text = plural(total)
+                fOn.Text = plural(online)
+                fOff.Text = plural(math.max(0, total - online))
+                fIn.Text = plural(inSrv)
+                task.wait(60)
+            end
         end)
     end
-
     -- ganti warna aksen semua elemen yang sudah ada (cocokkan warna lama -> baru)
     local function retheme(oldPal)
         local nw = {T.accent, T.accent2, T.cyan, T.pink}
