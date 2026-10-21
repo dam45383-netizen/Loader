@@ -274,7 +274,7 @@ function KeySystem.Run(C)
     local BTN_TEXT = C.ButtonText or "Redeem"
 
     -- ukuran bar (px virtual). Semua posisi pakai offset pasti.
-    local W, H = 340, 46
+    local W, H = 290, 25
     local PAD = 6
     local ICON_S = H - PAD * 2          -- 34
     local BTN_W = 88
