@@ -3028,6 +3028,7 @@ function SORU:CreateWindow(C)
 
         -- ===== DASHBOARD GAYA BARU =====
     -- dummy supaya loop FPS & koordinat bawaan tidak error
+    do local function buildDash()
     fpsV, xyv = {Text = "", TextColor3 = WHITE}, {Text = ""}
     local DISCORD = Color3.fromRGB(88, 101, 242)
     local joinT = os.time()
@@ -3133,7 +3134,7 @@ function SORU:CreateWindow(C)
                 if isOpen and cur == "Dashboard" then
                     plV.Text = #Players:GetPlayers().." playing"
                     local s = os.time() - joinT
-                    upV.Text = string.format("%02d:%02d:%02d", s // 3600, s % 3600 // 60, s % 60)
+                    upV.Text = string.format("%02d:%02d:%02d", math.floor(s / 3600), math.floor(s % 3600 / 60), s % 60)
                 end
                 task.wait(1)
             end
@@ -3199,6 +3200,7 @@ function SORU:CreateWindow(C)
             end
         end)
     end
+    end buildDash() end
     -- ganti warna aksen semua elemen yang sudah ada (cocokkan warna lama -> baru)
     local function retheme(oldPal)
         local nw = {T.accent, T.accent2, T.cyan, T.pink}
