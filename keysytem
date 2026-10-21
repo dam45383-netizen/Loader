@@ -416,24 +416,41 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     -- IKON KUNCI (kiri)
     ------------------------------------------------------------------
-    local badgeG = new("CanvasGroup", {Position = UDim2.fromOffset(PAD, PAD), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, win)
-    local badge = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 11}, badgeG)
+        local badgeG = new("CanvasGroup", {Position = UDim2.fromOffset(PAD, PAD), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, win)
+    local badge = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -5, 1, -5), BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 11}, badgeG)
     corner(badge, FULL)
     grad(badge, T.accent, T.accent2, 45)
-    stroke(badge, T.accent, 1, 0.55)
+    local badgeStroke = stroke(badge, WHITE, 1.5, 0.15)
+    spin(new("UIGradient", {Color = RING}, badgeStroke), 4)
+
+    local unlockIcon = function() end
     do
-        local kc = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Rotation = -35, ZIndex = 12}, badge)
-        local ring = new("Frame", {Position = UDim2.fromOffset(5, 11), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 12}, kc)
-        corner(ring, FULL)
-        stroke(ring, WHITE, 2, 0)
-        local shaft = new("Frame", {Position = UDim2.fromOffset(16, 16), Size = UDim2.fromOffset(13, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, kc)
-        corner(shaft, FULL)
-        new("Frame", {Position = UDim2.fromOffset(22, 18), Size = UDim2.fromOffset(2, 4), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, kc)
-        new("Frame", {Position = UDim2.fromOffset(26, 18), Size = UDim2.fromOffset(2, 3), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, kc)
-        loop(kc, {Rotation = -26}, 2.4) -- ayun pelan saat idle
+        local halo = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(PAD + ICON_S / 2, H / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, win)
+        corner(halo, FULL)
+        local haloStroke = stroke(halo, T.accent, 2, 0.4)
+        loop(halo, {Size = UDim2.fromOffset(ICON_S + 12, ICON_S + 12)}, 1.5)
+        loop(haloStroke, {Transparency = 1}, 1.5)
+
+        local kc = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, ZIndex = 12}, badge)
+        new("UIScale", {Scale = ICON_S / 34}, kc)
+        local shackle = new("Frame", {Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(10, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 12}, kc)
+        corner(shackle, FULL)
+        local shStroke = stroke(shackle, WHITE, 2, 0)
+        local body = new("Frame", {Position = UDim2.fromOffset(9, 15), Size = UDim2.fromOffset(16, 12), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 13}, kc)
+        corner(body, 3)
+        local hole = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 14}, body)
+        corner(hole, FULL)
+        new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 5), Size = UDim2.fromOffset(1, 4), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 14}, body)
+        loop(kc, {Position = UDim2.new(0.5, 0, 0.5, -2)}, 1.8)
+
+        unlockIcon = function()
+            play(shackle, {Position = UDim2.fromOffset(12, 0)}, 0.45, EXPO)
+            play(body, {BackgroundColor3 = T.ok}, 0.3, SINE)
+            play(shStroke, {Color = T.ok}, 0.3, SINE)
+            play(badge, {BackgroundTransparency = 0}, 0.3, SINE)
+        end
     end
     reg(badgeG, -10, 0)
-
     ------------------------------------------------------------------
     -- INPUT (tengah)
     ------------------------------------------------------------------
@@ -550,13 +567,19 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     local linksRow = new("CanvasGroup", {Position = UDim2.fromOffset(0, H + 10), Size = UDim2.fromOffset(W, 14), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, linksRow)
-    local msgL = label(shell, {Text = "", Position = UDim2.fromOffset(0, H + 10), Size = UDim2.fromOffset(W, 14), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Center, TextTransparency = 1, ZIndex = 10})
+        local chip = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(W / 2, H + 8), Size = UDim2.fromOffset(120, 22), BackgroundColor3 = T.ink, BackgroundTransparency = 0.15, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
+    corner(chip, FULL)
+    local chipStroke = stroke(chip, T.accent, 1, 0.45)
+    local chipDot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 11}, chip)
+    corner(chipDot, FULL)
+    local msgL = label(chip, {Text = "", Position = UDim2.fromOffset(22, 0), Size = UDim2.new(1, -30, 1, 0), TextSize = 11, ZIndex = 11})
+    loop(chipDot, {BackgroundTransparency = 0.6}, 0.7)
     reg(linksRow, 0, 6)
 
     local msgTok = 0
     local function clearSay()
         msgTok = msgTok + 1
-        play(msgL, {TextTransparency = 1}, 0.25, SINE)
+        play(chip, {GroupTransparency = 1, Position = UDim2.fromOffset(W / 2, H + 12)}, 0.25, SINE)
         linksRow.Visible = true
         play(linksRow, {GroupTransparency = 0}, 0.3, SINE)
     end
@@ -565,15 +588,16 @@ function KeySystem.Run(C)
         local tok = msgTok
         msgL.Text = text
         msgL.TextColor3 = col
-        msgL.Position = UDim2.fromOffset(0, H + 15)
-        play(msgL, {TextTransparency = 0, Position = UDim2.fromOffset(0, H + 10)}, 0.4, QUINT)
+        chipDot.BackgroundColor3 = col
+        play(chipStroke, {Color = col}, 0.25, SINE)
+        if chip.GroupTransparency > 0.9 then chip.Position = UDim2.fromOffset(W / 2, H + 14) end
+        play(chip, {Size = UDim2.fromOffset(textW(text, 11) + 38, 22), Position = UDim2.fromOffset(W / 2, H + 8), GroupTransparency = 0}, 0.4, QUINT)
         play(linksRow, {GroupTransparency = 1}, 0.2, SINE)
         task.delay(0.22, function() if tok == msgTok and linksRow.Parent then linksRow.Visible = false end end)
         if not hold then
             task.delay(3, function() if tok == msgTok and gui.Parent then clearSay() end end)
         end
     end
-
     local finish -- dideklarasikan dulu, diisi di bawah
     local linkDefs = {}
     if C.GetKeyLink then
@@ -653,6 +677,7 @@ function KeySystem.Run(C)
         play(win, {GroupTransparency = 1}, 0.4, SINE)
         play(linksRow, {GroupTransparency = 1}, 0.25, SINE)
         play(msgL, {TextTransparency = 1}, 0.25, SINE)
+        play(chip, {GroupTransparency = 1}, 0.25, SINE)
         play(dimmer, {BackgroundTransparency = 1}, 0.45, SINE)
         if shadow then play(shadow, {ImageTransparency = 1}, 0.3, SINE) end
         if neon then play(neon, {ImageTransparency = 1}, 0.3, SINE) end
@@ -782,6 +807,7 @@ function KeySystem.Run(C)
         sweepOff()
         if saveKey then pcall(function() if writefile then writefile(keyFile, key) end end) end
         sfx("boot")
+        unlockIcon()
         okFill.BackgroundColor3 = T.ok
         play(okFill, {BackgroundTransparency = 0.05}, 0.45, SINE)
         setBtn("Accepted")
