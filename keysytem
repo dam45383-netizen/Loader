@@ -1,137 +1,968 @@
 --[[
-    SORU KEY SYSTEM v1.1 FIX
+    SORU KEY SYSTEM v1.0   (pasangan untuk SORU HUB UI v4.x)
+
+    Gaya sama dengan hub: neon, aurora, border gradien berputar, spotlight, suara khas SORU,
+    toast, dan warna otomatis ikut tema yang kamu pilih di hub (Violet / Ocean / Crimson / Emerald / Sunset).
+
+    PAKAI
+      local KS = loadstring(game:HttpGet("URL_FILE_INI"))()
+      KS.Run({
+          Title       = "SORU HUB",
+          Subtitle    = "Key system",
+          Keys        = {"SORU-FREE-1234"},                  -- key statis (opsional)
+          KeyUrl      = "https://pastebin.com/raw/XXXXXXXX",  -- daftar key online, 1 key per baris (opsional)
+          Validate    = function(key) return key == "abc" end, -- cek sendiri (opsional): true / false, "pesan"
+          GetKeyLink  = "https://link-key-kamu",
+          DiscordLink = "https://discord.gg/xxxx",
+          SaveKey     = true,                                -- ingat key di device -> auto verify
+          OnSuccess   = function(key)
+              local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+              local Window = SORU:CreateWindow({Title = "SORU HUB"})
+              -- ... bikin tab + komponen seperti biasa
+          end,
+      })
+
+    OPSI LAIN
+      Description, Theme, Scale, Sound = false, Blur = false, CaseSensitive = false,
+      MaxAttempts = 5 (0 = tanpa batas), Cooldown = 20 (detik), AutoLogin = false,
+      KeyFile, Footer, OnCancel, Wait = true (Run menunggu sampai selesai, return true/false)
+
+    CATATAN
+      Pengecekan key di sisi client bisa dibypass. Untuk proteksi serius, validasi lewat server/API
+      kamu sendiri di dalam Validate.
 ]]
+
 local KeySystem = {}
-KeySystem.Version = "1.1"
+KeySystem.Version = "1.0"
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Http = game:GetService("HttpService")
+local Lighting = game:GetService("Lighting")
+local TextService = game:GetService("TextService")
 
+-- folder + aset sama dengan hub, jadi cache dipakai bersama
 local CFG = "SORU_HUB"
 pcall(function() if makefolder and not isfolder(CFG) then makefolder(CFG) end end)
 
-local T = {
-    ink = Color3.fromRGB(8, 7, 15),
-    panel = Color3.fromRGB(16, 14, 28),
-    card = Color3.fromRGB(25, 22, 41),
-    stroke = Color3.fromRGB(68, 61, 106),
-    text = Color3.fromRGB(246, 244, 255),
-    dim = Color3.fromRGB(150, 142, 186),
-    accent = Color3.fromRGB(145, 96, 255),
-    ok = Color3.fromRGB(74, 222, 128),
-    bad = Color3.fromRGB(248, 113, 113),
+local URLS = {
+    ICON = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_S_ICON_1024.png",
+    BG = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_THEME_1024.png"
 }
+local function getAsset(name, url)
+    local path = CFG.."/"..name
+    if isfile and isfile(path) and getcustomasset then return getcustomasset(path) end
+    if url and writefile then
+        pcall(function() writefile(path, game:HttpGet(url)) end)
+        task.wait(0.1)
+        if isfile and isfile(path) and getcustomasset then return getcustomasset(path) end
+    end
+    return "rbxassetid://0"
+end
+
+----------------------------------------------------------------------
+-- SOUND (disintesis sendiri, definisi sama dengan hub)
+----------------------------------------------------------------------
+local SFX_DEFS = {
+    boot   = {1.6, {{0, 0.7, 440, 440, 0.45, "bell", 5}, {0.12, 0.7, 659.3, 659.3, 0.42, "bell", 5}, {0.24, 0.8, 880, 880, 0.42, "bell", 4.5}, {0.36, 0.9, 1108.7, 1108.7, 0.4, "bell", 4}, {0.5, 1.1, 1318.5, 1318.5, 0.5, "bell", 3.2}}},
+    open   = {0.8, {{0, 0.5, 880, 880, 0.5, "bell", 8}, {0.07, 0.5, 1108.7, 1108.7, 0.45, "bell", 8}, {0.14, 0.6, 1318.5, 1318.5, 0.5, "bell", 7}}},
+    close  = {0.6, {{0, 0.4, 1318.5, 1318.5, 0.45, "bell", 10}, {0.08, 0.5, 880, 880, 0.5, "bell", 9}}},
+    click  = {0.12, {{0, 0.1, 1500, 650, 0.6, "sine", 38}, {0, 0.05, 3000, 3000, 0.18, "bell", 70}}},
+    hover  = {0.06, {{0, 0.05, 2600, 2600, 0.14, "sine", 70}}},
+    tick   = {0.05, {{0, 0.035, 1800, 1800, 0.45, "sine", 90}}},
+    pop    = {0.3, {{0, 0.12, 700, 1100, 0.5, "sine", 28}, {0.03, 0.22, 1568, 1568, 0.22, "bell", 25}}},
+    notify = {0.9, {{0, 0.5, 1174.7, 1174.7, 0.5, "bell", 8}, {0.1, 0.6, 1568, 1568, 0.5, "bell", 7}}},
+    error  = {0.5, {{0, 0.28, 196, 150, 0.45, "buzz", 8}, {0.13, 0.3, 185, 140, 0.45, "buzz", 8}}},
+}
+local function buildSfx()
+    local out = {}
+    if not (writefile and isfile and getcustomasset) then return out end
+    local RATE, TAU = 22050, math.pi * 2
+    local function le(x, n)
+        local t = {}
+        for i = 1, n do t[i] = string.char(x % 256) x = math.floor(x / 256) end
+        return table.concat(t)
+    end
+    for name, def in pairs(SFX_DEFS) do
+        pcall(function()
+            local file = CFG.."/sfx_k1_"..name..".wav"
+            if not isfile(file) then
+                local n = math.floor(def[1] * RATE)
+                local buf = table.create(n, 0)
+                for _, p in ipairs(def[2]) do
+                    local s0, cnt = math.floor(p[1] * RATE), math.floor(p[2] * RATE)
+                    local f0, f1, vol, kind, dec = p[3], p[4], p[5], p[6], p[7]
+                    local ph = 0
+                    for i = 0, cnt - 1 do
+                        local idx = s0 + i + 1
+                        if idx > n then break end
+                        local tt = i / RATE
+                        ph = ph + TAU * (f0 + (f1 - f0) * i / cnt) / RATE
+                        local env = math.min(1, tt / 0.004) * math.exp(-tt * dec) * math.min(1, (cnt - i) / (0.008 * RATE))
+                        local v
+                        if kind == "bell" then
+                            v = math.sin(ph) + 0.4 * math.sin(ph * 2.76) * math.exp(-tt * dec * 1.5) + 0.18 * math.sin(ph * 5.4) * math.exp(-tt * dec * 3)
+                        elseif kind == "buzz" then
+                            v = math.clamp(math.sin(ph) * 2.2, -1, 1) * 0.7
+                        else
+                            v = math.sin(ph)
+                        end
+                        buf[idx] = buf[idx] + v * env * vol
+                    end
+                end
+                local bytes = table.create(n)
+                for i = 1, n do
+                    local v = math.floor(math.clamp(buf[i], -1, 1) * 30000)
+                    if v < 0 then v = v + 65536 end
+                    bytes[i] = string.char(v % 256, math.floor(v / 256))
+                end
+                local data = table.concat(bytes)
+                writefile(file, "RIFF"..le(36 + #data, 4).."WAVEfmt "..le(16, 4)..le(1, 2)..le(1, 2)..le(RATE, 4)..le(RATE * 2, 4)..le(2, 2)..le(16, 2).."data"..le(#data, 4)..data)
+            end
+            out[name] = {id = getcustomasset(file), dur = def[1]}
+        end)
+    end
+    return out
+end
+
+----------------------------------------------------------------------
+-- THEME (sama dengan hub)
+----------------------------------------------------------------------
+local T = {
+    ink       = Color3.fromRGB(8, 7, 15),
+    panel     = Color3.fromRGB(16, 14, 28),
+    card      = Color3.fromRGB(25, 22, 41),
+    cardHover = Color3.fromRGB(38, 33, 66),
+    cardDown  = Color3.fromRGB(58, 46, 108),
+    stroke    = Color3.fromRGB(68, 61, 106),
+    text      = Color3.fromRGB(246, 244, 255),
+    dim       = Color3.fromRGB(150, 142, 186),
+    accent    = Color3.fromRGB(145, 96, 255),
+    accent2   = Color3.fromRGB(94, 106, 255),
+    cyan      = Color3.fromRGB(56, 200, 255),
+    pink      = Color3.fromRGB(245, 80, 165),
+    ok        = Color3.fromRGB(74, 222, 128),
+    warn      = Color3.fromRGB(250, 204, 21),
+    bad       = Color3.fromRGB(248, 113, 113),
+    off       = Color3.fromRGB(52, 50, 74),
+    input     = Color3.fromRGB(13, 11, 23),
+}
+local WHITE = Color3.new(1, 1, 1)
+local FULL = UDim.new(1, 0)
+local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
+
+-- preset warna: {accent, accent2, cyan, pink}
 local THEMES = {
-    Violet = {Color3.fromRGB(145, 96, 255), Color3.fromRGB(94, 106, 255)},
-    Ocean = {Color3.fromRGB(40, 160, 255), Color3.fromRGB(56, 112, 255)},
+    Violet  = {Color3.fromRGB(145, 96, 255), Color3.fromRGB(94, 106, 255), Color3.fromRGB(56, 200, 255), Color3.fromRGB(245, 80, 165)},
+    Ocean   = {Color3.fromRGB(40, 160, 255), Color3.fromRGB(56, 112, 255), Color3.fromRGB(45, 230, 205), Color3.fromRGB(120, 130, 255)},
+    Crimson = {Color3.fromRGB(255, 70, 100), Color3.fromRGB(220, 38, 80), Color3.fromRGB(255, 160, 70), Color3.fromRGB(255, 90, 170)},
+    Emerald = {Color3.fromRGB(45, 212, 150), Color3.fromRGB(16, 170, 120), Color3.fromRGB(60, 190, 255), Color3.fromRGB(190, 235, 80)},
+    Sunset  = {Color3.fromRGB(255, 150, 60), Color3.fromRGB(240, 70, 90), Color3.fromRGB(255, 205, 70), Color3.fromRGB(255, 90, 170)},
 }
 local function applyPalette(name)
     local p = THEMES[name] or THEMES.Violet
-    T.accent = p[1]
+    T.accent, T.accent2, T.cyan, T.pink = p[1], p[2], p[3], p[4]
 end
 
-local function new(c,p,par) local o=Instance.new(c) if p then for k,v in pairs(p) do o[k]=v end end if par then o.Parent=par end return o end
-local function corner(o,r) return new("UICorner",{CornerRadius=UDim.new(0,r or 10)},o) end
+----------------------------------------------------------------------
+-- HELPERS
+----------------------------------------------------------------------
+local function new(class, props, parent)
+    local o = Instance.new(class)
+    if props then for k, v in pairs(props) do o[k] = v end end
+    if parent then o.Parent = parent end
+    return o
+end
+local function corner(o, r)
+    local rad = (typeof(r) == "UDim") and r or UDim.new(0, r or 10)
+    return new("UICorner", {CornerRadius = rad}, o)
+end
+local function stroke(o, color, th, tr)
+    return new("UIStroke", {Color = color or T.stroke, Thickness = th or 1, Transparency = tr or 0.5}, o)
+end
+local function grad(o, c0, c1, rot)
+    return new("UIGradient", {Color = ColorSequence.new(c0, c1), Rotation = rot or 0}, o)
+end
+local function label(parent, props)
+    local d = {
+        BackgroundTransparency = 1, BorderSizePixel = 0,
+        Font = Enum.Font.GothamMedium, TextSize = 13, TextColor3 = T.text,
+        TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+    }
+    for k, v in pairs(props) do d[k] = v end
+    return new("TextLabel", d, parent)
+end
+local function gloss(f)
+    local hl = new("Frame", {Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, f)
+    new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.78), NumberSequenceKeypoint.new(1, 1)}}, hl)
+end
+local function tw(o, p, t, s, d)
+    return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quint, d or Enum.EasingDirection.Out), p)
+end
+local function play(o, p, t, s, d) local x = tw(o, p, t, s, d) x:Play() return x end
+local function spin(g, secs)
+    local t = TweenService:Create(g, TweenInfo.new(secs or 4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = g.Rotation + 360})
+    t:Play()
+    return t
+end
+local function copy(s)
+    if setclipboard then setclipboard(s) return true elseif toclipboard then toclipboard(s) return true end
+    return false
+end
 local function trim(s) return (tostring(s or ""):match("^%s*(.-)%s*$")) end
+local function textW(txt, size, font)
+    local w = #tostring(txt) * (size * 0.6)
+    pcall(function() w = TextService:GetTextSize(tostring(txt), size, font or Enum.Font.GothamBold, Vector2.new(800, 40)).X end)
+    return w
+end
 
+-- drag generik: onBegin(pos) -> state, onMove(dx, dy, state, moved, pos), onEnd(moved, state)
+local function track(handle, onBegin, onMove, onEnd)
+    handle.InputBegan:Connect(function(input)
+        local ut = input.UserInputType
+        if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
+        local start = input.Position
+        local state = nil
+        if onBegin then state = onBegin(start) end
+        local moved = false
+        local ended = false
+        local conn
+        conn = UIS.InputChanged:Connect(function(i)
+            local it = i.UserInputType
+            if it == Enum.UserInputType.MouseMovement or it == Enum.UserInputType.Touch then
+                local dx, dy = i.Position.X - start.X, i.Position.Y - start.Y
+                if not moved and (math.abs(dx) > 4 or math.abs(dy) > 4) then moved = true end
+                if onMove then onMove(dx, dy, state, moved, i.Position) end
+            end
+        end)
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End and not ended then
+                ended = true
+                if conn then conn:Disconnect() end
+                if onEnd then onEnd(moved, state) end
+            end
+        end)
+    end)
+end
+
+----------------------------------------------------------------------
+-- RUN
+----------------------------------------------------------------------
 function KeySystem.Run(C)
     C = C or {}
     local pl = Players.LocalPlayer
     local pg = pl:WaitForChild("PlayerGui")
-    if pg:FindFirstChild("SORU_KEY") then pg.SORU_KEY:Destroy() end
-    applyPalette(C.Theme)
+    local prev = pg:FindFirstChild("SORU_KEY")
+    if prev then prev:Destroy() end
+    pcall(function() local ob = Lighting:FindFirstChild("SORU_KEY_BLUR") if ob then ob:Destroy() end end)
 
+    -- tema: dari opsi, kalau tidak ada ikut tema yang tersimpan di hub
+    local themeName = C.Theme
+    if not themeName then
+        pcall(function()
+            local p = CFG.."/configs/"..tostring(game.PlaceId)..".json"
+            if isfile and isfile(p) then
+                local d = Http:JSONDecode(readfile(p))
+                if d and d.Features and type(d.Features.UITheme) == "string" then themeName = d.Features.UITheme end
+            end
+        end)
+    end
+    applyPalette(themeName)
+    local ACCENT, DIM = T.accent, T.dim
+    local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
+    local RING2 = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.accent)}
+
+    -- opsi
     local keyFile = C.KeyFile or (CFG.."/soru.key")
     local saveKey = C.SaveKey ~= false
+    local autoLogin = saveKey and C.AutoLogin ~= false
+    local maxAttempts = (C.MaxAttempts ~= nil) and C.MaxAttempts or 5
+    local cooldown = C.Cooldown or 20
     local caseSens = C.CaseSensitive ~= false
-    
-    local gui = new("ScreenGui",{Name="SORU_KEY",ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,IgnoreGuiInset=true,DisplayOrder=200},pg)
-    local dim = new("Frame",{Size=UDim2.fromScale(1,1),BackgroundColor3=Color3.new(0,0,0),BackgroundTransparency=0.4,BorderSizePixel=0,ZIndex=1},gui)
-    local main = new("Frame",{AnchorPoint=Vector2.new(0.5,0.5),Position=UDim2.fromScale(0.5,0.5),Size=UDim2.fromOffset(380,270),BackgroundColor3=T.panel,BorderSizePixel=0,ZIndex=2},gui)
-    corner(main,16) new("UIStroke",{Color=T.stroke,Thickness=1,Transparency=0.3},main)
-    
-    new("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(20,18),Size=UDim2.fromOffset(340,24),Font=Enum.Font.GothamBold,TextSize=18,TextColor3=T.text,Text=C.Title or "SORU HUB",TextXAlignment=Enum.TextXAlignment.Left},main)
-    new("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(20,42),Size=UDim2.fromOffset(340,18),Font=Enum.Font.GothamMedium,TextSize=12,TextColor3=T.dim,Text=C.Subtitle or "Key System",TextXAlignment=Enum.TextXAlignment.Left},main)
+    local hasRow = (C.GetKeyLink ~= nil) or (C.DiscordLink ~= nil)
+    local W = 380
+    local H = hasRow and 300 or 256
+    local ICON = getAsset("SORU_S_ICON_1024.png", URLS.ICON)
+    local BG = getAsset("SORU_THEME_1024.png", URLS.BG)
 
-    local box = new("TextBox",{Position=UDim2.fromOffset(20,75),Size=UDim2.fromOffset(340,42),BackgroundColor3=Color3.fromRGB(13,11,23),Font=Enum.Font.GothamMedium,TextSize=13,TextColor3=T.text,PlaceholderText="Masukin key...",PlaceholderColor3=T.dim,Text="",ClearTextOnFocus=false},main)
-    corner(box,10) new("UIStroke",{Color=T.stroke,Thickness=1,Transparency=0.5},box)
+    -- state
+    local finished, result = false, false
+    local isOpen, busy, done, locked, attempts = false, false, false, false, 0
 
-    local btn = new("TextButton",{Position=UDim2.fromOffset(20,135),Size=UDim2.fromOffset(340,42),BackgroundColor3=T.accent,Font=Enum.Font.GothamBold,TextSize=13,TextColor3=Color3.new(1,1,1),Text="Verify Key",AutoButtonColor=false},main)
-    corner(btn,10)
+    local gui = new("ScreenGui", {Name = "SORU_KEY", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true, DisplayOrder = 200})
+    gui.Parent = pg
 
-    local status = new("TextLabel",{BackgroundTransparency=1,Position=UDim2.fromOffset(20,185),Size=UDim2.fromOffset(340,20),Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=T.dim,Text="",TextWrapped=true},main)
+    local conns = {}
+    local function bind(sig, fn) local c = sig:Connect(fn) conns[#conns + 1] = c return c end
+    gui.Destroying:Connect(function() for _, c in ipairs(conns) do pcall(function() c:Disconnect() end) end end)
 
-    local function notify(t,c) status.Text = t status.TextColor3 = c or T.dim end
-
-    -- load saved key
-    if saveKey then
+    ------------------------------------------------------------------
+    -- SOUND
+    ------------------------------------------------------------------
+    local sndOn = C.Sound ~= false
+    local sndBase, sndLast = {}, {}
+    if sndOn then
         pcall(function()
-            if isfile and isfile(keyFile) then
-                local saved = trim(readfile(keyFile))
-                if saved ~= "" then box.Text = saved end
+            for name, def in pairs(buildSfx()) do
+                local s = Instance.new("Sound")
+                s.Name = name s.SoundId = def.id s.Volume = 1 s.Parent = gui
+                sndBase[name] = {snd = s, dur = def.dur}
+            end
+        end)
+    end
+    local function sfx(name, speed, vol)
+        local b = sndBase[name]
+        if not sndOn or not b then return end
+        local now = os.clock()
+        local gap = (name == "hover" or name == "tick") and 0.045 or 0.03
+        if sndLast[name] and now - sndLast[name] < gap then return end
+        sndLast[name] = now
+        local c = b.snd:Clone()
+        c.Volume = 0.9 * (vol or 1)
+        c.PlaybackSpeed = speed or 1
+        c.Parent = gui
+        c:Play()
+        task.delay(b.dur / math.max(speed or 1, 0.3) + 0.4, function() c:Destroy() end)
+    end
+
+    ------------------------------------------------------------------
+    -- ROOT + SKALA
+    ------------------------------------------------------------------
+    local dimmer = new("Frame", {Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1}, gui)
+    local root = new("Frame", {Name = "Root", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 2}, gui)
+    local rootScale = new("UIScale", {Scale = 1}, root)
+    local userScale = math.clamp(C.Scale or 1, 0.6, 1.5)
+    local virt = Vector2.new(1280, 720)
+    local ox, oy = 0, 0
+    local shell
+
+    local function layout()
+        local limX = math.max(0, (virt.X - W) / 2 - 8)
+        local limY = math.max(0, (virt.Y - H) / 2 - 8)
+        ox = math.clamp(ox, -limX, limX)
+        oy = math.clamp(oy, -limY, limY)
+        if shell then shell.Position = UDim2.new(0.5, ox, 0.5, oy) end
+    end
+    local function applyScale()
+        local vp = gui.AbsoluteSize
+        if vp.X < 10 or vp.Y < 10 then
+            local cam = workspace.CurrentCamera
+            vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+        end
+        local fit = math.clamp(math.min(vp.X / (W + 80), vp.Y / (H + 60)), 0.5, 1.25)
+        local s = fit * userScale
+        rootScale.Scale = s
+        virt = Vector2.new(vp.X / s, vp.Y / s)
+        root.Size = UDim2.fromOffset(virt.X, virt.Y)
+        layout()
+    end
+    bind(gui:GetPropertyChangedSignal("AbsoluteSize"), applyScale)
+
+    ------------------------------------------------------------------
+    -- TOAST
+    ------------------------------------------------------------------
+    local toastHolder = new("Frame", {Name = "Toasts", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.new(0, 300, 1, -28), BackgroundTransparency = 1, ZIndex = 200}, root)
+    new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right}, toastHolder)
+    local toastN = 0
+    local function notify(title, msg, color, dur)
+        color = color or ACCENT
+        dur = dur or 3
+        toastN = toastN + 1
+        local glyph = "i"
+        if color == T.ok then glyph = "✓" elseif color == T.bad then glyph = "✕" elseif color == T.warn then glyph = "!" end
+        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 62), BackgroundTransparency = 1, LayoutOrder = toastN, ZIndex = 201}, toastHolder)
+        local f = new("Frame", {Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(340, 0), BackgroundColor3 = Color3.fromRGB(20, 18, 32), BorderSizePixel = 0, ZIndex = 202}, wrap)
+        corner(f, 14) stroke(f, color, 1, 0.5)
+        local sheen = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 202}, f)
+        corner(sheen, 14)
+        new("UIGradient", {Transparency = NumberSequence.new(0.8, 1)}, sheen)
+        local ic = new("Frame", {Size = UDim2.fromOffset(30, 30), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(27, 31), BackgroundColor3 = color, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 203}, f)
+        corner(ic, FULL) stroke(ic, color, 1.2, 0.4)
+        local icS = new("UIScale", {Scale = 0}, ic)
+        label(ic, {Text = glyph, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = color, ZIndex = 204})
+        label(f, {Text = tostring(title or ""), Position = UDim2.fromOffset(52, 10), Size = UDim2.new(1, -62, 0, 14), Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 203})
+        label(f, {Text = tostring(msg or ""), Position = UDim2.fromOffset(52, 26), Size = UDim2.new(1, -62, 0, 26), TextSize = 11, TextColor3 = DIM, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 203})
+        local prog = new("Frame", {Size = UDim2.new(1, -24, 0, 2), Position = UDim2.new(0, 12, 1, -5), BackgroundColor3 = color, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 203}, f)
+        corner(prog, FULL)
+        local gone = false
+        local function leave()
+            if gone then return end
+            gone = true
+            if not f.Parent then return end
+            play(f, {Position = UDim2.fromOffset(340, 0)}, 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            task.wait(0.28)
+            if not wrap.Parent then return end
+            play(wrap, {Size = UDim2.new(1, 0, 0, 0)}, 0.22)
+            task.wait(0.24)
+            wrap:Destroy()
+        end
+        local hit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 210}, f)
+        hit.MouseButton1Click:Connect(leave)
+        play(f, {Position = UDim2.fromOffset(0, 0)}, 0.55, Enum.EasingStyle.Back)
+        task.delay(0.2, function() if ic.Parent then play(icS, {Scale = 1}, 0.45, Enum.EasingStyle.Back) end end)
+        play(prog, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
+        task.delay(dur, leave)
+    end
+
+    ------------------------------------------------------------------
+    -- WINDOW SHELL
+    ------------------------------------------------------------------
+    shell = new("Frame", {Name = "Shell", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1, Visible = false, ZIndex = 10}, root)
+    local shadow, neon = nil, nil
+    if SHADOW_ID ~= "" then
+        shadow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(1, 64, 1, 64), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
+        neon = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 30, 1, 30), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = T.accent, ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
+        TweenService:Create(neon, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Size = UDim2.new(1, 58, 1, 58)}):Play()
+    end
+
+    local win = new("CanvasGroup", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 2}, shell)
+    corner(win, 20)
+    local winStroke = stroke(win, WHITE, 1.6, 0.35)
+    spin(new("UIGradient", {Color = RING}, winStroke), 8)
+    local winScale = new("UIScale", {Scale = 0.7}, win)
+
+    do -- background: tint, gambar, cahaya atas, aurora, partikel
+        local tint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, win)
+        new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(20, 17, 36), Color3.fromRGB(8, 7, 14)), Rotation = 125}, tint)
+        local bgImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = BG, ImageTransparency = 0.82, ScaleType = Enum.ScaleType.Crop, ZIndex = 2}, win)
+        local bgS = new("UIScale", {Scale = 1.05}, bgImg)
+        TweenService:Create(bgS, TweenInfo.new(14, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Scale = 1.13}):Play()
+        local glow = new("Frame", {Size = UDim2.new(1, 0, 0, 150), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, win)
+        new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.78, 1), Rotation = 90}, glow)
+
+        local ambient = new("Frame", {Name = "Ambient", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, win)
+        local function orb(col, size, px, py, dx, dy, secs)
+            local o = new("Frame", {Size = UDim2.fromOffset(size, size), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), BackgroundTransparency = 1, ZIndex = 4}, ambient)
+            local layers = 7
+            for i = 1, layers do
+                local s = 1 - (i - 1) / layers * 0.9
+                local c = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(s, s), BackgroundColor3 = col, BackgroundTransparency = 0.94, BorderSizePixel = 0, ZIndex = 4}, o)
+                corner(c, FULL)
+            end
+            TweenService:Create(o, TweenInfo.new(secs, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Position = UDim2.fromScale(px + dx, py + dy)}):Play()
+        end
+        orb(T.accent, 300, 0.15, 0.2, 0.25, 0.15, 9)
+        orb(T.cyan, 260, 0.9, 0.85, -0.22, -0.2, 11)
+        orb(T.pink, 200, 0.75, 0.05, -0.3, 0.3, 13)
+        for i = 1, 10 do
+            local col = (i % 3 == 0) and T.cyan or ((i % 3 == 1) and T.accent or WHITE)
+            local p = new("Frame", {Size = UDim2.fromOffset(3, 3), BackgroundColor3 = col, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, ambient)
+            corner(p, FULL)
+            task.spawn(function()
+                task.wait(i * 0.45)
+                while gui.Parent do
+                    if isOpen then
+                        local dur = math.random(60, 120) / 10
+                        local x = math.random(5, 95) / 100
+                        local sz = math.random(2, 4)
+                        p.Size = UDim2.fromOffset(sz, sz)
+                        p.Position = UDim2.fromScale(x, 1.03)
+                        p.BackgroundTransparency = 1
+                        play(p, {Position = UDim2.fromScale(x + (math.random() - 0.5) * 0.2, -0.05)}, dur, Enum.EasingStyle.Linear)
+                        play(p, {BackgroundTransparency = 0.45}, dur * 0.3, Enum.EasingStyle.Sine)
+                        task.wait(dur * 0.7)
+                        play(p, {BackgroundTransparency = 1}, dur * 0.3, Enum.EasingStyle.Sine)
+                        task.wait(dur * 0.3)
+                    else
+                        task.wait(0.6)
+                    end
+                end
+            end)
+        end
+
+        local accentLine = new("Frame", {Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 15}, win)
+        local ag = new("UIGradient", {Color = RING2}, accentLine)
+        ag.Offset = Vector2.new(-1, 0)
+        TweenService:Create(ag, TweenInfo.new(3.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)}):Play()
+    end
+
+    ------------------------------------------------------------------
+    -- EFEK TOMBOL (ripple, shine, scale, hover)
+    ------------------------------------------------------------------
+    local function ripple(btn)
+        btn.ClipsDescendants = true
+        btn.MouseButton1Down:Connect(function()
+            pcall(function()
+                local m = UIS:GetMouseLocation()
+                local s = math.max(rootScale.Scale * winScale.Scale, 0.01)
+                local ap, asz = btn.AbsolutePosition, btn.AbsoluteSize
+                local w, h = asz.X / s, asz.Y / s
+                local x = math.clamp((m.X - ap.X) / s, 0, w)
+                local y = math.clamp((m.Y - ap.Y) / s, 0, h)
+                local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(0, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 0}, btn)
+                corner(r, FULL)
+                local d = math.max(w, h) * 2.4
+                play(r, {Size = UDim2.fromOffset(d, d), BackgroundTransparency = 1}, 0.6, Enum.EasingStyle.Quint)
+                task.delay(0.65, function() r:Destroy() end)
+            end)
+        end)
+    end
+
+    -- opts: stroke (UIStroke), hoverBg (Color3), hs (skala hover)
+    local function fx(b, opts)
+        opts = opts or {}
+        local hs = opts.hs or 1.02
+        local st = opts.stroke
+        local bg0 = b.BackgroundColor3
+        local c0, t0 = nil, nil
+        if st then c0, t0 = st.Color, st.Transparency end
+        ripple(b)
+        local sc = new("UIScale", {Scale = 1}, b)
+        local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, b)
+        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
+        local hov = false
+        b.MouseEnter:Connect(function()
+            hov = true
+            sfx("hover")
+            play(sc, {Scale = hs}, 0.3, Enum.EasingStyle.Back)
+            if opts.hoverBg then play(b, {BackgroundColor3 = opts.hoverBg}, 0.18) end
+            if st then play(st, {Color = ACCENT, Transparency = 0.25}, 0.18) end
+            shine.Position = UDim2.new(-0.15, 0, 0.5, 0)
+            play(shine, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.6, Enum.EasingStyle.Quad)
+        end)
+        b.MouseLeave:Connect(function()
+            hov = false
+            play(sc, {Scale = 1}, 0.25)
+            if opts.hoverBg then play(b, {BackgroundColor3 = bg0}, 0.22) end
+            if st then play(st, {Color = c0, Transparency = t0}, 0.22) end
+        end)
+        b.MouseButton1Down:Connect(function() play(sc, {Scale = 0.97}, 0.08) end)
+        b.MouseButton1Up:Connect(function() play(sc, {Scale = hov and hs or 1}, 0.35, Enum.EasingStyle.Back) end)
+    end
+
+    ------------------------------------------------------------------
+    -- HEADER
+    ------------------------------------------------------------------
+    local entries = {} -- elemen yang masuk bergantian saat window dibuka
+    local function reg(inst) entries[#entries + 1] = {inst = inst, pos = inst.Position} end
+
+    local tb = new("Frame", {Size = UDim2.new(1, 0, 0, 72), BackgroundTransparency = 1, Active = true, ZIndex = 10}, win)
+    local logo = new("Frame", {Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(20, 16), BackgroundColor3 = Color3.fromRGB(26, 24, 42), BorderSizePixel = 0, ZIndex = 11}, tb)
+    corner(logo, 13)
+    local logoS = stroke(logo, WHITE, 1.4, 0.2)
+    spin(new("UIGradient", {Color = RING2}, logoS), 5)
+    new("ImageLabel", {Size = UDim2.new(1, -8, 1, -8), Position = UDim2.fromOffset(4, 4), BackgroundTransparency = 1, Image = C.Icon or ICON, ZIndex = 12}, logo)
+    local titleL = label(tb, {Text = C.Title or "SORU HUB", Position = UDim2.fromOffset(72, 14), Size = UDim2.new(1, -124, 0, 20), Font = Enum.Font.GothamBold, TextSize = 16, TextColor3 = WHITE, ZIndex = 11})
+    local tg = new("UIGradient", {Color = ColorSequence.new{ColorSequenceKeypoint.new(0, T.text), ColorSequenceKeypoint.new(0.35, T.text), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(0.65, T.text), ColorSequenceKeypoint.new(1, T.text)}, Offset = Vector2.new(-1, 0)}, titleL)
+    TweenService:Create(tg, TweenInfo.new(1.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 2.4), {Offset = Vector2.new(1, 0)}):Play()
+    label(tb, {Text = C.Subtitle or "Key system", Position = UDim2.fromOffset(72, 36), Size = UDim2.new(1, -124, 0, 14), TextSize = 11, TextColor3 = DIM, ZIndex = 11})
+
+    local xB = new("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -40, 0, 22), Text = "✕", Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = T.bad, BackgroundColor3 = Color3.fromRGB(28, 25, 44), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 12}, tb)
+    corner(xB, FULL)
+    xB.MouseEnter:Connect(function() sfx("hover") play(xB, {BackgroundColor3 = Color3.fromRGB(82, 36, 50)}, 0.18) end)
+    xB.MouseLeave:Connect(function() play(xB, {BackgroundColor3 = Color3.fromRGB(28, 25, 44)}, 0.22) end)
+    xB.MouseButton1Down:Connect(function() play(xB, {BackgroundColor3 = T.cardDown}, 0.08) end)
+
+    local sepL = new("Frame", {Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 10}, win)
+    new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.6), NumberSequenceKeypoint.new(1, 1)}}, sepL)
+
+    ------------------------------------------------------------------
+    -- BODY
+    ------------------------------------------------------------------
+    local infoL = label(win, {Text = C.Description or "Enter your key to unlock the hub", Position = UDim2.fromOffset(22, 86), Size = UDim2.new(1, -44, 0, 16), TextSize = 12, TextColor3 = DIM, ZIndex = 10})
+    reg(infoL)
+
+    -- input key
+    local inWrap = new("Frame", {Position = UDim2.fromOffset(20, 108), Size = UDim2.new(1, -40, 0, 42), BackgroundColor3 = T.input, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 10}, win)
+    corner(inWrap, 12)
+    local inStroke = stroke(inWrap, T.stroke, 1, 0.4)
+    local kBadge = new("Frame", {Size = UDim2.fromOffset(26, 26), Position = UDim2.fromOffset(9, 8), BackgroundColor3 = WHITE, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 11}, inWrap)
+    corner(kBadge, 9)
+    grad(kBadge, T.accent, T.accent2, 45)
+    label(kBadge, {Text = "K", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 12, TextTruncate = Enum.TextTruncate.None})
+    local box = new("TextBox", {Size = UDim2.new(1, -54, 1, 0), Position = UDim2.fromOffset(46, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = "Paste your key here", PlaceholderColor3 = Color3.fromRGB(100, 94, 130), TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 11}, inWrap)
+    local ul = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(0, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, inWrap)
+    grad(ul, T.accent, T.cyan, 0)
+    reg(inWrap)
+
+    local flashTok = 0
+    local function flash(col)
+        flashTok = flashTok + 1
+        local tok = flashTok
+        play(inStroke, {Color = col, Transparency = 0.05, Thickness = 1.6}, 0.15)
+        task.delay(1.3, function()
+            if tok ~= flashTok or not inStroke.Parent or done then return end
+            local focused = box:IsFocused()
+            play(inStroke, {Color = focused and ACCENT or T.stroke, Transparency = focused and 0.1 or 0.4, Thickness = focused and 1.5 or 1}, 0.3)
+        end)
+    end
+    box.Focused:Connect(function()
+        sfx("tick", 1.4)
+        flashTok = flashTok + 1
+        play(inStroke, {Color = ACCENT, Transparency = 0.1, Thickness = 1.5}, 0.2)
+        play(ul, {Size = UDim2.new(1, 0, 0, 2)}, 0.35)
+        play(inWrap, {BackgroundColor3 = Color3.fromRGB(22, 19, 38)}, 0.2)
+        play(kBadge, {BackgroundTransparency = 0}, 0.2)
+    end)
+    box.FocusLost:Connect(function()
+        if done then return end
+        play(inStroke, {Color = T.stroke, Transparency = 0.4, Thickness = 1}, 0.25)
+        play(ul, {Size = UDim2.new(0, 0, 0, 2)}, 0.25)
+        play(inWrap, {BackgroundColor3 = T.input}, 0.25)
+        play(kBadge, {BackgroundTransparency = 0.82}, 0.25)
+    end)
+
+    -- status
+    local statusRow = new("Frame", {Position = UDim2.fromOffset(0, 154), Size = UDim2.new(1, 0, 0, 20), BackgroundTransparency = 1, ZIndex = 10}, win)
+    local sdot = new("Frame", {Position = UDim2.fromOffset(23, 7), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = DIM, BorderSizePixel = 0, ZIndex = 10}, statusRow)
+    corner(sdot, FULL)
+    TweenService:Create(sdot, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = 0.7}):Play()
+    local statusL = label(statusRow, {Text = "Waiting for key", Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -60, 1, 0), TextSize = 11, TextColor3 = DIM, ZIndex = 10})
+    local function setStatus(text, col)
+        statusL.Text = text
+        play(statusL, {TextColor3 = col}, 0.2)
+        play(sdot, {BackgroundColor3 = col}, 0.2)
+    end
+    reg(statusRow)
+
+    -- tombol utama
+    local btn = new("TextButton", {Name = "Verify", Position = UDim2.fromOffset(20, 180), Size = UDim2.new(1, -40, 0, 42), BackgroundColor3 = WHITE, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 10}, win)
+    corner(btn, 12)
+    grad(btn, T.accent2, T.cyan, 0)
+    stroke(btn, WHITE, 1, 0.75)
+    gloss(btn)
+    local okFill = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ok, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 11}, btn)
+    local btnL = label(btn, {Text = "Verify key", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = WHITE, ZIndex = 13, TextTruncate = Enum.TextTruncate.None}, nil)
+    fx(btn, {hs = 1.02})
+    reg(btn)
+
+    -- tombol sekunder: Get key / Discord
+    local function secondary(text, x, w, cb)
+        local b = new("TextButton", {Position = x, Size = w, BackgroundColor3 = T.card, BackgroundTransparency = 0.15, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 10}, win)
+        corner(b, 12)
+        local s = stroke(b, T.stroke, 1, 0.5)
+        grad(b, WHITE, Color3.fromRGB(196, 192, 222), 90)
+        gloss(b)
+        label(b, {Text = text, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, ZIndex = 13, TextTruncate = Enum.TextTruncate.None})
+        fx(b, {stroke = s, hoverBg = T.cardHover, hs = 1.02})
+        b.MouseButton1Click:Connect(function() sfx("click") cb() end)
+        reg(b)
+        return b
+    end
+    if hasRow then
+        local rowY = 230
+        if C.GetKeyLink and C.DiscordLink then
+            secondary("Get key", UDim2.new(0, 20, 0, rowY), UDim2.new(0.5, -24, 0, 36), function()
+                local ok = copy(tostring(C.GetKeyLink))
+                notify(ok and "Link copied" or "Key link", ok and "Open it in your browser to get a key" or tostring(C.GetKeyLink), ok and T.ok or T.warn, 3.5)
+            end)
+            secondary("Discord", UDim2.new(0.5, 4, 0, rowY), UDim2.new(0.5, -24, 0, 36), function()
+                local ok = copy(tostring(C.DiscordLink))
+                notify(ok and "Invite copied" or "Discord", ok and "Paste it in your browser to join" or tostring(C.DiscordLink), ok and T.ok or T.warn, 3.5)
+            end)
+        elseif C.GetKeyLink then
+            secondary("Get key", UDim2.new(0, 20, 0, rowY), UDim2.new(1, -40, 0, 36), function()
+                local ok = copy(tostring(C.GetKeyLink))
+                notify(ok and "Link copied" or "Key link", ok and "Open it in your browser to get a key" or tostring(C.GetKeyLink), ok and T.ok or T.warn, 3.5)
+            end)
+        else
+            secondary("Discord", UDim2.new(0, 20, 0, rowY), UDim2.new(1, -40, 0, 36), function()
+                local ok = copy(tostring(C.DiscordLink))
+                notify(ok and "Invite copied" or "Discord", ok and "Paste it in your browser to join" or tostring(C.DiscordLink), ok and T.ok or T.warn, 3.5)
+            end)
+        end
+    end
+
+    local footL = label(win, {Text = C.Footer or (saveKey and "Your key is remembered on this device" or "Press Enter to verify"), Position = UDim2.fromOffset(20, hasRow and 276 or 232), Size = UDim2.new(1, -40, 0, 14), TextSize = 10, TextColor3 = Color3.fromRGB(110, 104, 145), TextXAlignment = Enum.TextXAlignment.Center, ZIndex = 10})
+    reg(footL)
+
+    ------------------------------------------------------------------
+    -- OPEN / CLOSE
+    ------------------------------------------------------------------
+    local blurOn = C.Blur ~= false
+    local blur = nil
+    if blurOn then
+        pcall(function()
+            blur = Instance.new("BlurEffect")
+            blur.Name = "SORU_KEY_BLUR"
+            blur.Size = 0
+            blur.Parent = Lighting
+        end)
+    end
+    gui.Destroying:Connect(function() if blur then pcall(function() blur:Destroy() end) end end)
+
+    local function openA()
+        if isOpen then return end
+        isOpen = true
+        sfx("open")
+        shell.Visible = true
+        winScale.Scale = 0.7
+        win.GroupTransparency = 1
+        win.Position = UDim2.new(0.5, 0, 0.5, 26)
+        play(win, {Position = UDim2.fromScale(0.5, 0.5)}, 0.6, Enum.EasingStyle.Quint)
+        play(winScale, {Scale = 1}, 0.7, Enum.EasingStyle.Back)
+        play(win, {GroupTransparency = 0}, 0.3)
+        play(dimmer, {BackgroundTransparency = 0.55}, 0.5)
+        if shadow then play(shadow, {ImageTransparency = 0.55}, 0.45) end
+        if neon then play(neon, {ImageTransparency = 0.72}, 0.6) end
+        if blur then play(blur, {Size = 12}, 0.45) end
+        tb.Position = UDim2.fromOffset(0, -14)
+        play(tb, {Position = UDim2.fromOffset(0, 0)}, 0.6, Enum.EasingStyle.Back)
+        for i, e in ipairs(entries) do
+            e.inst.Position = e.pos + UDim2.fromOffset(0, 16)
+            task.delay(0.1 + (i - 1) * 0.055, function()
+                if e.inst.Parent then play(e.inst, {Position = e.pos}, 0.55, Enum.EasingStyle.Back) end
+            end)
+        end
+        -- glint menyapu window
+        local gl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 100, 2.4, 0), Position = UDim2.new(-0.3, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 40}, win)
+        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.88), NumberSequenceKeypoint.new(1, 1)}}, gl)
+        task.delay(0.25, function() play(gl, {Position = UDim2.new(1.3, 0, 0.5, 0)}, 0.9, Enum.EasingStyle.Quad) end)
+        task.delay(1.3, function() gl:Destroy() end)
+    end
+
+    local function closeA(cb)
+        if not isOpen then
+            gui:Destroy()
+            if cb then cb() end
+            return
+        end
+        isOpen = false
+        sfx("close")
+        play(win, {Position = UDim2.new(0.5, 0, 0.5, 20)}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+        play(winScale, {Scale = 0.8}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+        play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        play(dimmer, {BackgroundTransparency = 1}, 0.35)
+        if shadow then play(shadow, {ImageTransparency = 1}, 0.22) end
+        if neon then play(neon, {ImageTransparency = 1}, 0.25) end
+        if blur then play(blur, {Size = 0}, 0.4) end
+        task.delay(0.48, function()
+            gui:Destroy()
+            if cb then cb() end
+        end)
+    end
+
+    local function finish(ok, key)
+        if finished then return end
+        finished = true
+        result = ok and true or false
+        closeA(function()
+            if ok then
+                if C.OnSuccess then task.spawn(C.OnSuccess, key) end
+            else
+                if C.OnCancel then task.spawn(C.OnCancel) end
             end
         end)
     end
 
-    local function checkKey(input)
-        input = trim(input)
-        local toCheck = caseSens and input or string.lower(input)
-        
-        -- 1. cek Keys statis
-        if C.Keys then
-            for _,k in ipairs(C.Keys) do
-                local kk = caseSens and tostring(k) or string.lower(tostring(k))
-                if kk == toCheck then return true end
-            end
-        end
-        -- 2. cek KeyUrl online
-        if C.KeyUrl then
-            local ok,res = pcall(function() return game:HttpGet(C.KeyUrl) end)
-            if ok then
-                for line in res:gmatch("[^\r\n]+") do
-                    local l = caseSens and trim(line) or string.lower(trim(line))
-                    if l == toCheck then return true end
-                end
-            end
-        end
-        -- 3. cek Validate custom
-        if C.Validate then
-            local ok, res, msg = pcall(C.Validate, input)
-            if ok then
-                if res == true then return true
-                elseif type(res) == "string" then return false, res
-                else return false, msg or "Invalid key" end
-            end
-        end
-        return false, "Key salah"
-    end
-
-    btn.MouseButton1Click:Connect(function()
-        local k = box.Text
-        if k == "" then notify("Masukin key dulu", T.bad) return end
-        local valid, msg = checkKey(k)
-        if valid then
-            notify("Key valid! Loading...", T.ok)
-            if saveKey then pcall(function() if writefile then writefile(keyFile, k) end end) end
-            task.wait(0.5)
-            gui:Destroy()
-            if C.OnSuccess then pcall(C.OnSuccess, k) end
-        else
-            notify(msg or "Key salah", T.bad)
-        end
+    ------------------------------------------------------------------
+    -- DRAG: miring halus mengikuti gerak, lalu memantul balik
+    ------------------------------------------------------------------
+    local dragging, lastDX = false, 0
+    bind(RunService.RenderStepped, function()
+        if dragging and win.Rotation ~= 0 then win.Rotation = win.Rotation * 0.9 end
     end)
+    track(tb,
+        function()
+            dragging, lastDX = true, 0
+            if isOpen then play(winScale, {Scale = 1.015}, 0.18) end
+            return Vector2.new(ox, oy)
+        end,
+        function(dx, dy, st, moved)
+            if moved and st then
+                local s = rootScale.Scale
+                ox, oy = st.X + dx / s, st.Y + dy / s
+                layout()
+                local vx = (dx - lastDX) / s
+                lastDX = dx
+                win.Rotation = math.clamp(win.Rotation + vx * 0.12, -2.4, 2.4)
+            end
+        end,
+        function()
+            dragging = false
+            if isOpen and not finished then
+                play(winScale, {Scale = 1}, 0.4, Enum.EasingStyle.Back)
+                play(win, {Rotation = 0}, 0.8, Enum.EasingStyle.Elastic)
+            end
+        end)
 
-    if C.GetKeyLink then
-        local getBtn = new("TextButton",{Position=UDim2.fromOffset(20,215),Size=UDim2.fromOffset(165,32),BackgroundColor3=T.card,Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=T.text,Text="Get Key"},main)
-        corner(getBtn,8)
-        getBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(C.GetKeyLink) end notify("Link Get Key di copy!", T.ok) end)
+    local function shake()
+        task.spawn(function()
+            for _, d in ipairs({12, -10, 8, -6, 3, 0}) do
+                if not shell.Parent then return end
+                play(shell, {Position = UDim2.new(0.5, ox + d, 0.5, oy)}, 0.05, Enum.EasingStyle.Sine)
+                task.wait(0.05)
+            end
+        end)
     end
-    if C.DiscordLink then
-        local discBtn = new("TextButton",{Position=UDim2.fromOffset(195,215),Size=UDim2.fromOffset(165,32),BackgroundColor3=T.card,Font=Enum.Font.GothamMedium,TextSize=11,TextColor3=T.text,Text="Discord"},main)
-        corner(discBtn,8)
-        discBtn.MouseButton1Click:Connect(function() if setclipboard then setclipboard(C.DiscordLink) end end)
+
+    ------------------------------------------------------------------
+    -- VALIDASI KEY
+    ------------------------------------------------------------------
+    local function same(a, b)
+        if caseSens then return a == b end
+        return a:lower() == b:lower()
     end
+
+    local function fetchKeys()
+        local ok, body = pcall(function() return game:HttpGet(C.KeyUrl) end)
+        if not ok or type(body) ~= "string" then return nil end
+        local list = {}
+        for line in body:gmatch("[^\r\n]+") do
+            local k = trim(line)
+            if k ~= "" and k:sub(1, 1) ~= "#" then list[#list + 1] = k end
+        end
+        return list
+    end
+
+    -- return true | false, "pesan"
+    local function check(key)
+        key = trim(key)
+        if key == "" then return false, "Please enter your key" end
+        if C.Validate then
+            local ok, res, msg = pcall(C.Validate, key)
+            if not ok then return false, "Validator error: "..tostring(res) end
+            if res then return true end
+            return false, msg or "That key isn't valid"
+        end
+        local list = {}
+        for _, k in ipairs(C.Keys or {}) do list[#list + 1] = tostring(k) end
+        if C.KeyUrl then
+            local remote = fetchKeys()
+            if remote then
+                for _, k in ipairs(remote) do list[#list + 1] = k end
+            elseif #list == 0 then
+                return false, "Couldn't load the key list. Check your connection"
+            end
+        end
+        if #list == 0 then return false, "No keys configured" end
+        for _, k in ipairs(list) do
+            if same(k, key) then return true end
+        end
+        return false, "That key isn't valid"
+    end
+
+    ------------------------------------------------------------------
+    -- ALUR VERIFIKASI
+    ------------------------------------------------------------------
+    local function burst(col)
+        local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 14}, btn)
+        corner(r, FULL)
+        local rs = stroke(r, col, 2, 0.1)
+        play(r, {Size = UDim2.fromOffset(420, 420)}, 0.8)
+        play(rs, {Transparency = 1}, 0.8)
+        task.delay(0.85, function() r:Destroy() end)
+    end
+
+    local function onSuccess(key)
+        done = true
+        if saveKey then pcall(function() if writefile then writefile(keyFile, key) end end) end
+        sfx("boot")
+        btnL.Text = "✓  Access granted"
+        play(okFill, {BackgroundTransparency = 0.15}, 0.35)
+        setStatus("Key accepted. Loading hub", T.ok)
+        flash(T.ok)
+        burst(T.ok)
+        notify("Key accepted", "Welcome, "..pl.DisplayName, T.ok, 2.5)
+        task.delay(1.1, function() finish(true, key) end)
+    end
+
+    local function lockout(sec)
+        locked = true
+        play(btn, {BackgroundTransparency = 0.55}, 0.25)
+        task.spawn(function()
+            for s = sec, 1, -1 do
+                if not gui.Parent then return end
+                btnL.Text = "Try again in "..s.."s"
+                setStatus("Too many attempts", T.warn)
+                task.wait(1)
+            end
+            locked = false
+            attempts = 0
+            if gui.Parent then
+                btnL.Text = "Verify key"
+                play(btn, {BackgroundTransparency = 0}, 0.25)
+                setStatus("Waiting for key", DIM)
+            end
+        end)
+    end
+
+    local function onFail(msg, auto)
+        attempts = attempts + 1
+        sfx("error")
+        btnL.Text = "Verify key"
+        if auto then
+            pcall(function() if delfile and isfile and isfile(keyFile) then delfile(keyFile) end end)
+            msg = "Your saved key is no longer valid"
+        end
+        setStatus(msg or "That key isn't valid", T.bad)
+        flash(T.bad)
+        shake()
+        notify("Key rejected", msg or "That key isn't valid", T.bad, 3)
+        if maxAttempts > 0 and attempts >= maxAttempts then lockout(cooldown) end
+    end
+
+    local function submit(auto)
+        if busy or done or locked or finished then return end
+        local key = trim(box.Text)
+        if key == "" then
+            sfx("error")
+            setStatus("Please enter your key", T.warn)
+            shake()
+            return
+        end
+        busy = true
+        sfx("click")
+        setStatus("Checking key", T.cyan)
+        task.spawn(function()
+            local n = 0
+            while busy and gui.Parent do
+                n = n % 3 + 1
+                btnL.Text = "Checking"..string.rep(".", n)
+                task.wait(0.3)
+            end
+        end)
+        task.spawn(function()
+            local t0 = os.clock()
+            local ok, msg = check(key)
+            local el = os.clock() - t0
+            if el < 0.6 then task.wait(0.6 - el) end
+            if not gui.Parent then return end
+            busy = false
+            if ok then onSuccess(key) else onFail(msg, auto) end
+        end)
+    end
+
+    btn.MouseButton1Click:Connect(function() submit(false) end)
+    box.FocusLost:Connect(function(enterPressed) if enterPressed then submit(false) end end)
+    xB.MouseButton1Click:Connect(function() sfx("click") finish(false) end)
+
+    ------------------------------------------------------------------
+    -- START
+    ------------------------------------------------------------------
+    applyScale()
+    openA()
+
+    -- key tersimpan -> isi otomatis lalu verifikasi
+    local saved = nil
+    if saveKey then
+        pcall(function() if isfile and isfile(keyFile) then saved = trim(readfile(keyFile)) end end)
+        if saved == "" then saved = nil end
+    end
+    if saved then
+        box.Text = saved
+        if autoLogin then
+            setStatus("Saved key found. Verifying", T.cyan)
+            task.delay(1.1, function()
+                if gui.Parent and not done and not busy then submit(true) end
+            end)
+        end
+    end
+    if not (C.Keys or C.KeyUrl or C.Validate) then
+        warn("[SORU KEY] Keys, KeyUrl, or Validate isn't set. Every key will be rejected.")
+    end
+
+    local obj = {}
+    function obj:Destroy() if not finished then finished = true end gui:Destroy() end
+    function obj:IsDone() return finished end
+
+    if C.Wait then
+        while not (finished and gui.Parent == nil) do task.wait(0.1) end
+        return result
+    end
+    return obj
 end
 
 return KeySystem
