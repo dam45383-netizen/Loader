@@ -440,13 +440,26 @@ local function palCol(i)
     if i == 1 then return T.accent elseif i == 2 then return T.accent2 elseif i == 3 then return T.cyan end
     return T.pink
 end
-
+-- FONT
+local FAMILY = "Nunito" -- alternatif: "TitilliumWeb" (gaming/tech), "Ubuntu", "Jura", "Roboto"
+local function mkFont(w) return Font.new("rbxasset://fonts/families/"..FAMILY..".json", w) end
+local FONT_FACES = {
+    [Enum.Font.Gotham]       = mkFont(Enum.FontWeight.Regular),
+    [Enum.Font.GothamMedium] = mkFont(Enum.FontWeight.Medium),
+    [Enum.Font.GothamBold]   = mkFont(Enum.FontWeight.Bold),
+    [Enum.Font.Code]         = Font.new("rbxasset://fonts/families/RobotoMono.json"),
+}
 ----------------------------------------------------------------------
 -- HELPERS
 ----------------------------------------------------------------------
 local function new(class, props, parent)
     local o = Instance.new(class)
-    if props then for k, v in pairs(props) do o[k] = v end end
+    if props then
+        for k, v in pairs(props) do
+            if k == "Font" and FONT_FACES[v] then o.FontFace = FONT_FACES[v]
+            else o[k] = v end
+        end
+    end
     if parent then o.Parent = parent end
     return o
 end
@@ -560,18 +573,21 @@ local function safe(fn, ...)
 end
 
 local TWC, TWN = {}, 0
-local function textW(txt, size, font)
+local BOLD_FACE = FONT_FACES[Enum.Font.GothamBold]
+local function textW(txt, size)
     txt = tostring(txt)
     local key = txt..":"..size
     local c = TWC[key]
-    if c and not font then return c end
+    if c then return c end
     local w = #txt * (size * 0.6)
-    pcall(function() w = TextService:GetTextSize(txt, size, font or Enum.Font.GothamBold, Vector2.new(800, 40)).X end)
-    if not font then
-        TWN = TWN + 1
-        if TWN > 400 then TWC, TWN = {}, 0 end
-        TWC[key] = w
-    end
+    pcall(function()
+        local p = Instance.new("GetTextBoundsParams")
+        p.Text, p.Font, p.Size, p.Width = txt, BOLD_FACE, size, 800
+        w = TextService:GetTextBoundsAsync(p).X
+    end)
+    TWN = TWN + 1
+    if TWN > 400 then TWC, TWN = {}, 0 end
+    TWC[key] = w
     return w
 end
 
