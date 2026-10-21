@@ -1,6 +1,8 @@
+local Window = getgenv().SORU_Window
+if not Window then return end
 local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
 local Window = SORU:CreateWindow({
-    Title = "Pickaxe Hub",
+    Title = "Soru Hub",
     Subtitle = "Stats | Strength | Aura | Treasure",
     ToggleKey = Enum.KeyCode.RightShift
 })
