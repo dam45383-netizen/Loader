@@ -1,0 +1,171 @@
+local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+local Window = SORU:CreateWindow({
+    Title = "Pickaxe Hub",
+    Subtitle = "Stats | Strength | Aura | Treasure",
+    ToggleKey = Enum.KeyCode.RightShift
+})
+
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local plr = Players.LocalPlayer
+
+-- // Vars
+local SpeedValue = plr:GetAttribute("SwingSpeedMult") or 1
+local AuraValue = plr:GetAttribute("SwingRangeMult") or 1
+local AutoStrength = false
+local AutoAura = false
+
+-- // === TAB 1: STATS ===
+local StatsTab = Window:Tab({Title = "Stats", Icon = "S", Group = "Main"})
+local StatsAcc = StatsTab:Accordion({Title = "Stats Changer", Desc = "Modify Pickaxe Stats", Open = true})
+
+StatsAcc:Slider({Title = "Speed Pickaxe", Desc = "SwingSpeedMult", Flag = "SpeedPickaxe", Min = 1, Max = 1000, Step = 1, Default = SpeedValue, Suffix = "x", Callback = function(v) SpeedValue = v end})
+StatsAcc:Slider({Title = "Aura Pickaxe", Desc = "SwingRangeMult", Flag = "AuraPickaxe", Min = 1, Max = 1000, Step = 1, Default = AuraValue, Suffix = "x", Callback = function(v) AuraValue = v end})
+StatsAcc:Button({Title = "Apply Stats", Desc = "Apply ke Player Attribute", Callback = function()
+    pcall(function() plr:SetAttribute("SwingSpeedMult", SpeedValue) plr:SetAttribute("SwingRangeMult", AuraValue) end)
+    if plr.Character then pcall(function() plr.Character:SetAttribute("SwingSpeedMult", SpeedValue) plr.Character:SetAttribute("SwingRangeMult", AuraValue) end) end
+end})
+
+-- // === TAB 2: STRENGTH ===
+local StrengthTab = Window:Tab({Title = "Strength", Icon = "💪", Group = "Farm"})
+local StrengthAcc = StrengthTab:Accordion({Title = "Auto Strength", Desc = "Auto Farm Strength", Open = true})
+StrengthAcc:Toggle({Title = "Auto Strength", Flag = "AutoStrength", Default = false, Callback = function(v)
+    AutoStrength = v
+    if v then task.spawn(function()
+        while AutoStrength do
+            local V3, V2, CF, C3 = Vector3.new, Vector2.new, CFrame.new, Color3.new
+            pcall(function() RS:WaitForChild("SwingReward"):FireServer() end)
+            task.wait(0.01)
+        end
+    end) end
+end})
+
+-- // === TAB 3: AURA ===
+local AuraTab = Window:Tab({Title = "Aura", Icon = "A", Group = "Farm"})
+local AuraAcc = AuraTab:Accordion({Title = "Auto Aura Spin", Desc = "Auto Spin Aura", Open = true})
+local AutoSpin = false
+AuraAcc:Toggle({Title = "Auto Spin Aura", Flag = "AutoSpinAura", Default = false, Callback = function(v)
+    AutoSpin = v
+    if v then task.spawn(function()
+        while AutoSpin do
+            local V3, V2, CF, C3 = Vector3.new, Vector2.new, CFrame.new, Color3.new
+            pcall(function() RS:WaitForChild("SpinAura"):InvokeServer(nil) end)
+            task.wait(0.01)
+        end
+    end) end
+end})
+
+-- // === TAB 4: TREASURE - NEW ===
+local TreasureTab = Window:Tab({Title = "Treasure", Icon = "💎", Group = "Farm"})
+TreasureTab:Section("Stealer")
+
+-- Ambil Rarity dinamis dari TreasureData
+local RARITY_ORDER = {}
+pcall(function()
+    local TreasureData = require(RS.Shared:WaitForChild("TreasureData"))
+    RARITY_ORDER = TreasureData.RARITY_ORDER
+end)
+-- Fallback kalau require gagal (executor nge-block)
+if #RARITY_ORDER == 0 then
+    RARITY_ORDER = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Secret","Exotic","Divine","Astral","Transcendent","Omega","Ascendant","Paragon","Eternity","Electric","Plasma","Singularity","Hex","Coven","Eldritch","Stellar","Nebula","Galactic","Molten","Infernal","Primordial"}
+end
+
+local SelectedRarities = {"Mythic","Secret","Exotic","Divine"}
+local AutoSteal = false
+
+local TreasureAcc = TreasureTab:Accordion({Title = "Auto Steal Treasure", Desc = "Teleport + Interact by Rarity", Open = true})
+
+TreasureAcc:Dropdown({
+    Title = "Rarity",
+    Desc = "Pilih rarity yang mau di steal (Multi)",
+    Flag = "TreasureRarity",
+    Options = RARITY_ORDER,
+    Default = SelectedRarities,
+    Multi = true,
+    Callback = function(v)
+        SelectedRarities = v
+    end
+})
+
+local function getRarityText(model)
+    -- Path: Treasure_130.TreasureLabel.Lines.Line2
+    local ok, result = pcall(function()
+        local label = model:FindFirstChild("TreasureLabel", true)
+        if not label then return nil end
+        local line2 = label:FindFirstChild("Line2", true) or label:FindFirstChild("Line2", false)
+        if line2 and line2:FindFirstChild("Line2") then line2 = line2.Line2 end -- jaga-jaga
+        -- Coba ambil Lines.Line2
+        local lines = label:FindFirstChild("Lines")
+        if lines and lines:FindFirstChild("Line2") and lines.Line2:IsA("TextLabel") then
+            return lines.Line2.Text
+        end
+        if line2 and line2:IsA("TextLabel") then return line2.Text end
+        -- brute force cari TextLabel yang ada di dalamnya yang namanya Line2
+        for _,d in ipairs(model:GetDescendants()) do
+            if d.Name == "Line2" and d:IsA("TextLabel") then return d.Text end
+        end
+        return nil
+    end)
+    if ok then return result end
+    return nil
+end
+
+local function isWanted(rarityText)
+    if not rarityText then return false end
+    for _, wanted in ipairs(SelectedRarities) do
+        if rarityText:lower():find(wanted:lower()) then return true end
+    end
+    return false
+end
+
+TreasureAcc:Toggle({
+    Title = "Auto Steal",
+    Desc = "Cek LocalTreasureDrops & steal jika rarity cocok",
+    Flag = "AutoStealTreasure",
+    Default = false,
+    Callback = function(v)
+        AutoSteal = v
+        if v then task.spawn(function()
+            while AutoSteal do
+                local dropsFolder = workspace:FindFirstChild("LocalTreasureDrops")
+                if dropsFolder then
+                    for _, treasure in ipairs(dropsFolder:GetChildren()) do
+                        if not AutoSteal then break end
+                        local rarityText = getRarityText(treasure)
+                        if isWanted(rarityText) then
+                            -- Teleport
+                            pcall(function()
+                                local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                                if hrp then
+                                    -- pakai Pivot biar support Model
+                                    local cf = treasure:GetPivot() or treasure:GetPrimaryPartCFrame() or CFrame.new(treasure:GetBoundingBox())
+                                    hrp.CFrame = cf + Vector3.new(0,3,0)
+                                end
+                            end)
+                            task.wait(0.05)
+                            -- Fire Interact 0 detik
+                            pcall(function()
+                                for _, obj in ipairs(treasure:GetDescendants()) do
+                                    if obj:IsA("ProximityPrompt") then
+                                        fireproximityprompt(obj, 0)
+                                    end
+                                end
+                            end)
+                            -- fallback remote kalau pake remote
+                            pcall(function()
+                                local interactRemote = RS:FindFirstChild("InteractTreasure") or RS:FindFirstChild("CollectTreasure") or RS:FindFirstChild("TreasureInteract")
+                                if interactRemote then
+                                    interactRemote:FireServer(treasure)
+                                end
+                            end)
+                            task.wait(0.1)
+                        end
+                    end
+                end
+                task.wait(0.2)
+            end
+        end) end
+    end
+})
+
+TreasureTab:Paragraph({Title = "Cara Kerja", Desc = "Dropdown rarity otomatis ngambil dari Shared.TreasureData.RARITY_ORDER. Toggle Auto Steal akan loop cek workspace.LocalTreasureDrops. Jika Line2 == rarity pilihan -> TP + interact."})
