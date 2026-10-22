@@ -538,12 +538,18 @@ local function tw(o, p, t, s, d)
 end
 local function play(o, p, t, s, d) local x = tw(o, p, t, s, d) x:Play() return x end
 
+-- LITE MODE: bawaan aktif (ringan untuk HP). Dimatikan lewat CreateWindow({Lite = false}) atau toggle "Lite mode".
+local LITE = true
+local NOOP = {Play = function() end, Pause = function() end, Cancel = function() end, Destroy = function() end}
+
 local function spin(g, secs)
+    if LITE then return NOOP end
     local t = TweenService:Create(g, TweenInfo.new(secs or 4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = g.Rotation + 360})
     t:Play()
     return t
 end
 local function loop(o, secs, props, style)
+    if LITE then return NOOP end
     local t = TweenService:Create(o, TweenInfo.new(secs, style or Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), props)
     t:Play()
     return t
@@ -673,6 +679,15 @@ function SORU:CreateWindow(C)
     end
     end)
 
+    -- LITE MODE: tanpa video, blur, CanvasGroup, animasi berputar, partikel, dan suara.
+    if C.Lite ~= nil then
+        LITE = C.Lite and true or false
+    else
+        LITE = true
+        local lv = Data.Features["UILite"]
+        if type(lv) == "boolean" then LITE = lv end
+    end
+
     -- simpan config ditunda 0.45 detik (digabung) supaya tidak ada hitch I/O di tengah animasi
     local saveQ = false
     local function persist()
@@ -695,10 +710,14 @@ function SORU:CreateWindow(C)
     local booting = false
 
     -- SOUND (dibuat di belakang layar; kalau belum pernah dibuat, sound muncul bertahap tanpa membekukan UI)
-    local sndOn = (Data.Features["UISound"] ~= false)
+    local sndOn = (Data.Features["UISound2"] == true)
     local sndVol = (type(Data.Features["UIVol"]) == "number") and math.clamp(Data.Features["UIVol"], 0, 100) / 100 or 0.6
     local sndBase, sndLast = {}, {}
-    task.spawn(function()
+    local sfxLoaded = false
+    local function loadSfx()
+        if sfxLoaded then return end
+        sfxLoaded = true
+        task.spawn(function()
         for name, def in pairs(SFX_DEFS) do
             local asset, gen = sfxAsset(name, def)
             if asset and gui.Parent then
@@ -708,7 +727,9 @@ function SORU:CreateWindow(C)
             end
             if gen then task.wait() end
         end
-    end)
+        end)
+    end
+    if sndOn then loadSfx() end
     sfxFn = function(name, speed, vol)
         local b = sndBase[name]
         if not sndOn or not b then return end
@@ -862,10 +883,10 @@ function SORU:CreateWindow(C)
         hit.MouseButton1Click:Connect(leave)
         play(f, {Position = UDim2.fromOffset(0, 0)}, 0.55, Enum.EasingStyle.Back)
         task.delay(0.2, function() if ic.Parent then play(icS, {Scale = 1}, 0.45, Enum.EasingStyle.Back) end end)
-        task.delay(0.3, function()
+        if not LITE then task.delay(0.3, function()
             if shine.Parent then play(shine, {Position = UDim2.new(1.2, 0, 0.5, 0)}, 0.7, Enum.EasingStyle.Quad) end
             if pr.Parent then play(pr, {Size = UDim2.fromScale(2.3, 2.3)}, 0.8) play(prs, {Transparency = 1}, 0.8) end
-        end)
+        end) end
         play(prog, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
         task.delay(dur, leave)
     end
@@ -903,6 +924,7 @@ function SORU:CreateWindow(C)
     local cur = "Dashboard"
     local entranceLists = setmetatable({}, {__mode = "k"})
     local function entrance(scroll)
+        if LITE then return end
         local list = entranceLists[scroll]
         if not list then return end
         for _, body in ipairs(list) do
@@ -929,17 +951,21 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     local shell = new("Frame", {Name = "Shell", BackgroundTransparency = 1, Size = UDim2.fromOffset(winSize.X, winSize.Y), Visible = false, ZIndex = 10}, root)
     local shadow, neon = nil, nil
-    if SHADOW_ID ~= "" then
+    if SHADOW_ID ~= "" and not LITE then
         shadow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(1, 64, 1, 64), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
     end
 
-    local win = new("CanvasGroup", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 2}, shell)
+    local winProps = {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 2}
+    if not LITE then winProps.GroupTransparency = 1 end
+    local win = new(LITE and "Frame" or "CanvasGroup", winProps, shell)
+    if LITE then win.ClipsDescendants = true end
     corner(win, 16)
     stroke(win, Color3.fromRGB(88, 86, 104), 1.2, 0.35)
     local winScale = new("UIScale", {Scale = 0.12}, win)
 
     do
         local tint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, win)
+        corner(tint, 16)
         new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(17, 17, 22), Color3.fromRGB(8, 8, 11)), Rotation = 125}, tint)
     end
     local bgImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "", ImageTransparency = 0.82, ScaleType = Enum.ScaleType.Crop, ZIndex = 2}, win)
@@ -1000,7 +1026,7 @@ function SORU:CreateWindow(C)
     local function applyBackground()
         local frames, src = C.BackgroundFrames, C.Background
         local userSet = (src ~= nil) or (type(frames) == "table" and #frames > 0)
-        if src == nil then src = URLS.BG end
+        if src == nil then src = (not LITE) and URLS.BG or false end
         if type(frames) == "table" and #frames > 0 then
             -- mode frame sequence
             local list = {}
@@ -1050,13 +1076,14 @@ function SORU:CreateWindow(C)
 
     do
         local glow = new("Frame", {Size = UDim2.new(1, 0, 0, 150), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, win)
+        corner(glow, 16)
         new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.94, 1), Rotation = 90}, glow)
     end
 
     -- aurora orb + partikel
     local ambientOn = (Data.Features["UIAnim2"] == true)
     local ambient = new("Frame", {Name = "Ambient", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4, Visible = ambientOn}, win)
-    do
+    if not LITE then
         local function orb(col, size, px, py, dx, dy, secs)
             local o = new("Frame", {Size = UDim2.fromOffset(size, size), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), BackgroundTransparency = 1, ZIndex = 4}, ambient)
             local layers = 7
@@ -1124,6 +1151,7 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- spotlight: cahaya lembut yang mengikuti kursor di dalam kartu
     local function spotlight(f, src)
+        if LITE then return end
         src = src or f
         local box, layers
         local function build()
@@ -1217,12 +1245,14 @@ function SORU:CreateWindow(C)
         corner(pulse, 18)
         local pulseS = stroke(pulse, ACCENT, 2, 0.2)
         local pInfo = TweenInfo.new(2.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, -1, false, 0.3)
-        TweenService:Create(pulse, pInfo, {Size = UDim2.fromOffset(LAUNCH + 34, LAUNCH + 34)}):Play()
-        TweenService:Create(pulseS, pInfo, {Transparency = 1}):Play()
+        if not LITE then
+            TweenService:Create(pulse, pInfo, {Size = UDim2.fromOffset(LAUNCH + 34, LAUNCH + 34)}):Play()
+            TweenService:Create(pulseS, pInfo, {Transparency = 1}):Play()
+        end
         local lIcon = new("ImageLabel", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(0.5, -16, 0.5, -16), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 100}, launcher)
         loop(new("UIScale", {Scale = 1}, lIcon), 1.6, {Scale = 1.1})
         -- dua titik kecil mengorbit launcher
-        for k = 1, 2 do
+        for k = 1, (LITE and 0 or 2) do
             local oh = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(LAUNCH + 12, LAUNCH + 12), BackgroundTransparency = 1, BorderSizePixel = 0, Rotation = (k - 1) * 180, ZIndex = 101}, launcher)
             local od = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = (k == 1) and T.cyan or T.pink, BorderSizePixel = 0, ZIndex = 101}, oh)
             corner(od, FULL)
@@ -1241,16 +1271,24 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- BLUR + OPEN / CLOSE (genie)
     ------------------------------------------------------------------
-    local blurOn = (Data.Features["UIBlur"] ~= false)
+    local blurOn = (Data.Features["UIBlur2"] == true)
     local blur = nil
     pcall(function()
         blur = Instance.new("BlurEffect")
         blur.Name = "SORU_BLUR"
         blur.Size = 0
+        blur.Enabled = false
         blur.Parent = Lighting
     end)
     local function updateBlur()
-        if blur and blur.Parent then play(blur, {Size = (isOpen and blurOn) and 12 or 0}, 0.45) end
+        if not (blur and blur.Parent) then return end
+        if isOpen and blurOn then
+            blur.Enabled = true
+            play(blur, {Size = 12}, 0.45)
+        else
+            blur.Size = 0
+            blur.Enabled = false
+        end
     end
     cleanups[#cleanups + 1] = function() if blur then pcall(function() blur:Destroy() end) end end
 
@@ -1273,10 +1311,10 @@ function SORU:CreateWindow(C)
         pulse.Visible = false
         win.Position = UDim2.new(0.5, off.X, 0.5, off.Y)
         winScale.Scale = 0.12
-        win.GroupTransparency = 1
-        play(win, {Position = UDim2.fromScale(0.5, 0.5)}, 0.55, Enum.EasingStyle.Quint)
-        play(winScale, {Scale = 1}, 0.65, Enum.EasingStyle.Back)
-        play(win, {GroupTransparency = 0}, 0.3)
+        if not LITE then win.GroupTransparency = 1 end
+        play(win, {Position = UDim2.fromScale(0.5, 0.5)}, LITE and 0.3 or 0.55, Enum.EasingStyle.Quint)
+        play(winScale, {Scale = 1}, LITE and 0.35 or 0.65, Enum.EasingStyle.Back)
+        if not LITE then play(win, {GroupTransparency = 0}, 0.3) end
         if shadow then play(shadow, {ImageTransparency = 0.55}, 0.45) end
         if neon then play(neon, {ImageTransparency = 0.72}, 0.6) end
         setLoops(true)
@@ -1295,7 +1333,7 @@ function SORU:CreateWindow(C)
         pulse.Visible = true
         play(win, {Position = UDim2.new(0.5, off.X, 0.5, off.Y)}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         play(winScale, {Scale = 0.12}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+        if not LITE then play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In) end
         if shadow then play(shadow, {ImageTransparency = 1}, 0.22) end
         if neon then play(neon, {ImageTransparency = 1}, 0.25) end
         updateBlur()
@@ -1437,6 +1475,7 @@ function SORU:CreateWindow(C)
 
     -- animasi masuk: header turun, sidebar geser dari kiri, konten naik, ikon muncul berurutan
     openFx = function()
+        if LITE then return end
         bar.Position = UDim2.fromOffset(-24, HDR)
         content.Position = UDim2.fromOffset(CONT_X, CONT_Y + 30)
         tb.Position = UDim2.fromOffset(0, -16)
@@ -1561,6 +1600,18 @@ function SORU:CreateWindow(C)
         cur = n
         sfx("tab")
         hideTip()
+        if LITE then -- ganti halaman langsung, tanpa animasi halaman
+            if old then
+                paintTab(old, false)
+                old.frame.Visible = false
+            end
+            ne.frame.Visible = true
+            paintTab(ne, true)
+            play(ne.btn, {BackgroundTransparency = 1}, 0.1)
+            movePill(ne, true)
+            revealTab(ne)
+            return
+        end
         if old then
             paintTab(old, false)
             play(old.frame, {GroupTransparency = 1, Position = UDim2.new(0.5, 0, 0.5, -24 * dir)}, 0.2)
@@ -1650,7 +1701,9 @@ function SORU:CreateWindow(C)
         end
         setCol(active and T.text or DIM, true)
 
-        local page = new("CanvasGroup", {Name = name, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = active, GroupTransparency = active and 0 or 1, ZIndex = 6}, content)
+        local pageProps = {Name = name, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = active, ZIndex = 6}
+        if not LITE then pageProps.GroupTransparency = active and 0 or 1 end
+        local page = new(LITE and "Frame" or "CanvasGroup", pageProps, content)
         local zoom = new("UIScale", {Scale = 1}, page)
         local scroll = new("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, ScrollBarImageTransparency = 0.3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 7}, page)
         new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
@@ -1780,15 +1833,17 @@ function SORU:CreateWindow(C)
                 if not nested then spotlight(f) end
                 local sc = new("UIScale", {Scale = 1}, f)
                 local hov = false
-                local HOVS = nested and 1 or 1.012
+                local HOVS = (nested or LITE) and 1 or 1.012
                 local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, f)
                 new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
                 fx.bindHover(f)
                 f.MouseEnter:Connect(function()
                     hov = true
                     play(sc, {Scale = HOVS}, 0.3, Enum.EasingStyle.Back)
-                    shine.Position = UDim2.new(-0.15, 0, 0.5, 0)
-                    play(shine, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.6, Enum.EasingStyle.Quad)
+                    if not LITE then
+                        shine.Position = UDim2.new(-0.15, 0, 0.5, 0)
+                        play(shine, {Position = UDim2.new(1.15, 0, 0.5, 0)}, 0.6, Enum.EasingStyle.Quad)
+                    end
                 end)
                 f.MouseLeave:Connect(function()
                     hov = false
@@ -2722,7 +2777,7 @@ function SORU:CreateWindow(C)
             new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.05), NumberSequenceKeypoint.new(1, 1)}, Rotation = 90}, glint)
             local glintOn = false
             local function startGlint()
-                if glintOn then return end
+                if glintOn or LITE then return end
                 glintOn = true
                 local t = TweenService:Create(glint, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 0.6), {Position = UDim2.new(0, 0, 1, 0)})
                 t:Play()
@@ -2826,7 +2881,7 @@ function SORU:CreateWindow(C)
                     local sty = v and Enum.EasingStyle.Quint or Enum.EasingStyle.Quart
                     play(hf, {Size = UDim2.new(1, 0, 0, HEAD + h)}, dur, sty)
                     play(wrap, {Size = UDim2.new(1, 0, 0, h)}, dur, sty)
-                    if v then
+                    if v and not LITE then
                         for i, b in ipairs(sub._kids) do
                             if b.Parent then
                                 b.Position = UDim2.fromOffset(0, -10)
@@ -2914,25 +2969,30 @@ function SORU:CreateWindow(C)
         -- sehingga jadi bayangan kabur. Klik teksnya untuk buka / tutup blur.
         local function blurText(parent, text, size, color, x, y)
             text = tostring(text)
+            local GT = LITE and 0.8 or 0.88
             local w = math.ceil(textW(text, size)) + 12
             local h = size + 9
             local box = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), ZIndex = 5}, parent)
             local ghosts = {}
             local function add(dx, dy)
-                ghosts[#ghosts + 1] = label(box, {Text = text, Position = UDim2.fromOffset(6 + dx, dy), Size = UDim2.fromOffset(w, h), Font = Bold, TextSize = size, TextColor3 = color, TextTransparency = 0.88, TextTruncate = Enum.TextTruncate.None, ZIndex = 5})
+                ghosts[#ghosts + 1] = label(box, {Text = text, Position = UDim2.fromOffset(6 + dx, dy), Size = UDim2.fromOffset(w, h), Font = Bold, TextSize = size, TextColor3 = color, TextTransparency = GT, TextTruncate = Enum.TextTruncate.None, ZIndex = 5})
             end
             add(0, 0)
             for i = 0, 7 do
                 local a = i * math.pi / 4
-                add(math.cos(a) * 2, math.sin(a) * 2)
-                add(math.cos(a) * 4, math.sin(a) * 4)
+                if LITE then
+                    add(math.cos(a) * 3, math.sin(a) * 3)
+                else
+                    add(math.cos(a) * 2, math.sin(a) * 2)
+                    add(math.cos(a) * 4, math.sin(a) * 4)
+                end
             end
             local sharp = label(box, {Text = text, Position = UDim2.fromOffset(6, 0), Size = UDim2.fromOffset(w, h), Font = Bold, TextSize = size, TextColor3 = color, TextTransparency = 1, TextTruncate = Enum.TextTruncate.None, ZIndex = 6})
             local shown = false
             box.MouseButton1Click:Connect(function()
                 shown = not shown
                 sfx("click")
-                for _, g in ipairs(ghosts) do play(g, {TextTransparency = shown and 1 or 0.88}, 0.25) end
+                for _, g in ipairs(ghosts) do play(g, {TextTransparency = shown and 1 or GT}, 0.25) end
                 play(sharp, {TextTransparency = shown and 0 or 1}, 0.25)
             end)
             return box, w - 12 -- lebar teks asli
@@ -3176,7 +3236,12 @@ function SORU:CreateWindow(C)
                 local x = hist[i]
                 local col = (x >= 50 and T.ok) or (x >= 30 and T.warn) or T.bad
                 if x <= 0 then col = T.off end
-                play(bars[i], {Size = barSize(x), BackgroundColor3 = col}, 0.3)
+                if LITE then
+                    bars[i].Size = barSize(x)
+                    bars[i].BackgroundColor3 = col
+                else
+                    play(bars[i], {Size = barSize(x), BackgroundColor3 = col}, 0.3)
+                end
                 if x > 0 then
                     sum = sum + x cnt = cnt + 1
                     if x < low then low = x end
@@ -3289,10 +3354,10 @@ function SORU:CreateWindow(C)
             local oldPal = applyPalette(v)
             if not oldPal then return end
             task.spawn(function()
-                play(win, {GroupTransparency = 0.45}, 0.12)
+                if not LITE then play(win, {GroupTransparency = 0.45}, 0.12) end
                 task.wait(0.12)
                 retheme(oldPal)
-                play(win, {GroupTransparency = 0}, 0.4)
+                if not LITE then play(win, {GroupTransparency = 0}, 0.4) end
                 sfx("pop")
                 notify("Theme", v, ACCENT, 1.6)
             end)
@@ -3315,7 +3380,7 @@ function SORU:CreateWindow(C)
         OnRelease = function(v) Data.Features["UITrans"] = v / 100 persist() end,
     })
     SA:Toggle({
-        Title = "Background blur", Desc = "Blur the game behind the menu", Flag = "UIBlur", Default = true,
+        Title = "Background blur", Desc = "Blur the game behind the menu", Flag = "UIBlur2", Default = false,
         Callback = function(v) blurOn = v updateBlur() end,
     })
     SA:Toggle({
@@ -3340,10 +3405,15 @@ function SORU:CreateWindow(C)
         end,
     })
 
+    SA:Toggle({
+        Title = "Lite mode", Desc = "Lighter UI for phones. Re-execute to apply", Flag = "UILite", Default = true,
+        Callback = function(v) if v ~= LITE then notify("Lite mode", "Re-execute the script to apply", ACCENT, 2.5) end end,
+    })
+
     SA:Section("Sound")
     SA:Toggle({
-        Title = "UI sounds", Desc = "SORU signature sound effects", Flag = "UISound", Default = true,
-        Callback = function(v) sndOn = v end,
+        Title = "UI sounds", Desc = "SORU signature sound effects", Flag = "UISound2", Default = false,
+        Callback = function(v) sndOn = v if v then loadSfx() end end,
     })
     SA:Slider({
         Title = "Sound volume", Flag = "UIVol", Min = 0, Max = 100, Step = 5, Default = 60, Suffix = "%",
@@ -3439,7 +3509,7 @@ function SORU:CreateWindow(C)
             shell.Position = UDim2.fromOffset(nx, ny)
         end
         -- parallax halus: gambar / video background bergeser tipis mengikuti mouse
-        if isOpen then
+        if isOpen and not LITE then
             local sz, ap = win.AbsoluteSize, win.AbsolutePosition
             if sz.X > 0 and sz.Y > 0 then
                 local m = UIS:GetMouseLocation()
@@ -3458,7 +3528,7 @@ function SORU:CreateWindow(C)
     local acc = 0
     bind(RunService.Heartbeat, function(dt)
         acc = acc + dt
-        if acc < 0.1 then return end
+        if acc < (LITE and 0.5 or 0.1) then return end
         acc = 0
         if not isOpen or cur ~= "Dashboard" then return end
         local ch = pl.Character
@@ -3554,7 +3624,7 @@ function SORU:CreateWindow(C)
     function Window:Close() closeA() end
     function Window:SetScale(pct) userScale = math.clamp((tonumber(pct) or 100) / 100, 0.6, 1.5) applyScale() saveUI() end
     function Window:SetBlur(b) blurOn = b and true or false updateBlur() end
-    function Window:SetSound(b) sndOn = b and true or false end
+    function Window:SetSound(b) sndOn = b and true or false if sndOn then loadSfx() end end
     function Window:Destroy() delA() end
 
     ------------------------------------------------------------------
@@ -3619,7 +3689,7 @@ function SORU:CreateWindow(C)
 
         -- bayangan: memudar sesuai progres supaya tidak bocor di tepi layar saat panel tertutup
         local shadowImg, shadowBox
-        if SHADOW_ID ~= "" then
+        if SHADOW_ID ~= "" and not LITE then
             shadowBox = new("Frame", {AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 0}, holder)
             shadowImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 8), Size = UDim2.new(1, 56, 1, 56), BackgroundTransparency = 1, Image = "rbxassetid://" .. SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 0}, shadowBox)
         end
@@ -3953,10 +4023,11 @@ function SORU:CreateWindow(C)
         S:Label("Label biasa")
     end
 
-    boot(function()
+    local function started()
         openA(true)
-        notify("SORU HUB v"..VERSION, "Loaded successfully", ACCENT, 3.5)
-    end)
+        notify("SORU HUB v"..VERSION, LITE and "Loaded (lite mode)" or "Loaded successfully", ACCENT, 3.5)
+    end
+    if LITE then started() else boot(started) end
     return Window
 end
 
