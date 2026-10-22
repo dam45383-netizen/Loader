@@ -1049,7 +1049,7 @@ local function loadHub()
     elseif placeId == 110730550789828 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Chop%20Tree%20For%20Treasure")
     elseif placeId == 74023858073178 then
-        loadRaw("")
+        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Bike%20For%20Egg")
     elseif placeId == 119672433229947 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish")
     elseif placeId == 73956553001240 or universeId == 73956553001240 then
