@@ -1,5 +1,18 @@
 --[[
-    SORU HUB UI v5.5 ULTRA LITE  (API 100% kompatibel dengan v2.x - v5.x)
+    SORU HUB UI v5.6 FEATHERWEIGHT  (API 100% kompatibel dengan v2.x - v5.x)
+
+    CHANGELOG v5.6 (Featherweight)
+      1.  Dropdown: baris dibuat saat pertama dibuka (daftar 126 tema tidak lagi dibuat saat startup)
+      2.  Dropdown: tiap baris hanya 1 instance (sebelumnya 5)
+      3.  Kartu tanpa ikon tile, teks mulai dari tepi kiri
+      4.  Kartu tanpa layer wash/stripe; hover dan aktif terlihat lewat warna border dan isi
+      5.  Accordion tanpa titik timeline
+      6.  Slider tanpa tick dan tanpa layer kilau
+      7.  Grafik FPS dibuang dari Statistics (chip di header tetap menampilkan FPS dan ping)
+      8.  Info Friends dimuat saat kartu di-tap, bukan saat startup (tanpa request jaringan di awal)
+      9.  Layer glow atas dibuang (overdraw berkurang) dan border tile dashboard dihapus
+      10. Koordinat live diperbarui tiap 1 detik
+      11. Kartu Paragraph juga tanpa ikon
 
     CHANGELOG v5.5 (Ultra Lite)
       1.  Tanpa animasi sama sekali: semua tween diganti perubahan langsung (tidak ada objek Tween dibuat)
@@ -258,7 +271,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.5"
+local VERSION = "5.6"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -1108,7 +1121,7 @@ function SORU:CreateWindow(C)
     end
     task.spawn(applyBackground)
 
-    do
+    if not LITE then
         local glow = new("Frame", {Size = UDim2.new(1, 0, 0, 150), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, win)
         corner(glow, 16)
         new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.94, 1), Rotation = 90}, glow)
@@ -1790,14 +1803,14 @@ function SORU:CreateWindow(C)
         K._kids = list
         local function nextOrder() order = order + 1 return order end
         K._next = nextOrder
-        local TXL = nested and 46 or 52   -- awal teks (setelah ikon)
+        local TXL = LITE and 14 or (nested and 46 or 52)   -- awal teks (setelah ikon)
         local ICN = nested and 24 or 28   -- ukuran ikon
 
         -- holder: pembungkus tiap komponen. Di dalam accordion tiap item diberi titik timeline di sisi kiri.
         local function holder(h, auto, deco)
             local hf = new("Frame", {Name = "Holder", Size = UDim2.new(1, 0, 0, h or 0), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextOrder()}, container)
             if auto then hf.AutomaticSize = Enum.AutomaticSize.Y end
-            if nested and not deco then
+            if nested and not deco and not LITE then
                 local ny = (h and h > 0) and math.min(h / 2, 24) or 22
                 local node = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(-12, ny), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = T.cyan, BorderSizePixel = 0, ZIndex = 3}, hf)
                 corner(node, FULL)
@@ -1827,15 +1840,18 @@ function SORU:CreateWindow(C)
             regTrans(f, nested and 0.25 or 0)
             enter(f)
 
-            local wash = new("Frame", {Name = "Wash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.accent, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 0}, f)
+            local wash, stripe = nil, nil
+            if not LITE then
+            wash = new("Frame", {Name = "Wash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.accent, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 0}, f)
             corner(wash, R)
             new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.66), NumberSequenceKeypoint.new(0.55, 0.92), NumberSequenceKeypoint.new(1, 1)}}, wash)
-            local stripe = new("Frame", {Name = "Stripe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.4, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 2}, f)
+            stripe = new("Frame", {Name = "Stripe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.4, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 2}, f)
             corner(stripe, FULL)
             grad(stripe, T.cyan, T.accent, 90)
+            end
 
             local tile = nil
-            if kind then
+            if kind and not LITE then
                 tile = makeIcon(f, kind, ICN)
                 if tileTop then
                     tile.Position = UDim2.fromOffset(12, tileTop)
@@ -1851,8 +1867,8 @@ function SORU:CreateWindow(C)
                 local on = hovering or activeOn
                 local wt = fx.idleWash
                 if activeOn and hovering then wt = 0 elseif activeOn then wt = 0.1 elseif hovering then wt = 0.3 end
-                play(wash, {BackgroundTransparency = wt}, 0.3)
-                play(stripe, {Size = UDim2.new(0, 3, on and 0.72 or 0.4, 0), BackgroundTransparency = on and 0 or 0.35}, 0.3, Enum.EasingStyle.Back)
+                if wash then play(wash, {BackgroundTransparency = wt}, 0.3) end
+                if stripe then play(stripe, {Size = UDim2.new(0, 3, on and 0.72 or 0.4, 0), BackgroundTransparency = on and 0 or 0.35}, 0.3, Enum.EasingStyle.Back) end
                 play(s, {Color = on and ACCENT or T.stroke, Transparency = on and 0.2 or 0.45}, 0.25)
                 play(f, {BackgroundColor3 = pressed and T.cardDown or (hovering and T.cardHover or T.card)}, 0.18)
                 if tile then play(tile, {BackgroundTransparency = on and 0.35 or 0.62}, 0.25) end
@@ -1995,10 +2011,12 @@ function SORU:CreateWindow(C)
             local f = new("Frame", {Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BackgroundTransparency = 0.12, BorderSizePixel = 0}, hf)
             corner(f, R) stroke(f, T.stroke, 1, 0.45) regTrans(f, 0) enter(f)
             grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
-            local PL = ICN + 24
+            local PL = LITE and 14 or (ICN + 24)
             new("UIPadding", {PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, PL), PaddingRight = UDim.new(0, 14)}, f)
-            local tile = makeIcon(f, "info", ICN)
-            tile.Position = UDim2.fromOffset(12 - PL, 0)
+            if not LITE then
+                local tile = makeIcon(f, "info", ICN)
+                tile.Position = UDim2.fromOffset(12 - PL, 0)
+            end
             local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -PL, 0.5, 0), Size = UDim2.new(0, 3, 0.5, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.3, BorderSizePixel = 0}, f)
             corner(bar, FULL)
             grad(bar, T.cyan, T.accent, 90)
@@ -2145,7 +2163,7 @@ function SORU:CreateWindow(C)
             local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1, ClipsDescendants = true}, bar)
             corner(fill, FULL)
             grad(fill, T.accent2, T.cyan, 0)
-            do -- kilau tabung di atas fill
+            if not LITE then -- kilau tabung di atas fill
                 local gl = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, fill)
                 corner(gl, FULL)
                 new("UIGradient", {Transparency = NumberSequence.new(0.45, 1), Rotation = 90}, gl)
@@ -2153,7 +2171,7 @@ function SORU:CreateWindow(C)
             local shim = new("Frame", {Size = UDim2.new(0, 34, 1, 0), Position = UDim2.new(-0.6, 0, 0, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, fill)
             new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(1, 1)}}, shim)
             local nSteps = math.floor((mx - mn) / step + 0.5)
-            if nSteps >= 1 and nSteps <= 20 then
+            if not LITE and nSteps >= 1 and nSteps <= 20 then
                 for i = 0, nSteps do
                     local tk = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(i / nSteps, 0, 0.5, 0), Size = UDim2.fromOffset(2, 2), BackgroundColor3 = WHITE, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 3}, bar)
                     corner(tk, FULL)
@@ -2233,7 +2251,7 @@ function SORU:CreateWindow(C)
                 play(chipV, {BackgroundTransparency = on and 0.1 or 0.82}, 0.2)
                 play(chipS, {Transparency = on and 0 or 0.5}, 0.2)
                 fx.active(on)
-                if on then
+                if on and not LITE then
                     shim.Position = UDim2.new(-0.6, 0, 0, 0)
                     play(shim, {Position = UDim2.new(1.2, 0, 0, 0)}, 0.9, Enum.EasingStyle.Quad)
                 end
@@ -2395,7 +2413,10 @@ function SORU:CreateWindow(C)
                 for _, r in ipairs(rows) do
                     local on = isSel(r.name)
                     local bt = on and 0.8 or 1
-                    if anim then
+                    if r.lite then
+                        r.btn.BackgroundTransparency = bt
+                        r.btn.TextColor3 = on and T.text or DIM
+                    elseif anim then
                         play(r.btn, {BackgroundTransparency = bt}, 0.2)
                         play(r.txt, {TextColor3 = on and T.text or DIM}, 0.2)
                         play(r.ck, {TextTransparency = on and 0 or 1}, 0.2)
@@ -2454,12 +2475,18 @@ function SORU:CreateWindow(C)
                 commit()
                 if not multi then task.delay(0.12, function() setOpen(false) end) end
             end
+            local built = not LITE -- LITE: baris dibuat saat pertama kali dibuka
             local function build()
                 for _, r in ipairs(rows) do r.btn:Destroy() end
                 rows = {}
                 for i, n in ipairs(opts) do
                     local name = tostring(n)
-                    local b = new("TextButton", {Text = "", AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
+                    local b
+                    if LITE then
+                        b = new("TextButton", {Text = "  "..name, Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = DIM, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
+                        rows[i] = {btn = b, txt = b, lite = true, name = name}
+                    else
+                    b = new("TextButton", {Text = "", AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
                     corner(b, 9)
                     local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.fromOffset(3, 14), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, b)
                     corner(bar, FULL)
@@ -2467,6 +2494,7 @@ function SORU:CreateWindow(C)
                     local t = label(b, {Text = name, Position = UDim2.fromOffset(16, 0), Size = UDim2.new(1, -40, 1, 0), TextSize = 12, TextColor3 = DIM})
                     local ck = label(b, {Text = "✓", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(16, 16), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.cyan, TextTransparency = 1})
                     rows[i] = {btn = b, txt = t, ck = ck, bar = bar, name = name}
+                    end
                     b.MouseEnter:Connect(function() if not isSel(name) then play(b, {BackgroundTransparency = 0.9}, 0.12) end end)
                     b.MouseLeave:Connect(function() if not isSel(name) then play(b, {BackgroundTransparency = 1}, 0.15) end end)
                     b.MouseButton1Click:Connect(function() pick(name) end)
@@ -2477,6 +2505,7 @@ function SORU:CreateWindow(C)
             end
             sb:GetPropertyChangedSignal("Text"):Connect(applyFilter)
             setOpen = function(v)
+                if v and not built then built = true build() end
                 open = v
                 sfx(v and "expand" or "collapse")
                 fx.active(v)
@@ -2494,7 +2523,7 @@ function SORU:CreateWindow(C)
             end
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
 
-            build()
+            if built then build() else paint(false) end
             if flag then Data.Features[flag] = getVal() end
             if o.Callback and (multi or single ~= nil) then task.spawn(safe, o.Callback, getVal()) end
             local api = {}
@@ -2504,7 +2533,7 @@ function SORU:CreateWindow(C)
                 if fire then safe(o.Callback, getVal()) end
             end
             function api:Get() return getVal() end
-            function api:Refresh(newOpts) opts = newOpts or {} build() end
+            function api:Refresh(newOpts) opts = newOpts or {} if built then build() else paint(false) end end
             return api
         end
 
@@ -3068,7 +3097,8 @@ function SORU:CreateWindow(C)
         local function tile(parent, title, value, order, h, onClick)
             local b = new(onClick and "TextButton" or "Frame", {BackgroundColor3 = TILE, BackgroundTransparency = 0.25, BorderSizePixel = 0, LayoutOrder = order}, parent)
             if onClick then b.Text = "" b.AutoButtonColor = false end
-            corner(b, 10) stroke(b, T.stroke, 1, 0.7)
+            corner(b, 10)
+            if not LITE then stroke(b, T.stroke, 1, 0.7) end
             local y0 = math.floor((h - 34) / 2)
             label(b, {Text = title, Position = UDim2.fromOffset(10, y0), Size = UDim2.new(1, -16, 0, 14), Font = Bold, TextSize = 12, ZIndex = 2})
             local v = label(b, {Text = value, Position = UDim2.fromOffset(10, y0 + 15), Size = UDim2.new(1, -16, 0, 13), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
@@ -3205,7 +3235,10 @@ function SORU:CreateWindow(C)
             if n == 0 then return "no friends" end
             return n == 1 and "1 friend" or (n.." friends")
         end
-        task.spawn(function()
+        local friendsLoaded = false
+        local function loadFriends()
+            if friendsLoaded then return end
+            friendsLoaded = true
             local inSrv = 0
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= pl then
@@ -3229,7 +3262,18 @@ function SORU:CreateWindow(C)
             fOn.Text = fmtF(nOn)
             fAll.Text = okAll and fmtF(nAll) or "-"
             fOff.Text = (okAll and nOn) and fmtF(math.max(0, nAll - nOn)) or "-"
-        end)
+        end
+        if LITE then -- tidak ada request jaringan saat startup; muat saat kartu di-tap
+            fIn.Text, fOff.Text, fOn.Text, fAll.Text = "tap", "tap", "tap", "tap"
+            local fBtn = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 6}, fr)
+            fBtn.MouseButton1Click:Connect(function()
+                if friendsLoaded then return end
+                fIn.Text, fOff.Text, fOn.Text, fAll.Text = "...", "...", "...", "..."
+                task.spawn(loadFriends)
+            end)
+        else
+            task.spawn(loadFriends)
+        end
     end
 
     local ST = D:Accordion({Title = "Statistics", Desc = "FPS, ping, game info, coordinates", Open = false})
@@ -3257,7 +3301,7 @@ function SORU:CreateWindow(C)
         stat("Build", "v"..VERSION, T.ok, 3)
     end
 
-    do -- grafik FPS
+    if not LITE then -- grafik FPS
         local c = ST._card(92)
         label(c, {Text = "Frame rate history", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextColor3 = DIM})
         local avgL = label(c, {Text = "avg --  •  low --", Position = UDim2.new(0.5, 0, 0, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = T.cyan})
@@ -3474,19 +3518,20 @@ function SORU:CreateWindow(C)
     })
 
 
-    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Ultra Lite", Open = false})
-    SC:Paragraph({Title = "v5.5 - Ultra Lite", Desc = table.concat({
-        "1. No animation at all: every tween is now an instant change, no Tween objects created",
-        "2. Window open/close, tab switch, accordion, dropdown and toast are instant",
-        "3. Window drag follows the pointer directly (no easing, tilt or parallax)",
-        "4. Side panel snaps open/closed (spring physics removed)",
-        "5. Fewer instances: no gloss, shine sweep, card depth or stroke gradients",
-        "6. Ripple and spotlight effects removed",
-        "7. Username blur cut from 17 to 5 text copies",
-        "8. Background polling slowed: FPS and server tiles every 2s, coordinates every 0.5s",
-        "9. No video background, no screen blur, no splash, no sound generation by default",
-        "10. New toggles: Lite mode and No animation. CreateWindow options: Lite, NoAnim",
-        "11. Config keys renamed (UISound2, UIBlur2, UIAnim2) so old saves cannot re-enable heavy effects",
+    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Featherweight", Open = false})
+    SC:Paragraph({Title = "v5.6 - Featherweight", Desc = table.concat({
+        "1. Dropdown rows are built on first open (theme list no longer creates 126 rows at startup)",
+        "2. Dropdown rows are 1 instance each (was 5)",
+        "3. Cards have no icon tiles, text starts at the left edge",
+        "4. Cards have no wash/stripe layers, hover and active show via border and fill color",
+        "5. No timeline dots in accordions",
+        "6. Sliders have no tick marks or gloss layer",
+        "7. FPS graph removed from Statistics (header chip still shows FPS and ping)",
+        "8. Friends info loads when you tap the card, no network calls at startup",
+        "9. Top glow layer removed (less overdraw) and dashboard tile borders removed",
+        "10. Live coordinates refresh every 1s",
+        "11. Paragraph cards lose their icon too",
+        "(v5.5: no animation at all, see script header)",
     }, "\n")})
 
     ------------------------------------------------------------------
@@ -3596,7 +3641,7 @@ function SORU:CreateWindow(C)
     local acc = 0
     bind(RunService.Heartbeat, function(dt)
         acc = acc + dt
-        if acc < (LITE and 0.5 or 0.1) then return end
+        if acc < (NOANIM and 1 or (LITE and 0.5 or 0.1)) then return end
         acc = 0
         if not isOpen or cur ~= "Dashboard" then return end
         local ch = pl.Character
