@@ -1015,7 +1015,7 @@ local function loadHub()
 
     -- FIX attempt nil: masukin PlaceId sekarang ke Supported biar gak jadi dummy
     local supported = {
-        129827112113663,104050046639813,114326934417838,73956553001240,134314141048307,
+        129827112113663,119672433229947,114326934417838,73956553001240,134314141048307,
         74193805629461,85738654635245,111543903102439,96802054849934,76943966208523,
         119271610514030,72858262610964,110730550789828,132945794147519,109419302424115
     }
@@ -1048,7 +1048,7 @@ local function loadHub()
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua")
     elseif placeId == 110730550789828 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Chop%20Tree%20For%20Treasure")
-    elseif placeId == 104050046639813 then
+    elseif placeId == 119672433229947 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish")
     elseif placeId == 73956553001240 or universeId == 73956553001240 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua")
