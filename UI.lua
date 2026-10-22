@@ -1,5 +1,19 @@
 --[[
-    SORU HUB UI v5.3  (API 100% kompatibel dengan v2.x / v3.x / v4.x)
+    SORU HUB UI v5.5 ULTRA LITE  (API 100% kompatibel dengan v2.x - v5.x)
+
+    CHANGELOG v5.5 (Ultra Lite)
+      1.  Tanpa animasi sama sekali: semua tween diganti perubahan langsung (tidak ada objek Tween dibuat)
+      2.  Buka/tutup window, pindah tab, accordion, dropdown, toast: instan
+      3.  Drag window mengikuti kursor langsung (tanpa easing, miring, parallax)
+      4.  Panel samping snap buka/tutup (fisika spring dihapus)
+      5.  Instance lebih sedikit: tanpa gloss, kilau menyapu, gradien kedalaman kartu, gradien stroke
+      6.  Efek ripple dan spotlight dihapus
+      7.  Blur username dari 17 jadi 5 salinan teks
+      8.  Polling latar diperlambat: FPS dan tile server tiap 2 detik, koordinat tiap 0.5 detik
+      9.  Tanpa video background, blur layar, splash, dan pembuatan suara (bawaan)
+      10. Toggle baru: Lite mode dan No animation. Opsi CreateWindow: Lite, NoAnim
+      11. Key config diganti (UISound2, UIBlur2, UIAnim2) supaya save lama tidak menyalakan efek berat
+      Opsi: CreateWindow({Lite = false, NoAnim = false}) untuk mengembalikan efek lengkap.
 
     TAMPILAN BARU (gaya sidebar ikon + kartu glow)
       Header    : logo + judul + subjudul (opsional: Subtitle = ".gg/xxx"), chip FPS + ping, tombol window kotak membulat
@@ -244,7 +258,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.4"
+local VERSION = "5.5"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -446,6 +460,13 @@ local FONT_FACES = {
 ----------------------------------------------------------------------
 -- HELPERS
 ----------------------------------------------------------------------
+-- LITE MODE (bawaan aktif): tanpa video, blur, CanvasGroup, loop animasi, partikel, suara.
+-- NOANIM (bawaan aktif): TIDAK ADA animasi sama sekali, semua perubahan langsung (instan).
+-- Matikan lewat CreateWindow({Lite = false, NoAnim = false}) atau toggle di Interface.
+local LITE = true
+local NOANIM = true
+local NOOP = {Play = function() end, Pause = function() end, Cancel = function() end, Destroy = function() end}
+
 local function new(class, props, parent)
     local o = Instance.new(class)
     if props then
@@ -483,6 +504,7 @@ end
 
 -- kilau kaca: garis highlight tipis di sisi atas kartu
 local function gloss(f)
+    if LITE then return end
     local hl = new("Frame", {Position = UDim2.new(0, 14, 0, 0), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, f)
     new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.78), NumberSequenceKeypoint.new(1, 1)}}, hl)
 end
@@ -536,11 +558,14 @@ end
 local function tw(o, p, t, s, d)
     return TweenService:Create(o, TweenInfo.new(t or 0.3, s or Enum.EasingStyle.Quint, d or Enum.EasingDirection.Out), p)
 end
-local function play(o, p, t, s, d) local x = tw(o, p, t, s, d) x:Play() return x end
-
--- LITE MODE: bawaan aktif (ringan untuk HP). Dimatikan lewat CreateWindow({Lite = false}) atau toggle "Lite mode".
-local LITE = true
-local NOOP = {Play = function() end, Pause = function() end, Cancel = function() end, Destroy = function() end}
+local function play(o, p, t, s, d)
+    if NOANIM then
+        -- tanpa animasi: langsung set properti, tidak ada objek Tween yang dibuat
+        for k, v in pairs(p) do o[k] = v end
+        return NOOP
+    end
+    local x = tw(o, p, t, s, d) x:Play() return x
+end
 
 local function spin(g, secs)
     if LITE then return NOOP end
@@ -686,6 +711,15 @@ function SORU:CreateWindow(C)
         LITE = true
         local lv = Data.Features["UILite"]
         if type(lv) == "boolean" then LITE = lv end
+    end
+
+    -- NOANIM: nol animasi (bawaan aktif)
+    if C.NoAnim ~= nil then
+        NOANIM = C.NoAnim and true or false
+    else
+        NOANIM = true
+        local nv = Data.Features["UINoAnim"]
+        if type(nv) == "boolean" then NOANIM = nv end
     end
 
     -- simpan config ditunda 0.45 detik (digabung) supaya tidak ada hitch I/O di tengah animasi
@@ -1184,6 +1218,7 @@ function SORU:CreateWindow(C)
     end
 
     local function ripple(btn, col)
+        if NOANIM then return end
         btn.ClipsDescendants = true
         btn.MouseButton1Down:Connect(function()
             pcall(function()
@@ -1217,7 +1252,7 @@ function SORU:CreateWindow(C)
         y = math.clamp(y, 8, math.max(8, virt.Y - sz.Y - 8))
         if winPos then winPos = Vector2.new(x, y) end
         curPos = Vector2.new(x, y)
-        if dragging then
+        if dragging and not NOANIM then
             shell.Size = UDim2.fromOffset(sz.X, sz.Y)
             if not drawPos then drawPos = curPos end
             easing = true
@@ -1331,6 +1366,13 @@ function SORU:CreateWindow(C)
         local tok = openTok
         local off = launcherOffset()
         pulse.Visible = true
+        if NOANIM then -- langsung hilang, tanpa animasi menyusut
+            shell.Visible = false
+            setVid(false)
+            setLoops(false)
+            updateBlur()
+            return
+        end
         play(win, {Position = UDim2.new(0.5, off.X, 0.5, off.Y)}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         play(winScale, {Scale = 0.12}, 0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
         if not LITE then play(win, {GroupTransparency = 1}, 0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In) end
@@ -1500,7 +1542,7 @@ function SORU:CreateWindow(C)
             winPos = curPos
             dragging = true
             drawPos = curPos
-            if isOpen then play(winScale, {Scale = 1.015}, 0.18) end
+            if isOpen and not NOANIM then play(winScale, {Scale = 1.015}, 0.18) end
             return curPos
         end,
         function(dx, dy, st, moved)
@@ -1558,6 +1600,7 @@ function SORU:CreateWindow(C)
 
     -- pill meregang menutupi tab lama + baru, lalu mengendap di tab baru
     local function movePill(t, animate)
+        if NOANIM then animate = false end
         pillTok = pillTok + 1
         local tok = pillTok
         local y = t.y
@@ -1775,8 +1818,10 @@ function SORU:CreateWindow(C)
             f.Parent = hf
             corner(f, R)
             local s = stroke(f, T.stroke, 1, 0.45)
-            new("UIGradient", {Transparency = NumberSequence.new(0, 0.7), Rotation = 60}, s)
-            grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
+            if not LITE then
+                new("UIGradient", {Transparency = NumberSequence.new(0, 0.7), Rotation = 60}, s)
+                grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
+            end
             if nested then f.BackgroundTransparency = 0.38 end
             gloss(f)
             regTrans(f, nested and 0.25 or 0)
@@ -1834,8 +1879,11 @@ function SORU:CreateWindow(C)
                 local sc = new("UIScale", {Scale = 1}, f)
                 local hov = false
                 local HOVS = (nested or LITE) and 1 or 1.012
-                local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, f)
-                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
+                local shine = nil
+                if not LITE then
+                    shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 46, 2, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, f)
+                    new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, shine)
+                end
                 fx.bindHover(f)
                 f.MouseEnter:Connect(function()
                     hov = true
@@ -2131,7 +2179,7 @@ function SORU:CreateWindow(C)
             end
             local function setGoal(a, instant)
                 goal = a
-                if instant then
+                if instant or NOANIM then
                     shown = a
                     paintFrac(a)
                     return
@@ -2435,7 +2483,7 @@ function SORU:CreateWindow(C)
                 play(arrow, {Rotation = v and -90 or 90}, 0.3, Enum.EasingStyle.Back)
                 play(chevC, {BackgroundTransparency = v and 0.25 or 0.85}, 0.25)
                 play(hf, {Size = UDim2.new(1, 0, 0, v and expanded or H0)}, 0.38, Enum.EasingStyle.Quint)
-                if v then
+                if v and not NOANIM then
                     for i, r in ipairs(rows) do
                         if i <= 8 then
                             r.txt.TextTransparency = 1
@@ -2503,7 +2551,7 @@ function SORU:CreateWindow(C)
                 -- berdenyut selama menunggu tombol
                 task.spawn(function()
                     local hi = false
-                    while listening and cap.Parent do
+                    while listening and cap.Parent and not NOANIM do
                         hi = not hi
                         play(ps, {Transparency = hi and 0.55 or 0.05}, 0.5, Enum.EasingStyle.Sine)
                         play(cap, {BackgroundColor3 = hi and Color3.fromRGB(60, 54, 96) or Color3.fromRGB(44, 74, 112)}, 0.5, Enum.EasingStyle.Sine)
@@ -2877,7 +2925,7 @@ function SORU:CreateWindow(C)
                         if tok ~= my then return end
                     end
                     local h = v and contentH() or 0
-                    local dur = v and 0.5 or 0.4
+                    local dur = NOANIM and 0 or (v and 0.5 or 0.4)
                     local sty = v and Enum.EasingStyle.Quint or Enum.EasingStyle.Quart
                     play(hf, {Size = UDim2.new(1, 0, 0, HEAD + h)}, dur, sty)
                     play(wrap, {Size = UDim2.new(1, 0, 0, h)}, dur, sty)
@@ -2969,7 +3017,7 @@ function SORU:CreateWindow(C)
         -- sehingga jadi bayangan kabur. Klik teksnya untuk buka / tutup blur.
         local function blurText(parent, text, size, color, x, y)
             text = tostring(text)
-            local GT = LITE and 0.8 or 0.88
+            local GT = NOANIM and 0.72 or (LITE and 0.8 or 0.88)
             local w = math.ceil(textW(text, size)) + 12
             local h = size + 9
             local box = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), ZIndex = 5}, parent)
@@ -2978,8 +3026,8 @@ function SORU:CreateWindow(C)
                 ghosts[#ghosts + 1] = label(box, {Text = text, Position = UDim2.fromOffset(6 + dx, dy), Size = UDim2.fromOffset(w, h), Font = Bold, TextSize = size, TextColor3 = color, TextTransparency = GT, TextTruncate = Enum.TextTruncate.None, ZIndex = 5})
             end
             add(0, 0)
-            for i = 0, 7 do
-                local a = i * math.pi / 4
+            for i = 0, (NOANIM and 3 or 7) do
+                local a = i * math.pi / (NOANIM and 2 or 4)
                 if LITE then
                     add(math.cos(a) * 3, math.sin(a) * 3)
                 else
@@ -3105,7 +3153,7 @@ function SORU:CreateWindow(C)
                     local s = math.floor(os.clock() - t0)
                     vTime.Text = string.format("%02d:%02d:%02d", math.floor(s / 3600), math.floor((s % 3600) / 60), s % 60)
                 end
-                task.wait(1)
+                task.wait(NOANIM and 2 or 1)
             end
         end)
 
@@ -3410,6 +3458,11 @@ function SORU:CreateWindow(C)
         Callback = function(v) if v ~= LITE then notify("Lite mode", "Re-execute the script to apply", ACCENT, 2.5) end end,
     })
 
+    SA:Toggle({
+        Title = "No animation", Desc = "Zero animations, lightest. Re-execute to apply", Flag = "UINoAnim", Default = true,
+        Callback = function(v) if v ~= NOANIM then notify("No animation", "Re-execute the script to apply", ACCENT, 2.5) end end,
+    })
+
     SA:Section("Sound")
     SA:Toggle({
         Title = "UI sounds", Desc = "SORU signature sound effects", Flag = "UISound2", Default = false,
@@ -3420,6 +3473,21 @@ function SORU:CreateWindow(C)
         Callback = function(v) sndVol = v / 100 end,
     })
 
+
+    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Ultra Lite", Open = false})
+    SC:Paragraph({Title = "v5.5 - Ultra Lite", Desc = table.concat({
+        "1. No animation at all: every tween is now an instant change, no Tween objects created",
+        "2. Window open/close, tab switch, accordion, dropdown and toast are instant",
+        "3. Window drag follows the pointer directly (no easing, tilt or parallax)",
+        "4. Side panel snaps open/closed (spring physics removed)",
+        "5. Fewer instances: no gloss, shine sweep, card depth or stroke gradients",
+        "6. Ripple and spotlight effects removed",
+        "7. Username blur cut from 17 to 5 text copies",
+        "8. Background polling slowed: FPS and server tiles every 2s, coordinates every 0.5s",
+        "9. No video background, no screen blur, no splash, no sound generation by default",
+        "10. New toggles: Lite mode and No animation. CreateWindow options: Lite, NoAnim",
+        "11. Config keys renamed (UISound2, UIBlur2, UIAnim2) so old saves cannot re-enable heavy effects",
+    }, "\n")})
 
     ------------------------------------------------------------------
     -- MODAL TUTUP
@@ -3478,7 +3546,7 @@ function SORU:CreateWindow(C)
         -- FPS + ping (1x per detik)
         fc = fc + 1
         local now = os.clock()
-        if now - lfT >= 1 then
+        if now - lfT >= (NOANIM and 2 or 1) then
             local fps = math.floor(fc / (now - lfT) + 0.5)
             fc = 0 lfT = now
             if fpsPush then fpsPush(fps) end
@@ -3886,7 +3954,14 @@ function SORU:CreateWindow(C)
                 end
                 if o.Callback then task.spawn(safe, o.Callback, isP) end
             end
-            startLoop()
+            if NOANIM then
+                stopLoop()
+                prog, vel = target, 0
+                apply(true)
+                if target == 0 then setPLoops(false) end
+            else
+                startLoop()
+            end
         end
         closeB.MouseButton1Click:Connect(function() sfx("click") goTo(false) end)
 
