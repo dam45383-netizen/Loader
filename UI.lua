@@ -224,12 +224,12 @@ end
 -- THEME
 ----------------------------------------------------------------------
 local T = {
-    ink       = Color3.fromRGB(6, 6, 10),
-    panel     = Color3.fromRGB(12, 11, 20),
-    card      = Color3.fromRGB(16, 14, 26),
-    cardHover = Color3.fromRGB(32, 28, 54),
-    cardDown  = Color3.fromRGB(48, 40, 88),
-    stroke    = Color3.fromRGB(70, 64, 110),
+    ink       = Color3.fromRGB(7, 7, 10),
+    panel     = Color3.fromRGB(14, 14, 19),
+    card      = Color3.fromRGB(15, 15, 20),
+    cardHover = Color3.fromRGB(28, 28, 38),
+    cardDown  = Color3.fromRGB(40, 38, 58),
+    stroke    = Color3.fromRGB(62, 60, 78),
     text      = Color3.fromRGB(246, 244, 255),
     dim       = Color3.fromRGB(150, 142, 186),
     accent    = Color3.fromRGB(145, 96, 255),
@@ -239,12 +239,12 @@ local T = {
     ok        = Color3.fromRGB(74, 222, 128),
     warn      = Color3.fromRGB(250, 204, 21),
     bad       = Color3.fromRGB(248, 113, 113),
-    off       = Color3.fromRGB(52, 50, 74),
-    input     = Color3.fromRGB(13, 11, 23),
+    off       = Color3.fromRGB(46, 46, 58),
+    input     = Color3.fromRGB(10, 10, 14),
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.3"
+local VERSION = "5.4"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -746,7 +746,7 @@ function SORU:CreateWindow(C)
     local userScale = math.clamp(C.Scale or 1, 0.6, 1.5)
     local virt = Vector2.new(REF.X, REF.Y)
 
-    local DEFAULT_SIZE = Vector2.new(680, 420)
+    local DEFAULT_SIZE = Vector2.new(700, 440)
     local minSize = Vector2.new(480, 320)
     local maxSize = Vector2.new(960, 640)
     local winSize = DEFAULT_SIZE
@@ -818,7 +818,7 @@ function SORU:CreateWindow(C)
         local glyph = "i"
         if color == T.ok then glyph = "✓" elseif color == T.bad then glyph = "✕" elseif color == T.warn then glyph = "!" end
         local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 66), BackgroundTransparency = 1, LayoutOrder = toastN, ZIndex = 201}, toastHolder)
-        local f = new("Frame", {Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(350, 0), BackgroundColor3 = Color3.fromRGB(20, 18, 32), BorderSizePixel = 0, ZIndex = 202}, wrap)
+        local f = new("Frame", {Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(350, 0), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 202}, wrap)
         corner(f, 14) stroke(f, color, 1, 0.5)
         local tstripe = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.62, 0), BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 203}, f)
         corner(tstripe, FULL)
@@ -931,19 +931,16 @@ function SORU:CreateWindow(C)
     local shadow, neon = nil, nil
     if SHADOW_ID ~= "" then
         shadow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 10), Size = UDim2.new(1, 64, 1, 64), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
-        -- neon: bayangan berwarna aksen yang "bernapas"
-        neon = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 30, 1, 30), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = T.accent, ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
-        wloop(neon, 2.4, {Size = UDim2.new(1, 58, 1, 58)})
     end
 
     local win = new("CanvasGroup", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 2}, shell)
-    corner(win, 20)
-    wspin(new("UIGradient", {Color = RING}, stroke(win, WHITE, 2, 0.18)), 8)
+    corner(win, 16)
+    stroke(win, Color3.fromRGB(88, 86, 104), 1.2, 0.35)
     local winScale = new("UIScale", {Scale = 0.12}, win)
 
     do
         local tint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, win)
-        new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(20, 17, 36), Color3.fromRGB(8, 7, 14)), Rotation = 125}, tint)
+        new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(17, 17, 22), Color3.fromRGB(8, 8, 11)), Rotation = 125}, tint)
     end
     local bgImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "", ImageTransparency = 0.82, ScaleType = Enum.ScaleType.Crop, ZIndex = 2}, win)
     local bgS = new("UIScale", {Scale = 1.05}, bgImg)
@@ -1053,11 +1050,11 @@ function SORU:CreateWindow(C)
 
     do
         local glow = new("Frame", {Size = UDim2.new(1, 0, 0, 150), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, win)
-        new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.78, 1), Rotation = 90}, glow)
+        new("UIGradient", {Color = ColorSequence.new(T.accent, T.accent2), Transparency = NumberSequence.new(0.94, 1), Rotation = 90}, glow)
     end
 
     -- aurora orb + partikel
-    local ambientOn = (Data.Features["UIAnim"] ~= false)
+    local ambientOn = (Data.Features["UIAnim2"] == true)
     local ambient = new("Frame", {Name = "Ambient", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4, Visible = ambientOn}, win)
     do
         local function orb(col, size, px, py, dx, dy, secs)
@@ -1100,12 +1097,6 @@ function SORU:CreateWindow(C)
         end
     end
 
-    do
-        local accentLine = new("Frame", {Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 15}, win)
-        local ag = new("UIGradient", {Color = RING2}, accentLine)
-        ag.Offset = Vector2.new(-1, 0)
-        wloop(ag, 3.5, {Offset = Vector2.new(1, 0)})
-    end
 
     do
         local zf = Data.Features["BGZoom"]
@@ -1217,7 +1208,7 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     local LAUNCH = 54
     local launchPos = nil
-    local launcher = new("Frame", {Name = "Launcher", Size = UDim2.fromOffset(LAUNCH, LAUNCH), BackgroundColor3 = Color3.fromRGB(20, 18, 32), BorderSizePixel = 0, Active = true, ZIndex = 99}, root)
+    local launcher = new("Frame", {Name = "Launcher", Size = UDim2.fromOffset(LAUNCH, LAUNCH), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, Active = true, ZIndex = 99}, root)
     local pulse, lScale
     do
         corner(launcher, 16)
@@ -1346,14 +1337,13 @@ function SORU:CreateWindow(C)
     local tb = new("Frame", {Size = UDim2.new(1, 0, 0, HDR), BackgroundTransparency = 1, Active = true, ZIndex = 10}, win)
     local chipL, cdot, minB, xB
     do
-        local logo = new("ImageLabel", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(0, 16, 0.5, -16), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 11}, tb)
-        wloop(new("UIScale", {Scale = 1}, logo), 1.8, {Scale = 1.08})
+        local logo = new("ImageLabel", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(0, 16, 0.5, -14), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 11}, tb)
         local titleText = C.Title or "SORU HUB"
-        local tw0 = math.ceil(textW(titleText, 16)) + 4
-        label(tb, {Text = titleText, Position = UDim2.fromOffset(58, 0), Size = UDim2.new(0, tw0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 16, TextTruncate = Enum.TextTruncate.None, ZIndex = 11})
-        label(tb, {Text = tostring(C.Subtitle or ("v"..VERSION)), Position = UDim2.fromOffset(64 + tw0, 2), Size = UDim2.new(1, -(64 + tw0 + 250), 1, -2), TextSize = 12, TextColor3 = DIM, ZIndex = 11})
+        local tw0 = math.ceil(textW(titleText, 15)) + 4
+        label(tb, {Text = titleText, Position = UDim2.fromOffset(54, 0), Size = UDim2.new(0, tw0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 15, TextTruncate = Enum.TextTruncate.None, ZIndex = 11})
+        label(tb, {Text = tostring(C.Subtitle or ("v"..VERSION)), Position = UDim2.fromOffset(60 + tw0, 2), Size = UDim2.new(1, -(60 + tw0 + 240), 1, -2), TextSize = 11, TextColor3 = DIM, ZIndex = 11})
 
-        local chip = new("Frame", {Size = UDim2.fromOffset(128, 26), Position = UDim2.new(1, -224, 0.5, -13), BackgroundColor3 = Color3.fromRGB(20, 18, 32), BorderSizePixel = 0, ZIndex = 11}, tb)
+        local chip = new("Frame", {Size = UDim2.fromOffset(128, 26), Position = UDim2.new(1, -212, 0.5, -13), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
         corner(chip, 9) stroke(chip, T.stroke, 1, 0.55)
         cdot = new("Frame", {Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ok, BorderSizePixel = 0, ZIndex = 12}, chip)
         corner(cdot, FULL)
@@ -1361,29 +1351,28 @@ function SORU:CreateWindow(C)
         chipL = label(chip, {Text = "-- fps", Position = UDim2.fromOffset(24, 0), Size = UDim2.new(1, -28, 1, 0), Font = Enum.Font.GothamBold, TextSize = 10, TextColor3 = DIM, ZIndex = 12})
 
         local function hbtn(xOff, txt, col, hoverC)
-            local b = new("TextButton", {Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, xOff, 0.5, -15), Text = txt, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = col or DIM, BackgroundColor3 = Color3.fromRGB(20, 18, 32), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 11}, tb)
-            corner(b, 9)
-            stroke(b, T.stroke, 1, 0.55)
+            local b = new("TextButton", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, xOff, 0.5, -14), Text = txt, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = col or DIM, BackgroundColor3 = Color3.fromRGB(18, 18, 24), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 11}, tb)
+            corner(b, 8)
+            stroke(b, T.stroke, 1, 0.4)
             hover(b, nil, hoverC or Color3.fromRGB(42, 38, 66), T.cardDown)
             return b
         end
-        minB = hbtn(-76, "–")
-        xB = hbtn(-40, "✕", T.bad, Color3.fromRGB(82, 36, 50))
+        minB = hbtn(-72, "–")
+        xB = hbtn(-38, "✕", T.bad, Color3.fromRGB(82, 36, 50))
     end
 
     -- SIDEBAR: kolom ikon di kiri + avatar di bawah
     local bar = new("Frame", {Name = "Sidebar", Position = UDim2.fromOffset(10, HDR), Size = UDim2.new(0, SIDE_W, 1, -(HDR + 10)), BackgroundColor3 = T.panel, BackgroundTransparency = 0.2, BorderSizePixel = 0, ZIndex = 5}, win)
-    corner(bar, 18) stroke(bar, T.stroke, 1, 0.55) regTrans(bar, 0.05)
-    grad(bar, WHITE, Color3.fromRGB(190, 186, 214), 90)
+    corner(bar, 16) stroke(bar, T.stroke, 1, 0.45) regTrans(bar, 0.05)
 
     local tabList = new("ScrollingFrame", {Size = UDim2.new(1, 0, 1, -FOOT_H), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.None, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 6}, bar)
 
     do -- footer sidebar: garis + avatar
         local sepF = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -FOOT_H), Size = UDim2.new(1, -24, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6}, bar)
-        new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.45), NumberSequenceKeypoint.new(1, 1)}}, sepF)
+        new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.75), NumberSequenceKeypoint.new(1, 1)}}, sepF)
         local av = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -9), Size = UDim2.fromOffset(38, 38), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 7}, bar)
         corner(av, 12)
-        stroke(av, T.accent, 1.4, 0.35)
+        stroke(av, Color3.fromRGB(110, 108, 128), 1.2, 0.3)
         task.spawn(function()
             local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
             if ok and av.Parent then av.Image = img end
@@ -1392,18 +1381,13 @@ function SORU:CreateWindow(C)
 
     -- pill aktif: kotak membulat yang meluncur naik/turun mengikuti tab terpilih
     local pillSheenG
-    local pill = new("Frame", {Name = "Pill", Position = UDim2.fromOffset(PADX, PADY), Size = UDim2.fromOffset(TAB_S, TAB_S), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 5}, tabList)
+    local pill = new("Frame", {Name = "Pill", Position = UDim2.fromOffset(PADX, PADY), Size = UDim2.fromOffset(TAB_S, TAB_S), BackgroundColor3 = T.accent, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 5}, tabList)
     corner(pill, 12)
-    grad(pill, T.accent, T.accent2, 45)
     do
-        local ps = stroke(pill, WHITE, 1.2, 0.3)
-        new("UIGradient", {Color = ColorSequence.new(T.accent, T.cyan), Rotation = 45}, ps)
-        local rim = new("Frame", {Position = UDim2.fromOffset(-3, -3), Size = UDim2.new(1, 6, 1, 6), BackgroundColor3 = T.accent, BackgroundTransparency = 0.88, BorderSizePixel = 0, ZIndex = 4}, pill)
-        corner(rim, 15)
-        wloop(rim, 1.5, {BackgroundTransparency = 0.95})
+        stroke(pill, WHITE, 1.2, 0.5)
         local sheen = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 6}, pill)
         corner(sheen, 12)
-        pillSheenG = new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.72), NumberSequenceKeypoint.new(1, 1)}, Offset = Vector2.new(0, -1)}, sheen)
+        pillSheenG = new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.88), NumberSequenceKeypoint.new(1, 1)}, Offset = Vector2.new(0, -1)}, sheen)
     end
 
     -- CONTENT: tanpa panel (kartu langsung di atas background, seperti gambar)
@@ -1739,13 +1723,13 @@ function SORU:CreateWindow(C)
             corner(f, R)
             local s = stroke(f, T.stroke, 1, 0.45)
             new("UIGradient", {Transparency = NumberSequence.new(0, 0.7), Rotation = 60}, s)
-            grad(f, WHITE, Color3.fromRGB(176, 170, 206), 90)
+            grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
             if nested then f.BackgroundTransparency = 0.38 end
             gloss(f)
             regTrans(f, nested and 0.25 or 0)
             enter(f)
 
-            local wash = new("Frame", {Name = "Wash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.accent, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 0}, f)
+            local wash = new("Frame", {Name = "Wash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.accent, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 0}, f)
             corner(wash, R)
             new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.66), NumberSequenceKeypoint.new(0.55, 0.92), NumberSequenceKeypoint.new(1, 1)}}, wash)
             local stripe = new("Frame", {Name = "Stripe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.4, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 2}, f)
@@ -1763,7 +1747,7 @@ function SORU:CreateWindow(C)
                 end
             end
 
-            local fx = {idleWash = 0.55}
+            local fx = {idleWash = 0.85}
             local hovering, activeOn, pressed = false, false, false
             local function paint()
                 local on = hovering or activeOn
@@ -1907,7 +1891,7 @@ function SORU:CreateWindow(C)
             local R = nested and 12 or 16
             local f = new("Frame", {Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BackgroundTransparency = 0.12, BorderSizePixel = 0}, hf)
             corner(f, R) stroke(f, T.stroke, 1, 0.45) regTrans(f, 0) enter(f)
-            grad(f, WHITE, Color3.fromRGB(176, 170, 206), 90)
+            grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
             local PL = ICN + 24
             new("UIPadding", {PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, PL), PaddingRight = UDim.new(0, 14)}, f)
             local tile = makeIcon(f, "info", ICN)
@@ -1930,7 +1914,7 @@ function SORU:CreateWindow(C)
             local hasDesc = o.Desc ~= nil
             local h = hasDesc and 60 or 48
             local bt, st, _, fx = card(h, true, "play")
-            fx.idleWash = 0.3
+            fx.idleWash = 0.55
             fx.paint()
             rowLabels(bt, o, o.Title or "Button", 1, -66, h)
             local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -27, 0.5, 0), Size = UDim2.fromOffset(36, 36), BackgroundColor3 = T.accent, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1}, bt)
@@ -2923,7 +2907,7 @@ function SORU:CreateWindow(C)
     do -- PROFIL + SERVER / EXECUTOR / FRIENDS / DISCORD (gaya baru)
         local LocalizationService = game:GetService("LocalizationService")
         local Bold = Enum.Font.GothamBold
-        local DARK, TILE = Color3.fromRGB(12, 11, 20), Color3.fromRGB(26, 23, 40)
+        local DARK, TILE = Color3.fromRGB(10, 10, 14), Color3.fromRGB(26, 26, 32)
         local t0 = os.clock()
 
         -- BLUR: Roblox tidak punya blur per-elemen, jadi teks digambar 17x (bergeser 2-4px, transparan)
@@ -2958,13 +2942,15 @@ function SORU:CreateWindow(C)
         local function glowCard(parent, col, pos, size, mode)
             local f = new("Frame", {Position = pos, Size = size, BackgroundColor3 = DARK, BorderSizePixel = 0, ClipsDescendants = true}, parent)
             corner(f, 16) regTrans(f, 0)
-            local s = stroke(f, col, 1, 0.6)
+            local s = stroke(f, mode == "flat" and T.stroke or col, 1, 0.5)
             local g = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 0}, f)
             corner(g, 16)
-            if mode == "h" then
-                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(0.7, 0.92), NumberSequenceKeypoint.new(1, 1)}}, g)
+            if mode == "flat" then
+                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.93), NumberSequenceKeypoint.new(1, 1)}}, g)
+            elseif mode == "h" then
+                new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.36), NumberSequenceKeypoint.new(0.7, 0.9), NumberSequenceKeypoint.new(1, 1)}}, g)
             else
-                new("UIGradient", {Rotation = -50, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(0.55, 0.93), NumberSequenceKeypoint.new(1, 1)}}, g)
+                new("UIGradient", {Rotation = -50, Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(0.55, 0.92), NumberSequenceKeypoint.new(1, 1)}}, g)
             end
             gloss(f)
             return f, s
@@ -3000,7 +2986,7 @@ function SORU:CreateWindow(C)
             local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
             D._enter(row)
             local avBox = new("Frame", {Size = UDim2.fromOffset(72, 72), BackgroundColor3 = DARK, BorderSizePixel = 0}, row)
-            corner(avBox, 16) regTrans(avBox, 0) stroke(avBox, T.accent, 1, 0.5)
+            corner(avBox, 16) regTrans(avBox, 0) stroke(avBox, T.stroke, 1, 0.45)
             local av = new("ImageLabel", {Size = UDim2.new(1, -10, 1, -10), Position = UDim2.fromOffset(5, 5), BackgroundColor3 = T.off, BorderSizePixel = 0}, avBox)
             corner(av, 12)
             task.spawn(function()
@@ -3008,7 +2994,7 @@ function SORU:CreateWindow(C)
                 if ok and av.Parent then av.Image = img end
             end)
 
-            local hello = glowCard(row, T.accent, UDim2.fromOffset(80, 9), UDim2.new(1, -80, 0, 54), "h")
+            local hello = glowCard(row, T.accent, UDim2.fromOffset(80, 9), UDim2.new(1, -80, 0, 54), "flat")
             local hw = math.ceil(textW("Hello,", 15))
             label(hello, {Text = "Hello,", Position = UDim2.fromOffset(16, 5), Size = UDim2.fromOffset(hw + 6, 24), Font = Bold, TextSize = 15, TextTruncate = Enum.TextTruncate.None, ZIndex = 2})
             blurText(hello, pl.DisplayName, 15, T.text, 16 + hw - 4, 5)
@@ -3070,7 +3056,7 @@ function SORU:CreateWindow(C)
         local dBtn = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 6}, dc)
         ripple(dBtn)
         dBtn.MouseEnter:Connect(function() sfx("hover") play(dcs, {Transparency = 0.15}, 0.2) end)
-        dBtn.MouseLeave:Connect(function() play(dcs, {Transparency = 0.6}, 0.25) end)
+        dBtn.MouseLeave:Connect(function() play(dcs, {Transparency = 0.5}, 0.25) end)
         dBtn.MouseButton1Click:Connect(function()
             sfx("click")
             copy("https://discord.gg/cHsx3RFYb")
@@ -3138,15 +3124,17 @@ function SORU:CreateWindow(C)
         end)
     end
 
+    local ST = D:Accordion({Title = "Statistics", Desc = "FPS, ping, game info, coordinates", Open = false})
+
     do -- statistik
-        local hf = D._holder(58)
+        local hf = ST._holder(58)
         local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
-        D._enter(row)
+        ST._enter(row)
         new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -6, 1, 0), CellPadding = UDim2.fromOffset(8, 0), SortOrder = Enum.SortOrder.LayoutOrder}, row)
         local function stat(title, value, col, ord)
             local f = new("Frame", {BackgroundColor3 = T.card, BackgroundTransparency = 0.12, BorderSizePixel = 0, LayoutOrder = ord}, row)
             corner(f, 14) stroke(f, col, 1, 0.5) regTrans(f, 0) gloss(f)
-            grad(f, WHITE, Color3.fromRGB(176, 170, 206), 90)
+            grad(f, WHITE, Color3.fromRGB(200, 200, 212), 90)
             -- wash warna + stripe kiri (bahasa visual yang sama dengan kartu komponen)
             local wsh = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 0}, f)
             corner(wsh, 14)
@@ -3162,7 +3150,7 @@ function SORU:CreateWindow(C)
     end
 
     do -- grafik FPS
-        local c = D._card(92)
+        local c = ST._card(92)
         label(c, {Text = "Frame rate history", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextColor3 = DIM})
         local avgL = label(c, {Text = "avg --  •  low --", Position = UDim2.new(0.5, 0, 0, 9), Size = UDim2.new(0.5, -14, 0, 14), TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right, TextColor3 = T.cyan})
         local area = new("Frame", {Position = UDim2.fromOffset(14, 30), Size = UDim2.new(1, -28, 1, -40), BackgroundTransparency = 1}, c)
@@ -3199,7 +3187,7 @@ function SORU:CreateWindow(C)
     end
 
     do -- info game
-        local c, cs = D._card(56)
+        local c, cs = ST._card(56)
         c.BackgroundColor3 = Color3.fromRGB(36, 31, 20)
         cs.Color = T.warn cs.Transparency = 0.6
         local w2 = c:FindFirstChild("Wash") if w2 then w2.BackgroundColor3 = T.warn end
@@ -3210,9 +3198,9 @@ function SORU:CreateWindow(C)
     end
 
     do -- tombol copy id
-        local hf = D._holder(34)
+        local hf = ST._holder(34)
         local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
-        D._enter(row)
+        ST._enter(row)
         new("UIGridLayout", {CellSize = UDim2.new(0.5, -4, 1, 0), CellPadding = UDim2.fromOffset(8, 0), SortOrder = Enum.SortOrder.LayoutOrder}, row)
         local function copyBtn(txt, val, ord)
             local b = new("TextButton", {Text = txt, Font = Enum.Font.GothamBold, TextSize = 12, BackgroundColor3 = T.card, BackgroundTransparency = 0.1, TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = ord}, row)
@@ -3233,7 +3221,7 @@ function SORU:CreateWindow(C)
     end
 
     do -- koordinat
-        local c = D._card(54)
+        local c = ST._card(54)
         label(c, {Text = "Live coordinates", Position = UDim2.fromOffset(14, 9), Size = UDim2.new(1, -90, 0, 14), TextSize = 11, TextColor3 = DIM})
         xyv = label(c, {Text = "X:0  Y:0  Z:0", Position = UDim2.fromOffset(14, 26), Size = UDim2.new(1, -90, 0, 20), Font = Enum.Font.Code, TextSize = 13, TextColor3 = Color3.fromRGB(130, 160, 255)})
         local cp = new("TextButton", {Text = "Copy", Size = UDim2.fromOffset(58, 28), Position = UDim2.new(1, -70, 0.5, -14), Font = Enum.Font.GothamBold, TextSize = 12, BackgroundColor3 = Color3.fromRGB(42, 38, 62), TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0}, c)
@@ -3291,8 +3279,9 @@ function SORU:CreateWindow(C)
         end
     end
 
-    D:Section("Interface")
-    D:Dropdown({
+    local SA = D:Accordion({Title = "Interface", Desc = "Theme, scale, transparency, sound", Open = false})
+    SA:Section("Display")
+    SA:Dropdown({
         Title = "Theme", Desc = "Accent color preset", Flag = "UITheme", Options = THEME_ORDER, Default = "Violet",
         Callback = function(v)
             if type(v) ~= "string" or v == curTheme or not THEMES[v] then return end
@@ -3309,7 +3298,7 @@ function SORU:CreateWindow(C)
             end)
         end,
     })
-    local scaleSlider = D:Slider({
+    local scaleSlider = SA:Slider({
         Title = "UI scale", Min = 60, Max = 150, Step = 5, Suffix = "%",
         Default = math.floor(userScale * 100 + 0.5),
         OnRelease = function(v)
@@ -3319,25 +3308,25 @@ function SORU:CreateWindow(C)
         end,
     })
     local initTrans = (type(Data.Features["UITrans"]) == "number") and Data.Features["UITrans"] or 0.15
-    D:Slider({
+    SA:Slider({
         Title = "Panel transparency", Min = 0, Max = 60, Step = 5, Suffix = "%",
         Default = math.floor(initTrans * 100 + 0.5),
         Callback = function(v) applyTrans(v / 100) end,
         OnRelease = function(v) Data.Features["UITrans"] = v / 100 persist() end,
     })
-    D:Toggle({
+    SA:Toggle({
         Title = "Background blur", Desc = "Blur the game behind the menu", Flag = "UIBlur", Default = true,
         Callback = function(v) blurOn = v updateBlur() end,
     })
-    D:Toggle({
-        Title = "Animated background", Desc = "Aurora glow and floating particles", Flag = "UIAnim", Default = true,
+    SA:Toggle({
+        Title = "Animated background", Desc = "Aurora glow and floating particles", Flag = "UIAnim2", Default = false,
         Callback = function(v) ambientOn = v ambient.Visible = v end,
     })
-    D:Keybind({
+    SA:Keybind({
         Title = "Menu key", Desc = "Show or hide the interface", Flag = "MenuKey", Default = toggleKey,
         OnChange = function(k) if k then toggleKey = k end end,
     })
-    D:Button({
+    SA:Button({
         Title = "Reset UI size", Desc = "Back to the default size and scale",
         Callback = function()
             winSize = DEFAULT_SIZE
@@ -3351,33 +3340,16 @@ function SORU:CreateWindow(C)
         end,
     })
 
-    D:Section("Sound")
-    D:Toggle({
+    SA:Section("Sound")
+    SA:Toggle({
         Title = "UI sounds", Desc = "SORU signature sound effects", Flag = "UISound", Default = true,
         Callback = function(v) sndOn = v end,
     })
-    D:Slider({
+    SA:Slider({
         Title = "Sound volume", Flag = "UIVol", Min = 0, Max = 100, Step = 5, Default = 60, Suffix = "%",
         Callback = function(v) sndVol = v / 100 end,
     })
 
-    do -- discord
-        local hf = D._holder(40)
-        local d = new("TextButton", {Name = "Body", Size = UDim2.fromScale(1, 1), Text = "Join our Discord", Font = Enum.Font.GothamBold, TextSize = 13, BackgroundColor3 = Color3.fromRGB(88, 101, 242), TextColor3 = WHITE, AutoButtonColor = false, BorderSizePixel = 0}, hf)
-        D._enter(d)
-        corner(d, 12)
-        grad(d, WHITE, Color3.fromRGB(205, 205, 235), 90)
-        hover(d, nil, Color3.fromRGB(106, 118, 255), Color3.fromRGB(70, 82, 210))
-        ripple(d)
-        d.MouseButton1Click:Connect(function()
-            copy("https://discord.gg/cHsx3RFYb")
-            notify("Discord", "Invite copied to clipboard", Color3.fromRGB(88, 101, 242), 2)
-            local old = d.Text
-            d.Text = "Invite copied ✓"
-            task.wait(1.5)
-            d.Text = old
-        end)
-    end
 
     ------------------------------------------------------------------
     -- MODAL TUTUP
