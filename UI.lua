@@ -1,5 +1,16 @@
 --[[
-    SORU HUB UI v5.6 FEATHERWEIGHT  (API 100% kompatibel dengan v2.x - v5.x)
+    SORU HUB UI v5.7 CLEAN LITE  (API 100% kompatibel dengan v2.x - v5.x)
+
+    CHANGELOG v5.7 (Clean Lite) - lebih bagus, tetap ringan dan tanpa animasi
+      1.  Kartu aktif (Toggle ON, accordion terbuka, input fokus) berisi warna aksen tipis, tanpa instance tambahan
+      2.  Bar aksen kecil di tepi kartu saat hover / aktif (1 frame polos, pengganti wash dan stripe)
+      3.  Header menampilkan nama tab aktif (di HP tidak ada tooltip hover)
+      4.  Subjudul header menampilkan nama game di samping versi
+      5.  Dropdown: baris terpilih diberi tanda centang dan sorotan
+      6.  Kontras lebih baik: teks redup lebih terang, tile dashboard lebih terang, border kartu glow lebih jelas
+      7.  Skala UI otomatis di perangkat sentuh supaya teks terbaca di HP (bisa diubah lewat slider UI scale)
+      8.  Tombol Reset UI size memakai skala otomatis tersebut
+      9.  Tetap tanpa animasi dan ringan: hanya +1 frame per kartu dan +1 label di header
 
     CHANGELOG v5.6 (Featherweight)
       1.  Dropdown: baris dibuat saat pertama dibuka (daftar 126 tema tidak lagi dibuat saat startup)
@@ -258,7 +269,7 @@ local T = {
     cardDown  = Color3.fromRGB(40, 38, 58),
     stroke    = Color3.fromRGB(62, 60, 78),
     text      = Color3.fromRGB(246, 244, 255),
-    dim       = Color3.fromRGB(150, 142, 186),
+    dim       = Color3.fromRGB(160, 156, 186),
     accent    = Color3.fromRGB(145, 96, 255),
     accent2   = Color3.fromRGB(94, 106, 255),
     cyan      = Color3.fromRGB(56, 200, 255),
@@ -271,7 +282,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.6"
+local VERSION = "5.7"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -841,9 +852,11 @@ function SORU:CreateWindow(C)
         end
         return tryRead(SIZE_FILE) or tryRead(SIZE_FILE2)
     end
+    local savedUI = false
     do
         local sv = loadUI()
         if sv then
+            savedUI = true
             winSize = Vector2.new(math.clamp(sv.W, minSize.X, maxSize.X), math.clamp(sv.H, minSize.Y, maxSize.Y))
             userScale = math.clamp(tonumber(sv.S) or userScale, 0.6, 1.5)
         end
@@ -859,6 +872,15 @@ function SORU:CreateWindow(C)
         end
         return s
     end
+
+    -- perangkat sentuh (HP/tablet): skala bawaan dihitung supaya window ~82% tinggi layar dan teks terbaca
+    local function autoScale()
+        if not UIS.TouchEnabled then return 1 end
+        local vp = viewport()
+        local fit = math.clamp(math.min(vp.X / REF.X, vp.Y / REF.Y), 0.4, 5)
+        return math.clamp(0.82 * vp.Y / (winSize.Y * fit), 0.6, 1.5)
+    end
+    if C.Scale == nil and not savedUI then userScale = autoScale() end
 
     local function applyScale()
         local vp = viewport()
@@ -1428,13 +1450,18 @@ function SORU:CreateWindow(C)
 
     -- HEADER: logo, judul + subjudul (C.Subtitle), chip FPS, tombol window
     local tb = new("Frame", {Size = UDim2.new(1, 0, 0, HDR), BackgroundTransparency = 1, Active = true, ZIndex = 10}, win)
-    local chipL, cdot, minB, xB
+    local chipL, cdot, minB, xB, crumbL
     do
         local logo = new("ImageLabel", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(0, 16, 0.5, -14), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 11}, tb)
         local titleText = C.Title or "SORU HUB"
         local tw0 = math.ceil(textW(titleText, 15)) + 4
         label(tb, {Text = titleText, Position = UDim2.fromOffset(54, 0), Size = UDim2.new(0, tw0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 15, TextTruncate = Enum.TextTruncate.None, ZIndex = 11})
-        label(tb, {Text = tostring(C.Subtitle or ("v"..VERSION)), Position = UDim2.fromOffset(60 + tw0, 2), Size = UDim2.new(1, -(60 + tw0 + 240), 1, -2), TextSize = 11, TextColor3 = DIM, ZIndex = 11})
+        local subL = label(tb, {Text = tostring(C.Subtitle or ("v"..VERSION)), Position = UDim2.fromOffset(60 + tw0, 2), Size = UDim2.new(1, -(60 + tw0 + 350), 1, -2), TextSize = 11, TextColor3 = DIM, ZIndex = 11})
+        if not C.Subtitle then
+            bindName(function(n) subL.Text = (n == "Unknown") and ("v"..VERSION) or ("v"..VERSION.."  •  "..n) end)
+        end
+        -- nama tab aktif (di HP tidak ada tooltip hover, jadi ditampilkan di header)
+        crumbL = label(tb, {Text = "Dashboard", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -224, 0, 0), Size = UDim2.fromOffset(120, HDR), TextXAlignment = Enum.TextXAlignment.Right, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = T.accent, ZIndex = 11})
 
         local chip = new("Frame", {Size = UDim2.fromOffset(128, 26), Position = UDim2.new(1, -212, 0.5, -13), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
         corner(chip, 9) stroke(chip, T.stroke, 1, 0.55)
@@ -1654,6 +1681,7 @@ function SORU:CreateWindow(C)
         local ne = tabs[n]
         local dir = (ne.index > (old and old.index or 0)) and 1 or -1
         cur = n
+        if crumbL then crumbL.Text = n end
         sfx("tab")
         hideTip()
         if LITE then -- ganti halaman langsung, tanpa animasi halaman
@@ -1849,6 +1877,9 @@ function SORU:CreateWindow(C)
             corner(stripe, FULL)
             grad(stripe, T.cyan, T.accent, 90)
             end
+            if LITE then -- satu frame polos: bar aksen kecil, hanya terlihat saat hover / aktif
+                stripe = new("Frame", {Name = "Stripe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.new(0, 3, 0.4, 0), BackgroundColor3 = T.accent, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, f)
+            end
 
             local tile = nil
             if kind and not LITE then
@@ -1868,9 +1899,11 @@ function SORU:CreateWindow(C)
                 local wt = fx.idleWash
                 if activeOn and hovering then wt = 0 elseif activeOn then wt = 0.1 elseif hovering then wt = 0.3 end
                 if wash then play(wash, {BackgroundTransparency = wt}, 0.3) end
-                if stripe then play(stripe, {Size = UDim2.new(0, 3, on and 0.72 or 0.4, 0), BackgroundTransparency = on and 0 or 0.35}, 0.3, Enum.EasingStyle.Back) end
+                if stripe then play(stripe, {Size = UDim2.new(0, 3, on and 0.72 or 0.4, 0), BackgroundTransparency = on and 0 or (LITE and 1 or 0.35)}, 0.3, Enum.EasingStyle.Back) end
                 play(s, {Color = on and ACCENT or T.stroke, Transparency = on and 0.2 or 0.45}, 0.25)
-                play(f, {BackgroundColor3 = pressed and T.cardDown or (hovering and T.cardHover or T.card)}, 0.18)
+                local base = T.card
+                if LITE and activeOn then base = T.card:Lerp(T.accent, 0.16) end
+                play(f, {BackgroundColor3 = pressed and T.cardDown or (hovering and T.cardHover or base)}, 0.18)
                 if tile then play(tile, {BackgroundTransparency = on and 0.35 or 0.62}, 0.25) end
             end
             function fx.hover(v) hovering = v paint() end
@@ -2416,6 +2449,7 @@ function SORU:CreateWindow(C)
                     if r.lite then
                         r.btn.BackgroundTransparency = bt
                         r.btn.TextColor3 = on and T.text or DIM
+                        r.btn.Text = (on and "✓  " or "    ")..r.name
                     elseif anim then
                         play(r.btn, {BackgroundTransparency = bt}, 0.2)
                         play(r.txt, {TextColor3 = on and T.text or DIM}, 0.2)
@@ -2483,7 +2517,7 @@ function SORU:CreateWindow(C)
                     local name = tostring(n)
                     local b
                     if LITE then
-                        b = new("TextButton", {Text = "  "..name, Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = DIM, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
+                        b = new("TextButton", {Text = "    "..name, Font = Enum.Font.GothamMedium, TextSize = 12, TextColor3 = DIM, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
                         rows[i] = {btn = b, txt = b, lite = true, name = name}
                     else
                     b = new("TextButton", {Text = "", AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 28), BackgroundColor3 = ACCENT, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, listF)
@@ -3039,7 +3073,7 @@ function SORU:CreateWindow(C)
     do -- PROFIL + SERVER / EXECUTOR / FRIENDS / DISCORD (gaya baru)
         local LocalizationService = game:GetService("LocalizationService")
         local Bold = Enum.Font.GothamBold
-        local DARK, TILE = Color3.fromRGB(10, 10, 14), Color3.fromRGB(26, 26, 32)
+        local DARK, TILE = Color3.fromRGB(10, 10, 14), Color3.fromRGB(32, 32, 40)
         local t0 = os.clock()
 
         -- BLUR: Roblox tidak punya blur per-elemen, jadi teks digambar 17x (bergeser 2-4px, transparan)
@@ -3079,7 +3113,7 @@ function SORU:CreateWindow(C)
         local function glowCard(parent, col, pos, size, mode)
             local f = new("Frame", {Position = pos, Size = size, BackgroundColor3 = DARK, BorderSizePixel = 0, ClipsDescendants = true}, parent)
             corner(f, 16) regTrans(f, 0)
-            local s = stroke(f, mode == "flat" and T.stroke or col, 1, 0.5)
+            local s = stroke(f, mode == "flat" and T.stroke or col, 1, 0.4)
             local g = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col, BackgroundTransparency = 0, BorderSizePixel = 0, ZIndex = 0}, f)
             corner(g, 16)
             if mode == "flat" then
@@ -3194,7 +3228,7 @@ function SORU:CreateWindow(C)
         local dBtn = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 6}, dc)
         ripple(dBtn)
         dBtn.MouseEnter:Connect(function() sfx("hover") play(dcs, {Transparency = 0.15}, 0.2) end)
-        dBtn.MouseLeave:Connect(function() play(dcs, {Transparency = 0.5}, 0.25) end)
+        dBtn.MouseLeave:Connect(function() play(dcs, {Transparency = 0.4}, 0.25) end)
         dBtn.MouseButton1Click:Connect(function()
             sfx("click")
             copy("https://discord.gg/cHsx3RFYb")
@@ -3488,8 +3522,8 @@ function SORU:CreateWindow(C)
         Callback = function()
             winSize = DEFAULT_SIZE
             winPos = nil
-            userScale = 1
-            scaleSlider:Set(100)
+            userScale = autoScale()
+            scaleSlider:Set(math.floor(userScale * 100 + 0.5))
             applyScale()
             layoutWin(true)
             saveUI()
@@ -3518,20 +3552,18 @@ function SORU:CreateWindow(C)
     })
 
 
-    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Featherweight", Open = false})
-    SC:Paragraph({Title = "v5.6 - Featherweight", Desc = table.concat({
-        "1. Dropdown rows are built on first open (theme list no longer creates 126 rows at startup)",
-        "2. Dropdown rows are 1 instance each (was 5)",
-        "3. Cards have no icon tiles, text starts at the left edge",
-        "4. Cards have no wash/stripe layers, hover and active show via border and fill color",
-        "5. No timeline dots in accordions",
-        "6. Sliders have no tick marks or gloss layer",
-        "7. FPS graph removed from Statistics (header chip still shows FPS and ping)",
-        "8. Friends info loads when you tap the card, no network calls at startup",
-        "9. Top glow layer removed (less overdraw) and dashboard tile borders removed",
-        "10. Live coordinates refresh every 1s",
-        "11. Paragraph cards lose their icon too",
-        "(v5.5: no animation at all, see script header)",
+    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Clean Lite", Open = false})
+    SC:Paragraph({Title = "v5.7 - Clean Lite", Desc = table.concat({
+        "1. Active cards (Toggle ON, open accordion, focused input) get a light accent fill, no extra instances",
+        "2. Small accent bar on the card edge on hover/active (1 plain frame, replaces wash and stripe)",
+        "3. Header shows the current tab name (phones have no hover tooltip)",
+        "4. Header subtitle shows the game name next to the version",
+        "5. Dropdown: selected row gets a check mark and highlight",
+        "6. Better contrast: lighter dim text, lighter dashboard tiles, clearer glow-card borders",
+        "7. Auto UI scale on touch devices so text is readable on phones (adjust with the UI scale slider)",
+        "8. Reset UI size uses the auto scale",
+        "9. Still no animation and lite: only +1 frame per card and +1 label in the header",
+        "(v5.6: lighter instances, v5.5: no animation, see script header)",
     }, "\n")})
 
     ------------------------------------------------------------------
