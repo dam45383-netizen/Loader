@@ -1,5 +1,18 @@
 --[[
-    SORU HUB UI v5.7 CLEAN LITE  (API 100% kompatibel dengan v2.x - v5.x)
+    SORU HUB UI v5.8 PRO + LITE  (API 100% kompatibel dengan v2.x - v5.x)
+
+    CHANGELOG v5.8 (Pro layout untuk Lite OFF) - Lite ON tidak berubah
+      1.  Lite OFF kini memakai layout "Pro" terinspirasi referensi dashboard gelap (kartu, grafik, donut)
+      2.  Header Pro: judul halaman besar, nama hub dua baris, chip FPS dan ping
+      3.  Pill tema di header: panah kiri/kanan memutar SEMUA 100+ tema, klik nama = acak, ada pratinjau 3 warna
+      4.  Lonceng notifikasi dengan badge jumlah (klik = bersihkan) dan avatar dengan titik online
+      5.  Kartu Session: tombol bulat besar salin join script + timer waktu di server + jumlah pemain
+      6.  Kartu Quick actions: Rejoin, Copy join script, Server hop (teleport minta tap kedua untuk konfirmasi)
+      7.  Kartu Server: Ping diwarnai sesuai kualitas, FPS, Players, dan tile Join Discord
+      8.  Panel Performance: segmented FPS / Ping / Memory, riwayat 60 detik, AVG/MIN/MAX, garis "now"
+      9.  Kolom kanan: Activity (skor kesehatan + 5 bar), donut Players (Friends/Others/You/Open), daftar Status
+      10. Ukuran bawaan Pro 880x564 dengan file ukuran sendiri (soru.pro.size), semua warna ikut tema
+      11. Toggle Lite mode sekarang juga mengatur animasi: Lite ON = tanpa animasi, Lite OFF = animasi penuh
 
     CHANGELOG v5.7 (Clean Lite) - lebih bagus, tetap ringan dan tanpa animasi
       1.  Kartu aktif (Toggle ON, accordion terbuka, input fokus) berisi warna aksen tipis, tanpa instance tambahan
@@ -282,7 +295,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.7"
+local VERSION = "5.8"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -741,7 +754,7 @@ function SORU:CreateWindow(C)
     if C.NoAnim ~= nil then
         NOANIM = C.NoAnim and true or false
     else
-        NOANIM = true
+        NOANIM = LITE
         local nv = Data.Features["UINoAnim"]
         if type(nv) == "boolean" then NOANIM = nv end
     end
@@ -825,9 +838,10 @@ function SORU:CreateWindow(C)
     local userScale = math.clamp(C.Scale or 1, 0.6, 1.5)
     local virt = Vector2.new(REF.X, REF.Y)
 
-    local DEFAULT_SIZE = Vector2.new(700, 440)
-    local minSize = Vector2.new(480, 320)
-    local maxSize = Vector2.new(960, 640)
+    -- LITE: window kecil. PRO (Lite off): layout dashboard lebar ala referensi
+    local DEFAULT_SIZE = LITE and Vector2.new(700, 440) or Vector2.new(880, 564)
+    local minSize = LITE and Vector2.new(480, 320) or Vector2.new(780, 440)
+    local maxSize = LITE and Vector2.new(960, 640) or Vector2.new(1100, 700)
     local winSize = DEFAULT_SIZE
     local winPos = nil
     local curPos = Vector2.new(0, 0)
@@ -836,8 +850,8 @@ function SORU:CreateWindow(C)
     local function saveUI()
         pcall(function()
             local js = Http:JSONEncode({V = 2, W = math.floor(winSize.X), H = math.floor(winSize.Y), S = userScale})
-            writefile(SIZE_FILE, js)
-            writefile(SIZE_FILE2, js)
+            writefile(LITE and SIZE_FILE or "soru.pro.size", js)
+            writefile(LITE and SIZE_FILE2 or (CFG.."/soru.pro.size"), js)
         end)
     end
     local function loadUI()
@@ -850,7 +864,7 @@ function SORU:CreateWindow(C)
             end
             return nil
         end
-        return tryRead(SIZE_FILE) or tryRead(SIZE_FILE2)
+        return tryRead(LITE and SIZE_FILE or "soru.pro.size") or tryRead(LITE and SIZE_FILE2 or (CFG.."/soru.pro.size"))
     end
     local savedUI = false
     do
@@ -900,7 +914,10 @@ function SORU:CreateWindow(C)
     new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right}, toastHolder)
     local toastN = 0
     local toasts = {}
+    local PRO = {notifCount = 0} -- tempat state khusus layout Pro (hemat variabel local)
     local function notify(title, msg, color, dur)
+        PRO.notifCount = PRO.notifCount + 1
+        if PRO.badgeUpd then PRO.badgeUpd() end
         color = color or ACCENT
         dur = dur or 3
         toastN = toastN + 1
@@ -1443,7 +1460,7 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- HEADER + SIDEBAR VERTIKAL + CONTENT (gaya baru)
     ------------------------------------------------------------------
-    local HDR = 56
+    local HDR = LITE and 56 or 64
     local SIDE_W, FOOT_H = 56, 58
     local TAB_S, TAB_GAP, PADX, PADY = 40, 6, 8, 8
     local CONT_X, CONT_Y = 10 + SIDE_W + 8, HDR + 2
@@ -1455,8 +1472,10 @@ function SORU:CreateWindow(C)
         local logo = new("ImageLabel", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(0, 16, 0.5, -14), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit, ZIndex = 11}, tb)
         local titleText = C.Title or "SORU HUB"
         local tw0 = math.ceil(textW(titleText, 15)) + 4
-        label(tb, {Text = titleText, Position = UDim2.fromOffset(54, 0), Size = UDim2.new(0, tw0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 15, TextTruncate = Enum.TextTruncate.None, ZIndex = 11})
+        PRO.tw0 = tw0
+        PRO.titleL = label(tb, {Text = titleText, Position = UDim2.fromOffset(54, 0), Size = UDim2.new(0, tw0, 1, 0), Font = Enum.Font.GothamBold, TextSize = 15, TextTruncate = Enum.TextTruncate.None, ZIndex = 11})
         local subL = label(tb, {Text = tostring(C.Subtitle or ("v"..VERSION)), Position = UDim2.fromOffset(60 + tw0, 2), Size = UDim2.new(1, -(60 + tw0 + 350), 1, -2), TextSize = 11, TextColor3 = DIM, ZIndex = 11})
+        PRO.subL = subL
         if not C.Subtitle then
             bindName(function(n) subL.Text = (n == "Unknown") and ("v"..VERSION) or ("v"..VERSION.."  •  "..n) end)
         end
@@ -1465,6 +1484,7 @@ function SORU:CreateWindow(C)
 
         local chip = new("Frame", {Size = UDim2.fromOffset(128, 26), Position = UDim2.new(1, -212, 0.5, -13), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
         corner(chip, 9) stroke(chip, T.stroke, 1, 0.55)
+        PRO.chip = chip
         cdot = new("Frame", {Size = UDim2.fromOffset(6, 6), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ok, BorderSizePixel = 0, ZIndex = 12}, chip)
         corner(cdot, FULL)
         wloop(cdot, 1.2, {BackgroundTransparency = 0.7})
@@ -1479,6 +1499,90 @@ function SORU:CreateWindow(C)
         end
         minB = hbtn(-72, "–")
         xB = hbtn(-38, "✕", T.bad, Color3.fromRGB(82, 36, 50))
+    end
+
+    if not LITE then -- HEADER PRO: judul halaman besar, pill tema, lonceng, avatar
+        local tw0 = PRO.tw0
+        PRO.titleL.Position = UDim2.fromOffset(54, 10)
+        PRO.titleL.Size = UDim2.fromOffset(tw0 + 20, 20)
+        PRO.subL.Position = UDim2.fromOffset(54, 31)
+        PRO.subL.Size = UDim2.fromOffset(190, 14)
+        PRO.subL.TextSize = 10
+        crumbL.AnchorPoint = Vector2.new(0, 0)
+        crumbL.Position = UDim2.fromOffset(54 + math.max(tw0 + 20, 150) + 24, 0)
+        crumbL.Size = UDim2.fromOffset(190, HDR)
+        crumbL.TextXAlignment = Enum.TextXAlignment.Left
+        crumbL.TextSize = 20
+        crumbL.TextColor3 = WHITE
+        PRO.chip.Position = UDim2.new(1, -440, 0.5, -13)
+        PRO.chip.Size = UDim2.fromOffset(118, 26)
+
+        -- avatar + titik online
+        local avWrap = new("Frame", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -112, 0.5, -16), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 11}, tb)
+        corner(avWrap, FULL)
+        stroke(avWrap, T.stroke, 1.2, 0.3)
+        local avImg = new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 12}, avWrap)
+        corner(avImg, FULL)
+        task.spawn(function()
+            local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
+            if ok and avImg.Parent then avImg.Image = img end
+        end)
+        local od = new("Frame", {Size = UDim2.fromOffset(9, 9), Position = UDim2.new(1, -9, 1, -9), BackgroundColor3 = T.ok, BorderSizePixel = 0, ZIndex = 13}, avWrap)
+        corner(od, FULL)
+        stroke(od, Color3.fromRGB(11, 11, 15), 1.5, 0)
+
+        -- lonceng + badge jumlah notifikasi (klik = bersihkan)
+        local bell = new("TextButton", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -152, 0.5, -16), Text = "", BackgroundColor3 = Color3.fromRGB(18, 18, 24), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 11}, tb)
+        corner(bell, FULL)
+        stroke(bell, T.stroke, 1, 0.4)
+        hover(bell, nil, Color3.fromRGB(34, 34, 46), T.cardDown)
+        local function bpart(w, h, x, y, r)
+            local f = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, x, 0.5, y), Size = UDim2.fromOffset(w, h), BackgroundColor3 = T.text, BorderSizePixel = 0, ZIndex = 12}, bell)
+            corner(f, r or FULL)
+        end
+        bpart(12, 11, 0, -2, 6) bpart(16, 2, 0, 5, 1) bpart(4, 3, 0, 8, 2)
+        local badge = new("Frame", {Size = UDim2.fromOffset(15, 15), Position = UDim2.new(1, -9, 0, -3), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 13, Visible = false}, bell)
+        corner(badge, FULL)
+        local badgeL = label(badge, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 8, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None, ZIndex = 14})
+        PRO.badgeUpd = function()
+            local n = PRO.notifCount
+            badge.Visible = n > 0
+            badgeL.Text = n > 99 and "99+" or tostring(n)
+            badge.Size = UDim2.fromOffset(n > 9 and 20 or 15, 15)
+        end
+        PRO.badgeUpd()
+        bell.MouseButton1Click:Connect(function()
+            PRO.notifCount = 0
+            PRO.badgeUpd()
+            sfx("click")
+        end)
+
+        -- pill tema: panah kiri/kanan ganti tema (semua 100+ tema), klik nama = acak
+        local pillF = new("Frame", {Size = UDim2.fromOffset(150, 30), Position = UDim2.new(1, -312, 0.5, -15), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
+        corner(pillF, FULL)
+        stroke(pillF, T.stroke, 1, 0.4)
+        local function arrow(x, txt, d)
+            local b = new("TextButton", {Size = UDim2.fromOffset(26, 30), Position = UDim2.fromOffset(x, 0), BackgroundTransparency = 1, Text = txt, Font = Enum.Font.GothamBold, TextSize = 17, TextColor3 = DIM, AutoButtonColor = false, ZIndex = 12}, pillF)
+            b.MouseEnter:Connect(function() play(b, {TextColor3 = T.text}, 0.12) end)
+            b.MouseLeave:Connect(function() play(b, {TextColor3 = DIM}, 0.15) end)
+            b.MouseButton1Click:Connect(function()
+                sfx("click")
+                if PRO.cycleTheme then PRO.cycleTheme(d) end
+            end)
+        end
+        arrow(0, "‹", -1)
+        arrow(124, "›", 1)
+        for i, c in ipairs({T.accent, T.cyan, T.pink}) do -- pratinjau warna tema (ikut berganti saat tema diganti)
+            local d = new("Frame", {Size = UDim2.fromOffset(8, 8), Position = UDim2.fromOffset(27 + (i - 1) * 7, 11), BackgroundColor3 = c, BorderSizePixel = 0, ZIndex = 12}, pillF)
+            corner(d, FULL)
+        end
+        PRO.themeLbl = label(pillF, {Text = curTheme, Position = UDim2.fromOffset(54, 0), Size = UDim2.fromOffset(70, 30), Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 12})
+        local rnd = new("TextButton", {Position = UDim2.fromOffset(54, 0), Size = UDim2.fromOffset(70, 30), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 13}, pillF)
+        rnd.MouseButton1Click:Connect(function()
+            sfx("pop")
+            if PRO.cycleTheme then PRO.cycleTheme(math.random(1, math.max(1, #THEME_ORDER - 1))) end
+        end)
+        PRO.themeNameUpd = function() PRO.themeLbl.Text = curTheme end
     end
 
     -- SIDEBAR: kolom ikon di kiri + avatar di bawah
@@ -3070,7 +3174,7 @@ function SORU:CreateWindow(C)
     local D = buildComponents(dashScroll)
     local xyv, fpsV, pingV, fpsPush
 
-    do -- PROFIL + SERVER / EXECUTOR / FRIENDS / DISCORD (gaya baru)
+    function PRO.lite() -- PROFIL + SERVER / EXECUTOR / FRIENDS / DISCORD (gaya baru, mode lite)
         local LocalizationService = game:GetService("LocalizationService")
         local Bold = Enum.Font.GothamBold
         local DARK, TILE = Color3.fromRGB(10, 10, 14), Color3.fromRGB(32, 32, 40)
@@ -3309,6 +3413,477 @@ function SORU:CreateWindow(C)
             task.spawn(loadFriends)
         end
     end
+    if LITE then PRO.lite() end
+
+    ------------------------------------------------------------------
+    -- DASHBOARD PRO (Lite off): kartu gelap, grafik, donut. Semua warna memakai palet tema.
+    ------------------------------------------------------------------
+    function PRO.build()
+        local TeleportService = game:GetService("TeleportService")
+        local Bold, Med = Enum.Font.GothamBold, Enum.Font.GothamMedium
+        local CENTER, RIGHT = Enum.TextXAlignment.Center, Enum.TextXAlignment.Right
+        local NOTRUNC = Enum.TextTruncate.None
+        local DARK, TILE = Color3.fromRGB(11, 11, 15), Color3.fromRGB(25, 25, 32)
+        local RW, GAP, PRO_H = 236, 8, 470
+        local t0 = os.clock()
+
+        local function pcard(parent, pos, size, order)
+            local f = new("Frame", {Position = pos, Size = size, BackgroundColor3 = DARK, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+            corner(f, 14) regTrans(f, 0)
+            stroke(f, T.stroke, 1, 0.5)
+            return f
+        end
+        local function ptile(parent, order)
+            local f = new("Frame", {BackgroundColor3 = TILE, BackgroundTransparency = 0.1, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
+            corner(f, 11)
+            stroke(f, T.stroke, 1, 0.65)
+            return f
+        end
+        local function txt(parent, text, x, y, h, size, color, font, align, rm)
+            return label(parent, {Text = tostring(text), Position = UDim2.fromOffset(x, y), Size = UDim2.new(1, -(x + (rm or x)), 0, h), TextSize = size or 11, TextColor3 = color or T.text, Font = font or Med, TextXAlignment = align or Enum.TextXAlignment.Left, ZIndex = 2})
+        end
+        local function dot(parent, col, x, y, sz)
+            local d = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(sz or 7, sz or 7), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = 2}, parent)
+            corner(d, FULL)
+            return d
+        end
+        local function header(card, title, count, rightText)
+            txt(card, title, 14, 11, 18, 13, T.text, Bold)
+            if count then
+                local w = math.ceil(textW(title, 13))
+                local pill = new("Frame", {Position = UDim2.fromOffset(14 + w + 8, 12), Size = UDim2.fromOffset(18, 16), BackgroundColor3 = Color3.fromRGB(34, 34, 44), BorderSizePixel = 0, ZIndex = 2}, card)
+                corner(pill, FULL)
+                label(pill, {Text = tostring(count), Size = UDim2.fromScale(1, 1), TextXAlignment = CENTER, Font = Bold, TextSize = 9, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 3})
+            end
+            if rightText then txt(card, rightText, 14, 12, 16, 10, DIM, Med, RIGHT) end
+        end
+        local function fmtNum(v)
+            if v >= 100 then return tostring(math.floor(v + 0.5)) end
+            return tostring(math.floor(v * 10 + 0.5) / 10)
+        end
+        local function fmtTime(sec)
+            sec = math.floor(sec)
+            return string.format("%02d:%02d:%02d", math.floor(sec / 3600), math.floor((sec % 3600) / 60), sec % 60)
+        end
+        local function copyJoin()
+            copy(string.format('game:GetService("TeleportService"):TeleportToPlaceInstance(%s, "%s", game:GetService("Players").LocalPlayer)', tostring(placeId), tostring(game.JobId)))
+            notify("Join script", "Copied to clipboard", ACCENT, 1.8)
+        end
+
+        -- kerangka: kolom utama (kiri) + kolom samping (kanan)
+        local hf = D._holder(PRO_H)
+        local row = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, hf)
+        D._enter(row)
+        local main = new("Frame", {Size = UDim2.new(1, -(RW + GAP), 1, 0), BackgroundTransparency = 1}, row)
+        local side = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0, RW, 1, 0), BackgroundTransparency = 1}, row)
+        local top = new("Frame", {Size = UDim2.new(1, 0, 0, 190), BackgroundTransparency = 1}, main)
+        new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -6, 1, 0), CellPadding = UDim2.fromOffset(GAP, 0), SortOrder = Enum.SortOrder.LayoutOrder}, top)
+
+        ------------------------------------------------------------
+        -- KARTU 1: Session (tombol besar = salin join script)
+        ------------------------------------------------------------
+        local c1 = pcard(top, UDim2.new(), UDim2.new(), 1)
+        local gT = txt(c1, gameName, 12, 12, 18, 13, T.text, Bold, CENTER)
+        bindName(function(n) gT.Text = n end)
+        txt(c1, "Place "..tostring(placeId), 12, 30, 14, 9, DIM, Med, CENTER)
+        local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 88), Size = UDim2.fromOffset(92, 92), BackgroundColor3 = T.accent, BackgroundTransparency = 0.86, BorderSizePixel = 0, ZIndex = 1}, c1)
+        corner(glow, FULL)
+        wloop(glow, 1.6, {Size = UDim2.fromOffset(104, 104), BackgroundTransparency = 0.94})
+        local big = new("TextButton", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 88), Size = UDim2.fromOffset(70, 70), BackgroundColor3 = T.accent, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, c1)
+        corner(big, FULL)
+        grad(big, WHITE, Color3.fromRGB(205, 205, 220), 90)
+        stroke(big, WHITE, 1.5, 0.75)
+        ripple(big)
+        local back = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, -4, 0.5, -4), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, big)
+        corner(back, 4) stroke(back, WHITE, 2.2, 0)
+        local front = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 4, 0.5, 4), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 5}, big)
+        corner(front, 4) stroke(front, WHITE, 2.2, 0)
+        big.MouseEnter:Connect(function() sfx("hover") play(big, {Size = UDim2.fromOffset(74, 74)}, 0.2, Enum.EasingStyle.Back) end)
+        big.MouseLeave:Connect(function() play(big, {Size = UDim2.fromOffset(70, 70)}, 0.2) end)
+        big.MouseButton1Click:Connect(function() sfx("click") copyJoin() end)
+        local tA = ptile(c1)
+        tA.Position = UDim2.fromOffset(12, 142)
+        tA.Size = UDim2.new(0.5, -17, 0, 38)
+        local tB = ptile(c1)
+        tB.Position = UDim2.new(0.5, 5, 0, 142)
+        tB.Size = UDim2.new(0.5, -17, 0, 38)
+        txt(tA, "In server", 9, 4, 12, 9, DIM, Med)
+        local vTime = txt(tA, "00:00:00", 9, 17, 16, 12, T.text, Bold)
+        txt(tB, "Players", 9, 4, 12, 9, DIM, Med)
+        local vPl = txt(tB, "-", 9, 17, 16, 12, T.text, Bold)
+
+        ------------------------------------------------------------
+        -- KARTU 2: Quick actions (aksi yang menteleport minta konfirmasi tap kedua)
+        ------------------------------------------------------------
+        local c2 = pcard(top, UDim2.new(), UDim2.new(), 2)
+        header(c2, "Quick actions", 3, nil)
+        local acts = {
+            {"Rejoin server", "Teleport back here", true, function() TeleportService:TeleportToPlaceInstance(placeId, game.JobId, pl) end},
+            {"Copy join script", "Copy to clipboard", false, copyJoin},
+            {"Server hop", "Join another server", true, function() TeleportService:Teleport(placeId, pl) end},
+        }
+        for i, a in ipairs(acts) do
+            local r = ptile(c2)
+            r.Position = UDim2.fromOffset(10, 38 + (i - 1) * 49)
+            r.Size = UDim2.new(1, -20, 0, 43)
+            local ic = new("Frame", {Position = UDim2.fromOffset(8, 9), Size = UDim2.fromOffset(25, 25), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 2}, r)
+            corner(ic, FULL)
+            label(ic, {Text = "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(1, -1), TextXAlignment = CENTER, Font = Bold, TextSize = 18, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 3})
+            txt(r, a[1], 41, 6, 15, 11, T.text, Bold, nil, 28)
+            local sub = txt(r, a[2], 41, 22, 13, 9, T.cyan, Med, nil, 28)
+            local hit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 3}, r)
+            ripple(hit)
+            hit.MouseEnter:Connect(function() sfx("hover") play(r, {BackgroundColor3 = T.cardHover}, 0.15) end)
+            hit.MouseLeave:Connect(function() play(r, {BackgroundColor3 = TILE}, 0.2) end)
+            local armed = false
+            hit.MouseButton1Click:Connect(function()
+                sfx("click")
+                if a[3] and not armed then
+                    armed = true
+                    sub.Text = "Tap again to confirm"
+                    sub.TextColor3 = T.bad
+                    task.delay(2.5, function()
+                        if armed then armed = false sub.Text = a[2] sub.TextColor3 = T.cyan end
+                    end)
+                    return
+                end
+                armed = false
+                sub.Text = a[2]
+                sub.TextColor3 = T.cyan
+                safe(a[4])
+            end)
+            local star = new("TextButton", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -6, 0.5, 0), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, Text = "★", Font = Bold, TextSize = 12, TextColor3 = Color3.fromRGB(70, 70, 88), AutoButtonColor = false, ZIndex = 4}, r)
+            local starred = false
+            star.MouseButton1Click:Connect(function()
+                starred = not starred
+                sfx("pop")
+                star.TextColor3 = starred and T.warn or Color3.fromRGB(70, 70, 88)
+            end)
+        end
+
+        ------------------------------------------------------------
+        -- KARTU 3: Server (ping diwarnai sesuai kualitas) + Discord
+        ------------------------------------------------------------
+        local c3 = pcard(top, UDim2.new(), UDim2.new(), 3)
+        header(c3, "Server", 4, "Live")
+        local grid = new("Frame", {Position = UDim2.fromOffset(10, 38), Size = UDim2.new(1, -20, 1, -48), BackgroundTransparency = 1}, c3)
+        new("UIGridLayout", {CellSize = UDim2.new(0.5, -4, 0, 66), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder}, grid)
+        local function stile(order, cap)
+            local f = ptile(grid, order)
+            txt(f, cap, 10, 6, 12, 9, DIM, Med)
+            local v = txt(f, "-", 10, 19, 22, 16, T.text, Bold)
+            local sb = txt(f, "", 10, 43, 12, 9, DIM, Med)
+            return f, v, sb
+        end
+        local fPing, vPing, sPing = stile(1, "PING")
+        local fFps, vFps, sFps = stile(2, "FPS")
+        local fPl, vPl2, sPl = stile(3, "PLAYERS")
+        local pingStroke = fPing:FindFirstChildOfClass("UIStroke")
+        local fDc = ptile(grid, 4)
+        fDc.BackgroundColor3 = T.accent2
+        fDc.BackgroundTransparency = 0.82
+        local dcS = fDc:FindFirstChildOfClass("UIStroke")
+        dcS.Color = T.accent2
+        dcS.Transparency = 0.4
+        local plus = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 10), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = T.accent2, BackgroundTransparency = 0.6, BorderSizePixel = 0, ZIndex = 2}, fDc)
+        corner(plus, FULL)
+        label(plus, {Text = "+", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), TextXAlignment = CENTER, Font = Bold, TextSize = 16, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 3})
+        txt(fDc, "Join Discord", 4, 40, 18, 10, WHITE, Bold, CENTER)
+        local dcBtn = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 5}, fDc)
+        ripple(dcBtn)
+        dcBtn.MouseEnter:Connect(function() sfx("hover") play(dcS, {Transparency = 0.1}, 0.2) end)
+        dcBtn.MouseLeave:Connect(function() play(dcS, {Transparency = 0.4}, 0.25) end)
+        dcBtn.MouseButton1Click:Connect(function()
+            sfx("click")
+            copy("https://discord.gg/cHsx3RFYb")
+            pcall(function()
+                local req = request or http_request or (syn and syn.request)
+                if req then
+                    req({Url = "http://127.0.0.1:6463/rpc?v=1", Method = "POST", Headers = {["Content-Type"] = "application/json", Origin = "https://discord.com"}, Body = Http:JSONEncode({cmd = "INVITE_BROWSER", args = {code = "cHsx3RFYb"}, nonce = Http:GenerateGUID(false)})})
+                end
+            end)
+            notify("Discord", "Invite copied to clipboard", T.accent2, 2)
+        end)
+
+        ------------------------------------------------------------
+        -- BARIS 2: Performance (segmented FPS / Ping / Memory + riwayat bar)
+        ------------------------------------------------------------
+        local N = 60
+        local hist = {fps = {}, ping = {}, mem = {}}
+        for _, k in ipairs({"fps", "ping", "mem"}) do for i = 1, N do hist[k][i] = 0 end end
+        local METRICS = {
+            {key = "fps", name = "FPS", unit = "FPS", max = 90, good = function(v) return (v >= 50 and T.ok) or (v >= 30 and T.warn) or T.bad end},
+            {key = "ping", name = "Ping", unit = "ms", max = 300, good = function(v) return (v <= 80 and T.ok) or (v <= 150 and T.warn) or T.bad end},
+            {key = "mem", name = "Memory", unit = "MB", max = 3000, good = function(v) return (v <= 1500 and T.ok) or (v <= 2500 and T.warn) or T.bad end},
+        }
+        local metric = 1
+        local paintSeg, draw
+
+        local head2 = new("Frame", {Position = UDim2.fromOffset(0, 200), Size = UDim2.new(1, 0, 0, 34), BackgroundTransparency = 1}, main)
+        label(head2, {Text = "Performance", Position = UDim2.fromOffset(4, 0), Size = UDim2.fromOffset(150, 34), Font = Bold, TextSize = 19, TextTruncate = NOTRUNC, ZIndex = 2})
+        local liveChip = new("Frame", {Position = UDim2.fromOffset(4 + math.ceil(textW("Performance", 19)) + 12, 5), Size = UDim2.fromOffset(62, 24), BackgroundColor3 = TILE, BorderSizePixel = 0}, head2)
+        corner(liveChip, FULL)
+        stroke(liveChip, T.stroke, 1, 0.5)
+        dot(liveChip, T.ok, 11, 9, 6)
+        label(liveChip, {Text = "Live", Position = UDim2.fromOffset(24, 0), Size = UDim2.new(1, -28, 1, 0), Font = Bold, TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+        local seg = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 2), Size = UDim2.fromOffset(204, 30), BackgroundColor3 = TILE, BorderSizePixel = 0}, head2)
+        corner(seg, FULL)
+        stroke(seg, T.stroke, 1, 0.5)
+        local segBtns = {}
+        for i, m in ipairs(METRICS) do
+            local b = new("TextButton", {Position = UDim2.new((i - 1) / 3, 3, 0, 3), Size = UDim2.new(1 / 3, -6, 1, -6), Text = m.name, Font = Bold, TextSize = 11, TextColor3 = DIM, BackgroundColor3 = WHITE, BackgroundTransparency = 1, AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 2}, seg)
+            corner(b, FULL)
+            segBtns[i] = b
+            b.MouseButton1Click:Connect(function()
+                sfx("tab")
+                metric = i
+                paintSeg()
+                draw()
+            end)
+        end
+        paintSeg = function()
+            for i, b in ipairs(segBtns) do
+                local on = (i == metric)
+                play(b, {BackgroundTransparency = on and 0.86 or 1, TextColor3 = on and T.text or DIM}, 0.2)
+            end
+        end
+
+        local gp = pcard(main, UDim2.fromOffset(0, 240), UDim2.new(1, 0, 0, 230))
+        local bigV = label(gp, {Text = "-", Position = UDim2.fromOffset(16, 10), Size = UDim2.fromOffset(110, 34), Font = Bold, TextSize = 26, TextTruncate = NOTRUNC, ZIndex = 2})
+        local unitL = label(gp, {Text = "FPS", Position = UDim2.fromOffset(60, 22), Size = UDim2.fromOffset(60, 18), Font = Med, TextSize = 11, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
+        local statsL = label(gp, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(240, 16), TextXAlignment = RIGHT, TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+        local plot = new("Frame", {Position = UDim2.fromOffset(52, 60), Size = UDim2.new(1, -68, 1, -90), BackgroundTransparency = 1}, gp)
+        local yax = new("Frame", {Position = UDim2.fromOffset(8, 60), Size = UDim2.new(0, 38, 1, -90), BackgroundTransparency = 1}, gp)
+        local ylabels = {}
+        for k, fr in ipairs({0, 0.5, 1}) do
+            local ln = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, fr, 0), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.9, BorderSizePixel = 0}, plot)
+            ylabels[k] = label(yax, {Text = "", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, fr, 0), Size = UDim2.new(1, 0, 0, 12), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
+        end
+        local bars = {}
+        for i = 1, N do
+            local b = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new((i - 1) / N, 1, 1, 0), Size = UDim2.new(1 / N, -2, 0, 0), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 2}, plot)
+            corner(b, 2)
+            bars[i] = b
+        end
+        local nowLn = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 1, 0, -6), Size = UDim2.new(0, 1, 1, 6), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 3}, plot)
+        local nowDot = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -3), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 3}, nowLn)
+        corner(nowDot, FULL)
+        label(gp, {Text = "-60s", Position = UDim2.new(0, 52, 1, -22), Size = UDim2.fromOffset(40, 14), TextSize = 9, TextColor3 = DIM, ZIndex = 2})
+        label(gp, {Text = "-30s", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 26, 1, -22), Size = UDim2.fromOffset(40, 14), TextXAlignment = CENTER, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
+        label(gp, {Text = "now", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 1, -22), Size = UDim2.fromOffset(40, 14), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = T.bad, ZIndex = 2})
+
+        draw = function()
+            local m = METRICS[metric]
+            local arr = hist[m.key]
+            local peak = 0
+            for i = 1, N do if arr[i] > peak then peak = arr[i] end end
+            local mx = math.max(m.max, peak * 1.1)
+            local sum, cnt, mn, mxv = 0, 0, math.huge, 0
+            for i = 1, N do
+                local v = arr[i]
+                if v > 0 then
+                    sum = sum + v
+                    cnt = cnt + 1
+                    if v < mn then mn = v end
+                    if v > mxv then mxv = v end
+                end
+                local h = (v <= 0) and 0 or math.clamp(v / mx, 0.03, 1)
+                play(bars[i], {Size = UDim2.new(1 / N, -2, h, 0), BackgroundColor3 = (v <= 0) and T.off or m.good(v)}, 0.3)
+            end
+            local curV = arr[N]
+            local vs = (curV > 0) and fmtNum(curV) or "-"
+            bigV.Text = vs
+            bigV.TextColor3 = (curV > 0) and m.good(curV) or T.text
+            unitL.Text = m.unit
+            unitL.Position = UDim2.fromOffset(16 + math.ceil(textW(vs, 26)) + 6, 24)
+            statsL.Text = (cnt > 0) and string.format("AVG %s    MIN %s    MAX %s", fmtNum(sum / cnt), fmtNum(mn), fmtNum(mxv)) or "AVG -    MIN -    MAX -"
+            ylabels[1].Text = fmtNum(mx)
+            ylabels[2].Text = fmtNum(mx / 2)
+            ylabels[3].Text = "0"
+        end
+        paintSeg()
+
+        ------------------------------------------------------------
+        -- KOLOM KANAN: Activity (skor kesehatan + 5 bar)
+        ------------------------------------------------------------
+        local cAct = pcard(side, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 150))
+        header(cAct, "Activity", nil, nil)
+        local deltaChip = new("Frame", {Position = UDim2.fromOffset(14 + math.ceil(textW("Activity", 13)) + 10, 12), Size = UDim2.fromOffset(46, 17), BackgroundColor3 = T.ok, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 2}, cAct)
+        corner(deltaChip, FULL)
+        local deltaL = label(deltaChip, {Text = "+0%", Size = UDim2.fromScale(1, 1), TextXAlignment = CENTER, Font = Bold, TextSize = 9, TextColor3 = T.ok, TextTruncate = NOTRUNC, ZIndex = 3})
+        txt(cAct, "···", 14, 8, 20, 14, DIM, Bold, RIGHT)
+        local healthL = label(cAct, {Text = "-", Position = UDim2.fromOffset(14, 32), Size = UDim2.fromOffset(120, 30), Font = Bold, TextSize = 24, TextTruncate = NOTRUNC, ZIndex = 2})
+        local ACT_NAMES = {"FPS", "Ping", "Mem", "Plrs", "Up"}
+        local actGrid = new("Frame", {Position = UDim2.fromOffset(12, 66), Size = UDim2.new(1, -24, 0, 76), BackgroundTransparency = 1}, cAct)
+        new("UIGridLayout", {CellSize = UDim2.new(0.2, -4, 1, 0), CellPadding = UDim2.fromOffset(5, 0), SortOrder = Enum.SortOrder.LayoutOrder}, actGrid)
+        local actFill, actPct = {}, {}
+        for i, nm in ipairs(ACT_NAMES) do
+            local cell = new("Frame", {BackgroundTransparency = 1, LayoutOrder = i}, actGrid)
+            local track = new("Frame", {Size = UDim2.new(1, 0, 1, -26), BackgroundColor3 = Color3.fromRGB(22, 22, 29), BorderSizePixel = 0}, cell)
+            corner(track, 7)
+            actFill[i] = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0), BackgroundColor3 = T.accent, BackgroundTransparency = 0.25, BorderSizePixel = 0}, track)
+            corner(actFill[i], 7)
+            label(cell, {Text = nm, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -12), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, TextSize = 9, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
+            actPct[i] = label(cell, {Text = "-", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, Font = Bold, TextSize = 9, TextTruncate = NOTRUNC, ZIndex = 2})
+        end
+        local function statusCol(p) return (p >= 70 and T.ok) or (p >= 40 and T.warn) or T.bad end
+
+        ------------------------------------------------------------
+        -- Donut pemain (56 segmen, warna dari palet tema)
+        ------------------------------------------------------------
+        local cDon = pcard(side, UDim2.fromOffset(0, 158), UDim2.new(1, 0, 0, 148))
+        header(cDon, "Players", nil, nil)
+        txt(cDon, "···", 14, 8, 20, 14, DIM, Bold, RIGHT)
+        local SEGN, R, TH = 56, 33, 9
+        local dWrap = new("Frame", {Position = UDim2.fromOffset(14, 46), Size = UDim2.fromOffset(84, 84), BackgroundTransparency = 1}, cDon)
+        local segs = {}
+        for i = 1, SEGN do
+            local th = (i - 1) / SEGN * math.pi * 2 - math.pi / 2
+            local arc = 2 * math.pi * R / SEGN
+            segs[i] = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(42 + R * math.cos(th), 42 + R * math.sin(th)), Size = UDim2.fromOffset(arc + 1.2, TH), Rotation = math.deg(th) + 90, BackgroundColor3 = T.off, BorderSizePixel = 0}, dWrap)
+        end
+        local dNum = label(dWrap, {Text = "-", Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = CENTER, Font = Bold, TextSize = 18, TextTruncate = NOTRUNC, ZIndex = 2})
+        label(dWrap, {Text = "players", Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, TextSize = 8, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
+        local LEG = {"Friends", "Others", "You", "Open"}
+        local legDots, legPct = {}, {}
+        for i, nm in ipairs(LEG) do
+            local y = 48 + (i - 1) * 21
+            legDots[i] = dot(cDon, T.accent, 112, y + 4, 7)
+            label(cDon, {Text = nm, Position = UDim2.fromOffset(124, y), Size = UDim2.new(1, -170, 0, 15), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+            legPct[i] = label(cDon, {Text = "-", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, y), Size = UDim2.fromOffset(40, 15), TextXAlignment = RIGHT, Font = Bold, TextSize = 10, ZIndex = 2})
+        end
+        local nFriends = 0
+        local function drawDonut()
+            local n = #Players:GetPlayers()
+            local maxp = math.max(Players.MaxPlayers, n, 1)
+            local fr = math.min(nFriends, math.max(n - 1, 0))
+            local counts = {fr, math.max(0, n - 1 - fr), 1, math.max(0, maxp - n)}
+            local cols = {T.cyan, T.accent, T.pink, Color3.fromRGB(58, 58, 72)}
+            for i = 1, 4 do
+                legDots[i].BackgroundColor3 = cols[i]
+                legPct[i].Text = math.floor(counts[i] / maxp * 100 + 0.5).."%"
+            end
+            for i = 1, SEGN do
+                local f = (i - 0.5) / SEGN * maxp
+                local acc, ci = 0, 4
+                for k = 1, 4 do
+                    acc = acc + counts[k]
+                    if f <= acc then ci = k break end
+                end
+                segs[i].BackgroundColor3 = cols[ci]
+            end
+            dNum.Text = tostring(n)
+        end
+
+        ------------------------------------------------------------
+        -- Status (daftar seperti "Reminders")
+        ------------------------------------------------------------
+        local cSt = pcard(side, UDim2.fromOffset(0, 314), UDim2.new(1, 0, 0, 156))
+        header(cSt, "Status", nil, "live")
+        local exeName = "Executor"
+        pcall(function() if identifyexecutor then exeName = tostring((identifyexecutor())) end end)
+        local have = {writefile = writefile, readfile = readfile, isfile = isfile, getcustomasset = getcustomasset, setclipboard = setclipboard or toclipboard}
+        local missing = {}
+        for _, nme in ipairs({"writefile", "readfile", "isfile", "getcustomasset", "setclipboard"}) do
+            if not have[nme] then missing[#missing + 1] = nme end
+        end
+        local statusRows = {
+            {os.date("%I:%M %p"), "SORU HUB loaded", "OK", T.ok},
+            {exeName, (#missing == 0) and "Executor check passed" or ("Missing: "..table.concat(missing, ", ")), (#missing == 0) and "OK" or "Warn", (#missing == 0) and T.ok or T.warn},
+            {"Autosave", "Config: "..tostring(placeId), "Info", T.cyan},
+        }
+        for i, sr in ipairs(statusRows) do
+            local r = ptile(cSt)
+            r.Position = UDim2.fromOffset(10, 34 + (i - 1) * 40)
+            r.Size = UDim2.new(1, -20, 0, 36)
+            txt(r, sr[1], 10, 3, 17, 13, T.text, Bold, nil, 60)
+            txt(r, sr[2], 10, 20, 12, 9, DIM, Med, nil, 60)
+            label(r, {Text = sr[3], AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 0), Size = UDim2.fromOffset(40, 36), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
+            dot(r, sr[4], 0, 15, 6).Position = UDim2.new(1, -14, 0, 15)
+        end
+
+        ------------------------------------------------------------
+        -- Sampling 1x per detik (hanya saat window terbuka dan tab Dashboard aktif)
+        ------------------------------------------------------------
+        local frames, lastT, friendTick = 0, os.clock(), -100
+        bind(RunService.RenderStepped, function() frames = frames + 1 end)
+        local healthHist = {}
+        local function sample()
+            local now = os.clock()
+            local dtm = math.max(now - lastT, 0.1)
+            lastT = now
+            local fps = math.min(frames / dtm, 240)
+            frames = 0
+            local ping, mem = 0, 0
+            pcall(function() ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() end)
+            pcall(function() mem = Stats:GetTotalMemoryUsageMb() end)
+            for _, k in ipairs({"fps", "ping", "mem"}) do table.remove(hist[k], 1) end
+            hist.fps[N], hist.ping[N], hist.mem[N] = fps, ping, mem
+
+            local n = #Players:GetPlayers()
+            local maxp = math.max(Players.MaxPlayers, 1)
+            vTime.Text = fmtTime(now - t0)
+            vPl.Text = n.."/"..maxp
+            -- kartu server
+            vPing.Text = tostring(math.floor(ping + 0.5))
+            local pc = (ping <= 80 and T.ok) or (ping <= 150 and T.warn) or T.bad
+            fPing.BackgroundColor3 = pc
+            fPing.BackgroundTransparency = 0.82
+            if pingStroke then pingStroke.Color = pc pingStroke.Transparency = 0.35 end
+            sPing.Text = (ping <= 80 and "ms - good") or (ping <= 150 and "ms - fair") or "ms - high"
+            vFps.Text = tostring(math.floor(fps + 0.5))
+            sFps.Text = (fps >= 50 and "smooth") or (fps >= 30 and "ok") or "low"
+            vPl2.Text = n.."/"..maxp
+            sPl.Text = (maxp - n).." slots left"
+            -- activity
+            local pcts = {
+                math.clamp(fps / 60 * 100, 0, 100),
+                math.clamp(100 - (ping - 40) / 2.6, 0, 100),
+                math.clamp(100 - mem / 3000 * 100, 0, 100),
+                math.clamp(n / maxp * 100, 0, 100),
+                math.clamp((now - t0) / 3600 * 100, 0, 100),
+            }
+            for i = 1, 5 do
+                local c = statusCol(pcts[i])
+                play(actFill[i], {Size = UDim2.fromScale(1, math.max(pcts[i], 2) / 100), BackgroundColor3 = (c == T.ok) and T.accent or c}, 0.4)
+                actPct[i].Text = math.floor(pcts[i] + 0.5).."%"
+                actPct[i].TextColor3 = c
+            end
+            local health = (pcts[1] + pcts[2] + pcts[3]) / 3
+            healthL.Text = math.floor(health + 0.5).."%"
+            healthL.TextColor3 = statusCol(health)
+            table.insert(healthHist, health)
+            if #healthHist > 11 then table.remove(healthHist, 1) end
+            local dl = health - healthHist[1]
+            deltaL.Text = (dl >= 0 and "+" or "")..math.floor(dl + 0.5).."%"
+            deltaL.TextColor3 = dl >= 0 and T.ok or T.bad
+            deltaChip.BackgroundColor3 = dl >= 0 and T.ok or T.bad
+            -- donut (teman dihitung tiap 20 detik di thread terpisah)
+            if now - friendTick > 20 then
+                friendTick = now
+                task.spawn(function()
+                    local c = 0
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= pl then
+                            local ok, isF = pcall(function() return pl:IsFriendsWith(p.UserId) end)
+                            if ok and isF then c = c + 1 end
+                        end
+                    end
+                    nFriends = c
+                end)
+            end
+            drawDonut()
+            draw()
+        end
+        task.spawn(function()
+            sample()
+            while gui.Parent do
+                task.wait(1)
+                if isOpen and cur == "Dashboard" then sample() end
+            end
+        end)
+    end
+    if not LITE then PRO.build() end
 
     local ST = D:Accordion({Title = "Statistics", Desc = "FPS, ping, game info, coordinates", Open = false})
 
@@ -3472,11 +4047,12 @@ function SORU:CreateWindow(C)
 
     local SA = D:Accordion({Title = "Interface", Desc = "Theme, scale, transparency, sound", Open = false})
     SA:Section("Display")
-    SA:Dropdown({
+    PRO.themeDD = SA:Dropdown({
         Title = "Theme", Desc = "Accent color preset", Flag = "UITheme", Options = THEME_ORDER, Default = "Violet",
         Callback = function(v)
             if type(v) ~= "string" or v == curTheme or not THEMES[v] then return end
             curTheme = v
+            if PRO.themeNameUpd then PRO.themeNameUpd() end
             local oldPal = applyPalette(v)
             if not oldPal then return end
             task.spawn(function()
@@ -3489,6 +4065,12 @@ function SORU:CreateWindow(C)
             end)
         end,
     })
+    PRO.cycleTheme = function(d) -- d = +1 / -1 / lompat acak; memutar seluruh daftar tema
+        local i = table.find(THEME_ORDER, curTheme) or 1
+        i = (i - 1 + d) % #THEME_ORDER + 1
+        PRO.themeDD:Set(THEME_ORDER[i], true)
+        persist()
+    end
     local scaleSlider = SA:Slider({
         Title = "UI scale", Min = 60, Max = 150, Step = 5, Suffix = "%",
         Default = math.floor(userScale * 100 + 0.5),
@@ -3532,12 +4114,12 @@ function SORU:CreateWindow(C)
     })
 
     SA:Toggle({
-        Title = "Lite mode", Desc = "Lighter UI for phones. Re-execute to apply", Flag = "UILite", Default = true,
-        Callback = function(v) if v ~= LITE then notify("Lite mode", "Re-execute the script to apply", ACCENT, 2.5) end end,
+        Title = "Lite mode", Desc = "On = light, no animation. Off = Pro layout, full effects. Re-execute", Flag = "UILite", Default = true,
+        Callback = function(v) if v ~= LITE then Data.Features["UINoAnim"] = v persist() notify("Lite mode", "Re-execute the script to apply", ACCENT, 2.5) end end,
     })
 
     SA:Toggle({
-        Title = "No animation", Desc = "Zero animations, lightest. Re-execute to apply", Flag = "UINoAnim", Default = true,
+        Title = "No animation", Desc = "Zero animations, lightest. Re-execute to apply", Flag = "UINoAnim", Default = LITE,
         Callback = function(v) if v ~= NOANIM then notify("No animation", "Re-execute the script to apply", ACCENT, 2.5) end end,
     })
 
@@ -3552,18 +4134,20 @@ function SORU:CreateWindow(C)
     })
 
 
-    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Clean Lite", Open = false})
-    SC:Paragraph({Title = "v5.7 - Clean Lite", Desc = table.concat({
-        "1. Active cards (Toggle ON, open accordion, focused input) get a light accent fill, no extra instances",
-        "2. Small accent bar on the card edge on hover/active (1 plain frame, replaces wash and stripe)",
-        "3. Header shows the current tab name (phones have no hover tooltip)",
-        "4. Header subtitle shows the game name next to the version",
-        "5. Dropdown: selected row gets a check mark and highlight",
-        "6. Better contrast: lighter dim text, lighter dashboard tiles, clearer glow-card borders",
-        "7. Auto UI scale on touch devices so text is readable on phones (adjust with the UI scale slider)",
-        "8. Reset UI size uses the auto scale",
-        "9. Still no animation and lite: only +1 frame per card and +1 label in the header",
-        "(v5.6: lighter instances, v5.5: no animation, see script header)",
+    local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Pro + Lite", Open = false})
+    SC:Paragraph({Title = "v5.8 - Pro layout", Desc = table.concat({
+        "1. Lite OFF now uses a Pro layout inspired by a dark dashboard (cards, charts, donut)",
+        "2. Pro header: big page title, two-line hub name, FPS and ping chip",
+        "3. Theme pill in the header: arrows cycle ALL 100+ themes, tap the name for random, 3-color preview",
+        "4. Notification bell with unread badge (tap to clear) and avatar with online dot",
+        "5. Session card: big round button copies the join script, live server timer and player count",
+        "6. Quick actions: Rejoin, Copy join script, Server hop (teleports ask for a second tap)",
+        "7. Server card: ping tinted by quality, FPS, Players, Join Discord tile",
+        "8. Performance panel: FPS / Ping / Memory segmented, 60s history, AVG/MIN/MAX, now line",
+        "9. Right column: Activity (health score + 5 bars), Players donut, Status list",
+        "10. Pro default size 880x564 with its own saved-size file, all colors follow the theme",
+        "11. Lite toggle now also sets animations: Lite ON = no animation, Lite OFF = full animation",
+        "(Lite ON layout is unchanged, see v5.5 to v5.7 in the script header)",
     }, "\n")})
 
     ------------------------------------------------------------------
