@@ -1,13 +1,25 @@
 --[[
-    SORU KEY SYSTEM v1.2   (pasangan untuk SORU HUB UI v4.x)
+    SORU KEY SYSTEM v1.3 "AURORA"   (pasangan untuk SORU HUB UI v4.x)
+
+    CHANGELOG v1.3  (visual max)
+      1.  Intro morph: bar muncul sebagai titik cahaya, lalu melebar jadi pill. Konten ter-reveal (tidak ikut bergeser).
+      2.  Ring aurora dinamis: berputar makin cepat saat key dicek, melambat setelah selesai. Ada ring tipis kedua yang berputar berlawanan.
+      3.  Neon glow berganti warna otomatis mengikuti palet tema, dan berubah hijau / merah / cyan sesuai status.
+      4.  Starfield: bintang kecil berkedip dan melayang di dalam bar (Quality = "Low" mematikannya).
+      5.  Spotlight kursor: cahaya lembut mengikuti mouse di atas bar (khusus PC).
+      6.  Ikon kunci hidup: dua titik orbit mengelilingi badge, badge berdenyut tiap ketikan, bergetar (rattle) saat salah.
+      7.  Gembok terbuka + badge hijau + pantulan (bounce) saat key benar.
+      8.  Garis scan bercahaya menyapu tepi bawah bar + efek squish saat verifikasi, memantul saat hasil keluar.
+      9.  Celebration sukses: confetti, dua shockwave ring, burst di tombol, bar membesar sambil memudar.
+      10. Glitch error: potongan RGB-split berkedip, teks input bergetar, shake bar, shockwave merah.
+      11. Status chip bergaya typewriter (teks muncul huruf demi huruf) + border berdenyut + bunyi tik halus.
+      12. Idle float: bar mengambang pelan. Tilt halus tetap ada saat di-drag.
+      13. Input: garis bawah gradien muncul saat fokus. Tombol: stroke "ready" menyala kalau ada teks.
+      14. Opsi baru: Quality ("Max" / "Low"), Width, Height. Ukuran ikon / tombol / teks kini otomatis ikut Height.
+      15. Suara baru: whoosh (intro) dan pop (confetti).
 
     v1.2  -  satu bar pill kecil:   (ikon kunci)  [ input key ............ ]  ( Redeem )
               info / status muncul di bawah bar (teks kecil), bukan panel besar.
-
-      - Teks tombol sempat tidak terlihat: UIGradient di CanvasGroup ikut mewarnai teks. Sudah diperbaiki.
-      - Tanda X / centang yang tampil kotak kosong di device kamu sudah dibuang (semua pakai teks biasa / gambar frame).
-      - Tanpa blur / dim layar secara default (opsional: Blur = true, Dim = true).
-      - Link kecil di bawah bar (Get key, Discord, Close) hanya muncul kalau diisi.
 
     PAKAI
       local KS = loadstring(game:HttpGet("URL_FILE_INI"))()
@@ -30,6 +42,8 @@
       Scale = 1 (0.85 lebih kecil), Theme, Sound = false, Blur, Dim, CaseSensitive = false,
       MaxAttempts = 5 (0 = tanpa batas), Cooldown = 20 (detik), AutoLogin = false, KeyFile,
       OnCancel, Wait = true (Run menunggu sampai selesai, return true/false)
+      Quality = "Max" (default) atau "Low" (tanpa bintang, confetti sedikit, untuk device lemah)
+      Width = 290, Height = 25 (coba 34 kalau mau bar lebih besar)
       (Title, Subtitle, Description, Footer, Icon dari versi lama diabaikan, tidak error.)
 
     CATATAN
@@ -38,7 +52,23 @@
 ]]
 
 local KeySystem = {}
-KeySystem.Version = "1.2"
+KeySystem.Version = "1.3"
+KeySystem.Changelog = {
+    "Intro morph: titik cahaya melebar jadi pill",
+    "Ring aurora dinamis (ngebut saat verifikasi) + ring dalam berlawanan arah",
+    "Neon glow ganti warna otomatis & mengikuti status (hijau / merah / cyan)",
+    "Starfield berkedip di dalam bar",
+    "Spotlight kursor mengikuti mouse",
+    "Ikon kunci: titik orbit, denyut saat mengetik, rattle saat salah",
+    "Gembok terbuka + badge hijau + bounce saat sukses",
+    "Garis scan + squish saat verifikasi",
+    "Celebration sukses: confetti + shockwave + burst",
+    "Glitch RGB-split saat key salah",
+    "Status chip typewriter + border berdenyut",
+    "Idle float + tilt saat drag",
+    "Underline gradien di input + stroke ready di tombol",
+    "Opsi Quality / Width / Height + suara whoosh & pop",
+}
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -63,6 +93,8 @@ local SFX_DEFS = {
     hover  = {0.06, {{0, 0.05, 2600, 2600, 0.14, "sine", 70}}},
     tick   = {0.05, {{0, 0.035, 1800, 1800, 0.45, "sine", 90}}},
     error  = {0.5, {{0, 0.28, 196, 150, 0.45, "buzz", 8}, {0.13, 0.3, 185, 140, 0.45, "buzz", 8}}},
+    whoosh = {0.5, {{0, 0.45, 180, 1500, 0.32, "sine", 4}, {0.05, 0.4, 300, 1200, 0.14, "bell", 5}}},
+    pop    = {0.18, {{0, 0.14, 500, 1300, 0.5, "sine", 22}, {0.02, 0.12, 2400, 2400, 0.2, "bell", 40}}},
 }
 local function buildSfx()
     local out = {}
@@ -153,7 +185,7 @@ end
 ----------------------------------------------------------------------
 -- HELPERS
 ----------------------------------------------------------------------
-local SINE, QUINT, QUAD, EXPO = Enum.EasingStyle.Sine, Enum.EasingStyle.Quint, Enum.EasingStyle.Quad, Enum.EasingStyle.Exponential
+local SINE, QUINT, QUAD, EXPO, BACK = Enum.EasingStyle.Sine, Enum.EasingStyle.Quint, Enum.EasingStyle.Quad, Enum.EasingStyle.Exponential, Enum.EasingStyle.Back
 
 local function new(class, props, parent)
     local o = Instance.new(class)
@@ -188,11 +220,6 @@ local function tw(o, p, t, s, d)
     return TweenService:Create(o, TweenInfo.new(t or 0.3, s or QUINT, d or Enum.EasingDirection.Out), p)
 end
 local function play(o, p, t, s, d) local x = tw(o, p, t, s, d) x:Play() return x end
-local function spin(g, secs)
-    local t = TweenService:Create(g, TweenInfo.new(secs or 4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = g.Rotation + 360})
-    t:Play()
-    return t
-end
 local function loop(o, p, secs)
     local t = TweenService:Create(o, TweenInfo.new(secs, SINE, Enum.EasingDirection.InOut, -1, true), p)
     t:Play()
@@ -207,6 +234,27 @@ local function textW(txt, size)
     local w = #tostring(txt) * (size * 0.6)
     pcall(function() w = TextService:GetTextSize(tostring(txt), size, Enum.Font.GothamMedium, Vector2.new(400, 30)).X end)
     return math.ceil(w)
+end
+local function rand(a, b) return a + math.random() * (b - a) end
+
+-- warna berputar mengikuti palet (t bebas, dipakai modulo 1)
+local function palette(t)
+    local cols = {T.accent, T.cyan, T.pink, T.accent2}
+    local n = #cols
+    local x = (t % 1) * n
+    local i = math.floor(x)
+    local f = x - i
+    return cols[i % n + 1]:Lerp(cols[(i + 1) % n + 1], f)
+end
+
+-- cahaya lembut: lingkaran bertumpuk (radial glow palsu)
+local function fillOrb(o, col, baseTrans, steps)
+    for i = 1, steps do
+        local s = 1 - (i - 1) / steps * 0.9
+        local c = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(s, s), BackgroundColor3 = col, BackgroundTransparency = baseTrans, BorderSizePixel = 0, ZIndex = 2}, o)
+        corner(c, FULL)
+    end
+    return o
 end
 
 -- drag generik: onBegin(pos) -> state, onMove(dx, dy, state, moved, pos), onEnd(moved, state)
@@ -261,7 +309,7 @@ function KeySystem.Run(C)
         end)
     end
     applyPalette(themeName)
-    local ACCENT, DIM = T.accent, T.dim
+    local DIM = T.dim
     local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
 
     -- opsi
@@ -272,18 +320,26 @@ function KeySystem.Run(C)
     local cooldown = C.Cooldown or 20
     local caseSens = C.CaseSensitive ~= false
     local BTN_TEXT = C.ButtonText or "Redeem"
+    local lowFx = (C.Quality == "Low")
+    local STAR_N = lowFx and 0 or 16
+    local CONF_N = lowFx and 12 or 32
 
-    -- ukuran bar (px virtual). Semua posisi pakai offset pasti.
-    local W, H = 290, 25
-    local PAD = 6
-    local ICON_S = H - PAD * 2          -- 34
+    -- ukuran bar (px virtual). Semua ukuran turunan mengikuti W dan H.
+    local W = math.clamp(C.Width or 290, 220, 520)
+    local H = math.clamp(C.Height or 25, 22, 56)
+    local PAD = math.max(3, math.floor(H * 0.16))
+    local ICON_S = H - PAD * 2
+    local BADGE_S = ICON_S - 4
     local BTN_W = 88
     local IN_X = PAD + ICON_S + 8       -- awal input
     local IN_W = W - IN_X - (BTN_W + PAD + 6)
+    local BTN_TS = math.clamp(math.floor(ICON_S * 0.62), 9, 13)
+    local IN_TS = math.clamp(math.floor(H * 0.52), 11, 15)
 
     -- state
     local finished, result = false, false
     local isOpen, busy, done, locked, attempts = false, false, false, false, 0
+    local stateCol = nil -- warna status (override neon): ok / bad / cyan
 
     local gui = new("ScreenGui", {Name = "SORU_KEY", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true, DisplayOrder = 200})
     gui.Parent = pg
@@ -359,6 +415,8 @@ function KeySystem.Run(C)
 
     ------------------------------------------------------------------
     -- SHELL + BAR
+    -- win = CanvasGroup yang melebar saat intro (titik -> pill).
+    -- content = kanvas tetap W x H di tengah win, jadi isi bar tidak ikut bergeser.
     ------------------------------------------------------------------
     shell = new("Frame", {Name = "Shell", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1, Visible = false, ZIndex = 10}, root)
     local shadow, neon = nil, nil
@@ -368,28 +426,121 @@ function KeySystem.Run(C)
         loop(neon, {Size = UDim2.new(1, 38, 1, 38)}, 2.6)
     end
 
+    local ringG, badgeRingG, innerG, dotA, dotB, spot -- diisi di bawah, dipakai render loop
+
     local win = new("CanvasGroup", {Name = "Bar", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ink, BorderSizePixel = 0, GroupTransparency = 1, Active = true, ZIndex = 2}, shell)
     corner(win, H / 2)
     local winStroke = stroke(win, WHITE, 1.5, 0.3)
-    spin(new("UIGradient", {Color = RING}, winStroke), 7)
+    ringG = new("UIGradient", {Color = RING}, winStroke)
     local winScale = new("UIScale", {Scale = 0.9}, win)
+    local content = new("Frame", {Name = "Content", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1}, win)
 
-    do -- isi bar: tint gelap, aurora tipis, highlight atas
-        local tint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, win)
+    local scan -- garis scan (saat verifikasi)
+    do -- isi bar: tint gelap, aurora, bintang, spotlight, ring dalam, highlight atas
+        local tint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, content)
         new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(22, 18, 40), Color3.fromRGB(9, 8, 16)), Rotation = 100}, tint)
-        local ambient = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, win)
+
+        local ambient = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, content)
         local function orb(col, size, px, py, dx, dy, secs)
-            local o = new("Frame", {Size = UDim2.fromOffset(size, size), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), BackgroundTransparency = 1, ZIndex = 2}, ambient)
-            for i = 1, 6 do
-                local s = 1 - (i - 1) / 6 * 0.9
-                local c = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(s, s), BackgroundColor3 = col, BackgroundTransparency = 0.93, BorderSizePixel = 0, ZIndex = 2}, o)
-                corner(c, FULL)
-            end
+            local o = new("Frame", {Size = UDim2.fromOffset(size, size), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, ambient)
+            fillOrb(o, col, 0.93, 6)
             loop(o, {Position = UDim2.fromScale(px + dx, py + dy)}, secs)
         end
         orb(T.accent, 150, 0.1, 0.5, 0.12, 0.2, 7)
         orb(T.cyan, 130, 0.92, 0.5, -0.12, -0.25, 9)
-        gloss(win)
+        orb(T.pink, 110, 0.5, 1.0, 0.2, -0.3, 8)
+
+        -- starfield
+        if STAR_N > 0 then
+            local layer = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, content)
+            local cols = {WHITE, T.cyan, T.pink, T.accent:Lerp(WHITE, 0.5)}
+            for i = 1, STAR_N do
+                local s = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(1, 1), BackgroundColor3 = cols[(i % #cols) + 1], BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, layer)
+                corner(s, FULL)
+                task.spawn(function()
+                    task.wait(math.random() * 2.5)
+                    while gui.Parent do
+                        local x, y = rand(8, W - 8), rand(3, H - 3)
+                        local sz = math.random(1, 2) + ((math.random() < 0.15) and 1 or 0)
+                        local life = rand(1.1, 2.4)
+                        s.Size = UDim2.fromOffset(sz, sz)
+                        s.Position = UDim2.fromOffset(x, y)
+                        play(s, {BackgroundTransparency = rand(0.25, 0.5)}, life * 0.4, SINE)
+                        play(s, {Position = UDim2.fromOffset(x + rand(-6, 6), y - rand(2, 6))}, life, SINE)
+                        task.wait(life * 0.45)
+                        play(s, {BackgroundTransparency = 1}, life * 0.55, SINE)
+                        task.wait(life * 0.6)
+                    end
+                end)
+            end
+        end
+
+        -- spotlight kursor (PC)
+        spot = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W / 2, H / 2), Size = UDim2.fromOffset(120, 120), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 3}, content)
+        fillOrb(spot, T.accent:Lerp(WHITE, 0.45), 0.955, 8)
+
+        -- ring tipis di dalam, berputar berlawanan arah
+        local inner = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -6, 1, -6), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, content)
+        corner(inner, (H - 6) / 2)
+        local innerStroke = stroke(inner, WHITE, 1, 0.82)
+        innerG = new("UIGradient", {Color = RING}, innerStroke)
+
+        gloss(content)
+
+        -- garis scan di tepi bawah
+        scan = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0, -50, 1, 0), Size = UDim2.fromOffset(90, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, Visible = false, ZIndex = 35}, content)
+        new("UIGradient", {
+            Color = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.pink)},
+            Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)},
+        }, scan)
+    end
+
+    local scanT = nil
+    local function scanOn()
+        if scanT then scanT:Cancel() end
+        scan.Visible = true
+        scan.Position = UDim2.new(0, -50, 1, 0)
+        scanT = TweenService:Create(scan, TweenInfo.new(0.95, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1), {Position = UDim2.new(0, W + 50, 1, 0)})
+        scanT:Play()
+    end
+    local function scanOff()
+        if scanT then scanT:Cancel() scanT = nil end
+        scan.Visible = false
+    end
+
+    ------------------------------------------------------------------
+    -- EFEK: shockwave + confetti (dipasang di shell, jadi tidak terpotong bar)
+    ------------------------------------------------------------------
+    local function shockwave(col, grow, delay, baseW)
+        task.delay(delay or 0, function()
+            if not gui.Parent then return end
+            local bw = baseW or W
+            local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W / 2, H / 2), Size = UDim2.fromOffset(bw, H), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 6}, shell)
+            corner(r, UDim.new(0.5, 0))
+            local rs = stroke(r, col, 2, 0.15)
+            play(r, {Size = UDim2.fromOffset(bw + grow, H + grow * 0.5)}, 0.8, QUINT)
+            play(rs, {Transparency = 1}, 0.8, SINE)
+            task.delay(0.85, function() r:Destroy() end)
+        end)
+    end
+
+    local CONF_COLORS = {T.accent, T.accent2, T.cyan, T.pink, T.ok, T.warn, WHITE}
+    local function confetti()
+        for i = 1, CONF_N do
+            local ang = math.random() * math.pi * 2
+            local dist = rand(40, 130)
+            local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W / 2, H / 2), Size = UDim2.fromOffset(math.random(3, 6), math.random(2, 4)), BackgroundColor3 = CONF_COLORS[math.random(#CONF_COLORS)], BorderSizePixel = 0, Rotation = math.random(0, 360), ZIndex = 20}, shell)
+            corner(p, 1)
+            local px2 = W / 2 + math.cos(ang) * dist * 1.6
+            local py2 = H / 2 + math.sin(ang) * dist * 0.7
+            local d1 = rand(0.35, 0.55)
+            play(p, {Position = UDim2.fromOffset(px2, py2), Rotation = p.Rotation + math.random(-260, 260)}, d1, QUAD)
+            task.delay(d1, function()
+                if not p.Parent then return end
+                play(p, {Position = UDim2.fromOffset(px2 + rand(-12, 12), py2 + rand(25, 55)), BackgroundTransparency = 1}, rand(0.5, 0.7), QUAD, Enum.EasingDirection.In)
+            end)
+            task.delay(1.3, function() p:Destroy() end)
+        end
     end
 
     ------------------------------------------------------------------
@@ -416,55 +567,93 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     -- IKON KUNCI (kiri)
     ------------------------------------------------------------------
-        local badgeG = new("CanvasGroup", {Position = UDim2.fromOffset(PAD, PAD), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, win)
-    local badge = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -5, 1, -5), BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 11}, badgeG)
+    local badgeG = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(PAD + ICON_S / 2, H / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, content)
+    local badgeScale = new("UIScale", {Scale = 1}, badgeG)
+    local badge = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -4, 1, -4), BackgroundColor3 = WHITE, BackgroundTransparency = 0.78, BorderSizePixel = 0, ZIndex = 11}, badgeG)
     corner(badge, FULL)
     grad(badge, T.accent, T.accent2, 45)
     local badgeStroke = stroke(badge, WHITE, 1.5, 0.15)
-    spin(new("UIGradient", {Color = RING}, badgeStroke), 4)
+    badgeRingG = new("UIGradient", {Color = RING}, badgeStroke)
+    -- lapisan warna status (hijau / merah) di atas badge
+    local badgeTint = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ok, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 11}, badge)
+    corner(badgeTint, FULL)
 
-    local unlockIcon = function() end
+    local unlockIcon, rattleIcon = function() end, function() end
+    local function tintBadge(col, trans, t)
+        badgeTint.BackgroundColor3 = col
+        play(badgeTint, {BackgroundTransparency = trans}, t or 0.3, SINE)
+    end
     do
-        local halo = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(PAD + ICON_S / 2, H / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, win)
+        local halo = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(PAD + ICON_S / 2, H / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, content)
         corner(halo, FULL)
         local haloStroke = stroke(halo, T.accent, 2, 0.4)
-        loop(halo, {Size = UDim2.fromOffset(ICON_S + 12, ICON_S + 12)}, 1.5)
+        loop(halo, {Size = UDim2.fromOffset(ICON_S + 8, ICON_S + 8)}, 1.5)
         loop(haloStroke, {Transparency = 1}, 1.5)
 
+        -- dua titik orbit mengelilingi badge (digerakkan di render loop)
+        dotA = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = T.cyan, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 14}, content)
+        corner(dotA, FULL)
+        dotB = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = T.pink, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 14}, content)
+        corner(dotB, FULL)
+
         local kc = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, ZIndex = 12}, badge)
-        new("UIScale", {Scale = ICON_S / 34}, kc)
+        new("UIScale", {Scale = BADGE_S / 34}, kc)
         local shackle = new("Frame", {Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(10, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 12}, kc)
         corner(shackle, FULL)
-        local shStroke = stroke(shackle, WHITE, 2, 0)
+        stroke(shackle, WHITE, 2, 0)
         local body = new("Frame", {Position = UDim2.fromOffset(9, 15), Size = UDim2.fromOffset(16, 12), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 13}, kc)
         corner(body, 3)
         local hole = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 14}, body)
         corner(hole, FULL)
         new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 5), Size = UDim2.fromOffset(1, 4), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 14}, body)
-        loop(kc, {Position = UDim2.new(0.5, 0, 0.5, -2)}, 1.8)
+        loop(kc, {Position = UDim2.new(0.5, 0, 0.5, -math.max(1, BADGE_S / 10))}, 1.8)
 
         unlockIcon = function()
-            play(shackle, {Position = UDim2.fromOffset(12, 0)}, 0.45, EXPO)
-            play(body, {BackgroundColor3 = T.ok}, 0.3, SINE)
-            play(shStroke, {Color = T.ok}, 0.3, SINE)
-            play(badge, {BackgroundTransparency = 0}, 0.3, SINE)
+            play(shackle, {Position = UDim2.fromOffset(12, -1)}, 0.45, EXPO)
+            play(badge, {BackgroundTransparency = 0.3}, 0.3, SINE)
+            tintBadge(T.ok, 0.05, 0.35)
+            badgeScale.Scale = 1.35
+            play(badgeScale, {Scale = 1}, 0.7, BACK)
+        end
+        rattleIcon = function()
+            task.spawn(function()
+                for _, r in ipairs({-16, 14, -10, 6, 0}) do
+                    if not kc.Parent then return end
+                    play(kc, {Rotation = r}, 0.06, SINE)
+                    task.wait(0.06)
+                end
+            end)
         end
     end
     reg(badgeG, -10, 0)
+
     ------------------------------------------------------------------
     -- INPUT (tengah)
     ------------------------------------------------------------------
-    local inG = new("CanvasGroup", {Position = UDim2.fromOffset(IN_X, 0), Size = UDim2.fromOffset(IN_W, H), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, win)
-    local box = new("TextBox", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = C.Placeholder or "Enter your key", PlaceholderColor3 = Color3.fromRGB(110, 104, 145), TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 11}, inG)
+    local inG = new("CanvasGroup", {Position = UDim2.fromOffset(IN_X, 0), Size = UDim2.fromOffset(IN_W, H), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, content)
+    local box = new("TextBox", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = C.Placeholder or "Enter your key", PlaceholderColor3 = Color3.fromRGB(110, 104, 145), TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = IN_TS, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 11}, inG)
+    -- garis bawah gradien (melebar dari tengah saat fokus)
+    local ul = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.new(0, 0, 0, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, inG)
+    new("UIGradient", {
+        Color = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.pink)},
+        Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0), NumberSequenceKeypoint.new(0.8, 0), NumberSequenceKeypoint.new(1, 1)},
+    }, ul)
     reg(inG, -8, 0)
 
     local flashTok = 0
     local function flash(col)
         flashTok = flashTok + 1
         local tok = flashTok
+        stateCol = col
         play(winStroke, {Color = col, Transparency = 0.05}, 0.2, SINE)
+        if neon then play(neon, {ImageTransparency = 0.35}, 0.15, SINE) end
+        task.delay(0.6, function()
+            if tok ~= flashTok or not neon or not neon.Parent or done then return end
+            play(neon, {ImageTransparency = box:IsFocused() and 0.55 or 0.72}, 0.5, SINE)
+        end)
         task.delay(1.4, function()
             if tok ~= flashTok or not winStroke.Parent or done then return end
+            stateCol = nil
             play(winStroke, {Color = WHITE, Transparency = box:IsFocused() and 0.1 or 0.3}, 0.4, SINE)
         end)
     end
@@ -473,14 +662,37 @@ function KeySystem.Run(C)
         flashTok = flashTok + 1
         play(winStroke, {Color = WHITE, Thickness = 2, Transparency = 0.1}, 0.3, SINE)
         play(badge, {BackgroundTransparency = 0}, 0.3, SINE)
+        play(ul, {Size = UDim2.new(1, -8, 0, 1)}, 0.5, QUINT)
         if neon then play(neon, {ImageTransparency = 0.55}, 0.4, SINE) end
     end)
     box.FocusLost:Connect(function()
         if done then return end
         play(winStroke, {Thickness = 1.5, Transparency = 0.3}, 0.4, SINE)
         play(badge, {BackgroundTransparency = 0.78}, 0.4, SINE)
+        play(ul, {Size = UDim2.new(0, 0, 0, 1)}, 0.4, QUINT)
         if neon then play(neon, {ImageTransparency = 0.72}, 0.5, SINE) end
     end)
+
+    -- glitch RGB-split saat key salah
+    local function glitch()
+        task.spawn(function()
+            local slices = {}
+            for i = 1, 3 do
+                slices[i] = new("Frame", {Size = UDim2.fromOffset(rand(50, 140), math.random(1, 3)), BackgroundColor3 = (i == 2) and T.cyan or T.bad, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 40}, content)
+            end
+            for step = 1, 7 do
+                if not gui.Parent then return end
+                for _, s in ipairs(slices) do
+                    s.Position = UDim2.fromOffset(rand(-20, W - 40), rand(0, H - 2))
+                    s.Visible = math.random() > 0.25
+                end
+                box.Position = UDim2.fromOffset(math.random(-3, 3), 0)
+                task.wait(0.04)
+            end
+            box.Position = UDim2.fromOffset(0, 0)
+            for _, s in ipairs(slices) do s:Destroy() end
+        end)
+    end
 
     ------------------------------------------------------------------
     -- TOMBOL REDEEM (kanan)
@@ -505,14 +717,15 @@ function KeySystem.Run(C)
         end)
     end
 
-    local btn = new("CanvasGroup", {Name = "Redeem", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - PAD - BTN_W / 2, H / 2), Size = UDim2.fromOffset(BTN_W, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, win)
+    local btn = new("CanvasGroup", {Name = "Redeem", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - PAD - BTN_W / 2, H / 2), Size = UDim2.fromOffset(BTN_W, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, content)
     corner(btn, FULL)
+    local btnStroke = stroke(btn, WHITE, 1, 1) -- menyala saat ada teks (ready)
     local fill = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, btn)
     local fillG = new("UIGradient", {Color = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent2), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.accent2)}, Offset = Vector2.new(-0.35, 0)}, fill)
     loop(fillG, {Offset = Vector2.new(0.35, 0)}, 3.2)
     gloss(btn)
     local okFill = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.ok, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5}, btn)
-    local btnL = label(btn, {Text = BTN_TEXT, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = WHITE, ZIndex = 8, TextTruncate = Enum.TextTruncate.None})
+    local btnL = label(btn, {Text = BTN_TEXT, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = BTN_TS, TextColor3 = WHITE, ZIndex = 8, TextTruncate = Enum.TextTruncate.None})
     local sweep = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0.35, 0, 2.4, 0), Position = UDim2.new(-0.3, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, Visible = false, ZIndex = 6}, btn)
     new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.78), NumberSequenceKeypoint.new(1, 1)}}, sweep)
     local btnHit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 30}, btn)
@@ -535,6 +748,24 @@ function KeySystem.Run(C)
         btnHit.MouseButton1Up:Connect(function() play(sc, {Scale = hov and 1.05 or 1}, 0.45, QUINT) end)
     end
     reg(btn, 12, 0)
+
+    -- ketik: tik halus, badge berdenyut, stroke tombol menyala
+    do
+        local lastLen, hasText = 0, false
+        box:GetPropertyChangedSignal("Text"):Connect(function()
+            local has = trim(box.Text) ~= ""
+            if has ~= hasText then
+                hasText = has
+                play(btnStroke, {Transparency = has and 0.5 or 1}, 0.3, SINE)
+            end
+            if #box.Text ~= lastLen then
+                lastLen = #box.Text
+                sfx("tick", 1.1 + math.random() * 0.6, 0.6)
+                badgeScale.Scale = 1.18
+                play(badgeScale, {Scale = 1}, 0.35, QUINT)
+            end
+        end)
+    end
 
     local sweepT = nil
     local function sweepOn()
@@ -567,12 +798,13 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     local linksRow = new("CanvasGroup", {Position = UDim2.fromOffset(0, H + 10), Size = UDim2.fromOffset(W, 14), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, linksRow)
-        local chip = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(W / 2, H + 8), Size = UDim2.fromOffset(120, 22), BackgroundColor3 = T.ink, BackgroundTransparency = 0.15, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
+    local chip = new("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(W / 2, H + 8), Size = UDim2.fromOffset(120, 22), BackgroundColor3 = T.ink, BackgroundTransparency = 0.15, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
     corner(chip, FULL)
     local chipStroke = stroke(chip, T.accent, 1, 0.45)
+    loop(chipStroke, {Transparency = 0.1}, 0.9)
     local chipDot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 11}, chip)
     corner(chipDot, FULL)
-    local msgL = label(chip, {Text = "", Position = UDim2.fromOffset(22, 0), Size = UDim2.new(1, -30, 1, 0), TextSize = 11, ZIndex = 11})
+    local msgL = label(chip, {Text = "", Position = UDim2.fromOffset(22, 0), Size = UDim2.new(1, -30, 1, 0), TextSize = 11, ZIndex = 11, TextTruncate = Enum.TextTruncate.None})
     loop(chipDot, {BackgroundTransparency = 0.6}, 0.7)
     reg(linksRow, 0, 6)
 
@@ -588,12 +820,25 @@ function KeySystem.Run(C)
         local tok = msgTok
         msgL.Text = text
         msgL.TextColor3 = col
+        msgL.TextTransparency = 0
+        msgL.MaxVisibleGraphemes = 0
         chipDot.BackgroundColor3 = col
         play(chipStroke, {Color = col}, 0.25, SINE)
         if chip.GroupTransparency > 0.9 then chip.Position = UDim2.fromOffset(W / 2, H + 14) end
         play(chip, {Size = UDim2.fromOffset(textW(text, 11) + 38, 22), Position = UDim2.fromOffset(W / 2, H + 8), GroupTransparency = 0}, 0.4, QUINT)
         play(linksRow, {GroupTransparency = 1}, 0.2, SINE)
         task.delay(0.22, function() if tok == msgTok and linksRow.Parent then linksRow.Visible = false end end)
+        -- typewriter
+        task.spawn(function()
+            local n = utf8.len(text) or #text
+            for i = 1, n do
+                if tok ~= msgTok or not msgL.Parent then return end
+                msgL.MaxVisibleGraphemes = i
+                if i % 3 == 0 then sfx("tick", 2.4, 0.3) end
+                task.wait(0.016)
+            end
+            if tok == msgTok then msgL.MaxVisibleGraphemes = -1 end
+        end)
         if not hold then
             task.delay(3, function() if tok == msgTok and gui.Parent then clearSay() end end)
         end
@@ -640,30 +885,48 @@ function KeySystem.Run(C)
     end
     gui.Destroying:Connect(function() if blur then pcall(function() blur:Destroy() end) end end)
 
+    -- intro: titik cahaya -> pill
     local function openA()
         if isOpen then return end
         isOpen = true
-        sfx("open")
+        sfx("whoosh")
         shell.Visible = true
-        winScale.Scale = 0.9
+        winScale.Scale = 0.7
         win.GroupTransparency = 1
-        win.Position = UDim2.new(0.5, 0, 0.5, 18)
+        win.Size = UDim2.new(0, H, 1, 0)
+        win.Position = UDim2.new(0.5, 0, 0.5, 22)
         play(win, {Position = UDim2.fromScale(0.5, 0.5)}, 0.8, EXPO)
-        play(winScale, {Scale = 1}, 0.85, EXPO)
-        play(win, {GroupTransparency = 0}, 0.45, SINE)
+        play(winScale, {Scale = 1}, 0.9, EXPO)
+        play(win, {GroupTransparency = 0}, 0.35, SINE)
+        shockwave(T.accent, 36, 0.05, H)
+        task.delay(0.28, function()
+            if not win.Parent then return end
+            sfx("open")
+            play(win, {Size = UDim2.fromScale(1, 1)}, 0.95, EXPO)
+            shockwave(T.cyan, 26, 0.15, W)
+        end)
+        task.delay(1.4, function() -- jaga-jaga: ukuran akhir selalu tepat
+            if win.Parent and not finished then win.Size = UDim2.fromScale(1, 1) end
+        end)
         if C.Dim == true then play(dimmer, {BackgroundTransparency = 0.6}, 0.6, SINE) end
         if shadow then play(shadow, {ImageTransparency = 0.55}, 0.7, SINE) end
         if neon then play(neon, {ImageTransparency = 0.72}, 0.9, SINE) end
         if blur then play(blur, {Size = 10}, 0.7, SINE) end
-        for i, e in ipairs(entries) do enterEntry(e, 0.12 + (i - 1) * 0.08) end
+        for i, e in ipairs(entries) do enterEntry(e, 0.5 + (i - 1) * 0.09) end
+        task.delay(0.8, function()
+            if dotA and dotA.Parent then
+                play(dotA, {BackgroundTransparency = 0.1}, 0.5, SINE)
+                play(dotB, {BackgroundTransparency = 0.1}, 0.5, SINE)
+            end
+        end)
         -- glint menyapu bar
-        local gl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 70, 2.6, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 40}, win)
+        local gl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(0, 70, 2.6, 0), Position = UDim2.new(-0.2, 0, 0.5, 0), Rotation = 18, BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 45}, content)
         new("UIGradient", {Transparency = NumberSequence.new{NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 1)}}, gl)
-        task.delay(0.3, function() play(gl, {Position = UDim2.new(1.2, 0, 0.5, 0)}, 0.9, QUAD) end)
-        task.delay(1.4, function() gl:Destroy() end)
+        task.delay(0.9, function() play(gl, {Position = UDim2.new(1.2, 0, 0.5, 0)}, 0.9, QUAD) end)
+        task.delay(2.2, function() gl:Destroy() end)
     end
 
-    -- success: bar sedikit membesar sambil memudar. cancel: mengecil.
+    -- success: bar sedikit membesar sambil memudar. cancel: mengecil jadi titik.
     local function closeA(cb, success)
         if not isOpen then
             gui:Destroy()
@@ -674,6 +937,7 @@ function KeySystem.Run(C)
         sfx("close")
         play(win, {Position = UDim2.new(0.5, 0, 0.5, success and -8 or 14)}, 0.5, QUINT)
         play(winScale, {Scale = success and 1.06 or 0.92}, 0.5, QUINT)
+        if not success then play(win, {Size = UDim2.new(0, H, 1, 0)}, 0.5, QUINT) end
         play(win, {GroupTransparency = 1}, 0.4, SINE)
         play(linksRow, {GroupTransparency = 1}, 0.25, SINE)
         play(msgL, {TextTransparency = 1}, 0.25, SINE)
@@ -702,28 +966,81 @@ function KeySystem.Run(C)
     end
 
     ------------------------------------------------------------------
-    -- DRAG + SHAKE (satu loop: posisi mengikuti target seperti pegas, tilt halus, shake redam)
+    -- RENDER LOOP: ring dinamis, orbit, neon, float, drag pegas, tilt, shake, spotlight
     ------------------------------------------------------------------
     local dragging = false
     local rot = 0
     local shakeT0 = nil
+    local ringRot, ringSpd, orbA, bobK = 0, 52, 0, 0
+    local glowCol = T.accent
+    local spotX, spotY, spotOn = W / 2, H / 2, false
     bind(RunService.RenderStepped, function(dt)
-        local shaking = shakeT0 ~= nil
+        if dt > 0.1 then dt = 0.1 end
+        local now = os.clock()
+
+        -- ring: ngebut saat verifikasi
+        local goal = busy and 380 or (done and 150 or 52)
+        ringSpd = ringSpd + (goal - ringSpd) * (1 - math.exp(-dt * 4))
+        ringRot = (ringRot + ringSpd * dt) % 360
+        if ringG then ringG.Rotation = ringRot end
+        if badgeRingG then badgeRingG.Rotation = (ringRot * 1.7) % 360 end
+        if innerG then innerG.Rotation = (-ringRot * 0.6) % 360 end
+
+        -- titik orbit di sekitar badge
+        if dotA and dotB then
+            orbA = orbA + dt * (busy and 8 or 2.6)
+            local cx, cy, rad = PAD + ICON_S / 2, H / 2, ICON_S / 2 + 2
+            dotA.Position = UDim2.fromOffset(cx + math.cos(orbA) * rad, cy + math.sin(orbA) * rad)
+            dotB.Position = UDim2.fromOffset(cx + math.cos(orbA + math.pi) * rad, cy + math.sin(orbA + math.pi) * rad)
+        end
+
+        -- neon: warna palet berputar / warna status
+        if neon then
+            glowCol = glowCol:Lerp(stateCol or palette(now * 0.12), math.min(1, dt * 6))
+            neon.ImageColor3 = glowCol
+        end
+
+        -- posisi: pegas ke target + shake redam + float pelan
         local sx = 0
-        if shaking then
-            local t = os.clock() - shakeT0
+        if shakeT0 then
+            local t = now - shakeT0
             if t > 0.55 then shakeT0 = nil else sx = math.exp(-7 * t) * math.sin(t * 42) * 8 end
         end
         local ex, ey = tx - ox, ty - oy
-        if not (shaking or dragging or math.abs(ex) > 0.02 or math.abs(ey) > 0.02 or math.abs(rot) > 0.005) then return end
         local a = 1 - math.exp(-dt * 18)
         ox = ox + ex * a
         oy = oy + ey * a
         local targetRot = dragging and math.clamp(ex * 0.03, -2, 2) or 0
         rot = rot + (targetRot - rot) * (1 - math.exp(-dt * 10))
         if math.abs(rot) < 0.005 and not dragging then rot = 0 end
-        shell.Position = UDim2.new(0.5, ox + sx, 0.5, oy)
+        bobK = bobK + ((isOpen and 1 or 0) - bobK) * (1 - math.exp(-dt * 2.5))
+        local bob = math.sin(now * 1.7) * 1.6 * bobK
+        shell.Position = UDim2.new(0.5, ox + sx, 0.5, oy + bob)
         win.Rotation = rot
+
+        -- spotlight mengikuti kursor (hanya kalau ada mouse)
+        if spot then
+            local want = false
+            if UIS.MouseEnabled and isOpen and not done then
+                local m = UIS:GetMouseLocation()
+                local ap, asz = content.AbsolutePosition, content.AbsoluteSize
+                if asz.X > 1 then
+                    local r = asz.X / W
+                    local lx, ly = (m.X - ap.X) / r, (m.Y - ap.Y) / r
+                    want = lx > -20 and lx < W + 20 and ly > -14 and ly < H + 14
+                    if want then
+                        local k = 1 - math.exp(-dt * 14)
+                        spotX = spotX + (math.clamp(lx, 0, W) - spotX) * k
+                        spotY = spotY + (math.clamp(ly, 0, H) - spotY) * k
+                        spot.Position = UDim2.fromOffset(spotX, spotY)
+                    end
+                end
+            end
+            if want ~= spotOn then
+                spotOn = want
+                play(spot, {GroupTransparency = want and 0.15 or 1}, 0.35, SINE)
+            end
+        end
     end)
     track(win,
         function()
@@ -805,16 +1122,23 @@ function KeySystem.Run(C)
     local function onSuccess(key)
         done = true
         sweepOff()
+        scanOff()
         if saveKey then pcall(function() if writefile then writefile(keyFile, key) end end) end
         sfx("boot")
         unlockIcon()
         okFill.BackgroundColor3 = T.ok
         play(okFill, {BackgroundTransparency = 0.05}, 0.45, SINE)
+        play(btnStroke, {Transparency = 1}, 0.3, SINE)
         setBtn("Accepted")
         say("Key accepted. Loading hub", T.ok, true)
         flash(T.ok)
         burst(T.ok)
-        task.delay(1.2, function() finish(true, key) end)
+        shockwave(T.ok, 70, 0)
+        shockwave(T.cyan, 120, 0.12)
+        confetti()
+        task.delay(0.08, function() sfx("pop", 1.0) end)
+        task.delay(0.22, function() sfx("pop", 1.3, 0.8) end)
+        task.delay(1.3, function() finish(true, key) end)
     end
 
     local function lockout(sec)
@@ -842,6 +1166,7 @@ function KeySystem.Run(C)
         attempts = attempts + 1
         sfx("error")
         sweepOff()
+        scanOff()
         if auto then
             pcall(function() if delfile and isfile and isfile(keyFile) then delfile(keyFile) end end)
             msg = "Your saved key is no longer valid"
@@ -858,6 +1183,13 @@ function KeySystem.Run(C)
         say(msg or "That key isn't valid", T.bad)
         flash(T.bad)
         shake()
+        glitch()
+        rattleIcon()
+        shockwave(T.bad, 24, 0)
+        tintBadge(T.bad, 0.15, 0.12)
+        task.delay(0.9, function()
+            if gui.Parent and not done then tintBadge(T.bad, 1, 0.5) end
+        end)
         if maxAttempts > 0 and attempts >= maxAttempts then lockout(cooldown) end
     end
 
@@ -868,12 +1200,17 @@ function KeySystem.Run(C)
             sfx("error")
             say("Enter your key first", T.warn)
             shake()
+            rattleIcon()
             return
         end
         busy = true
+        flashTok = flashTok + 1
+        stateCol = T.cyan
         sfx("click")
         say("Checking key", T.cyan, true)
         sweepOn()
+        scanOn()
+        play(winScale, {Scale = 0.97}, 0.25, QUINT) -- squish
         task.spawn(function()
             local n = 0
             while busy and gui.Parent do
@@ -889,6 +1226,7 @@ function KeySystem.Run(C)
             if el < 0.7 then task.wait(0.7 - el) end
             if not gui.Parent then return end
             busy = false
+            play(winScale, {Scale = 1}, 0.7, BACK) -- bounce
             if ok then onSuccess(key) else onFail(msg, auto) end
         end)
     end
@@ -902,7 +1240,7 @@ function KeySystem.Run(C)
     applyScale()
     openA()
 
-    -- key tersimpan -> isi otomatis lalu verifikasi
+    -- key tersimpan -> isi otomatis lalu verifikasi (tunggu intro selesai)
     local saved = nil
     if saveKey then
         pcall(function() if isfile and isfile(keyFile) then saved = trim(readfile(keyFile)) end end)
@@ -911,8 +1249,8 @@ function KeySystem.Run(C)
     if saved then
         box.Text = saved
         if autoLogin then
-            task.delay(0.9, function() if gui.Parent and not done and not busy then say("Verifying saved key", T.cyan, true) end end)
-            task.delay(1.3, function()
+            task.delay(1.3, function() if gui.Parent and not done and not busy then say("Verifying saved key", T.cyan, true) end end)
+            task.delay(1.7, function()
                 if gui.Parent and not done and not busy then submit(true) end
             end)
         end
