@@ -1,7 +1,20 @@
 --[[
-    SORU HUB UI v5.8 PRO + LITE  (API 100% kompatibel dengan v2.x - v5.x)
+    SORU HUB UI v5.9 PRO + LITE  (API 100% kompatibel dengan v2.x - v5.x)
 
-    CHANGELOG v5.8 (Pro layout untuk Lite OFF) - Lite ON tidak berubah
+    CHANGELOG v5.9 (Pro dashboard satu layar) - Lite ON tidak berubah
+      1.  Dashboard Pro muat satu layar: tanpa scroll, semua accordion dihapus
+      2.  Statistics pindah ke layout utama: koordinat live dan chip salin Place/Game ID di bawah panel Performance
+      3.  Pengaturan pindah ke kartu Settings: UI scale, transparansi, volume, Blur, Anim BG, Sound, Lite, No anim, Reset, tombol menu
+      4.  Switch tema di kanan atas didesain ulang: panah, swatch warna, dan nama; ketuk untuk membuka pemilih tema semua 100+ tema
+      5.  Pemilih tema: grid swatch, tombol Random, cincin di tema aktif, pratinjau nama
+      6.  Lonceng membuka popup notifikasi terbaru dan changelog ini
+      7.  Tombol Session punya cincin progres jam ini di server
+      8.  Kartu lebih berdimensi: highlight atas dan gradien halus
+      9.  Kartu Status diganti Settings, kartu Activity dan Players diubah ukurannya
+      10. Ukuran bawaan window Pro 880x574 supaya dashboard tidak perlu scroll
+      11. Layout mode Lite tidak berubah
+
+    CHANGELOG v5.8 (Pro layout untuk Lite OFF)
       1.  Lite OFF kini memakai layout "Pro" terinspirasi referensi dashboard gelap (kartu, grafik, donut)
       2.  Header Pro: judul halaman besar, nama hub dua baris, chip FPS dan ping
       3.  Pill tema di header: panah kiri/kanan memutar SEMUA 100+ tema, klik nama = acak, ada pratinjau 3 warna
@@ -295,7 +308,7 @@ local T = {
 }
 local ACCENT, ACCENT2, DIM = T.accent, T.accent2, T.dim
 local WHITE = Color3.new(1, 1, 1)
-local VERSION = "5.8"
+local VERSION = "5.9"
 local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow/neon tidak muncul
 local FULL = UDim.new(1, 0)
 local RING = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.35, T.cyan), ColorSequenceKeypoint.new(0.7, T.pink), ColorSequenceKeypoint.new(1, T.accent)}
@@ -839,7 +852,7 @@ function SORU:CreateWindow(C)
     local virt = Vector2.new(REF.X, REF.Y)
 
     -- LITE: window kecil. PRO (Lite off): layout dashboard lebar ala referensi
-    local DEFAULT_SIZE = LITE and Vector2.new(700, 440) or Vector2.new(880, 564)
+    local DEFAULT_SIZE = LITE and Vector2.new(700, 440) or Vector2.new(880, 574)
     local minSize = LITE and Vector2.new(480, 320) or Vector2.new(780, 440)
     local maxSize = LITE and Vector2.new(960, 640) or Vector2.new(1100, 700)
     local winSize = DEFAULT_SIZE
@@ -914,9 +927,23 @@ function SORU:CreateWindow(C)
     new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right}, toastHolder)
     local toastN = 0
     local toasts = {}
-    local PRO = {notifCount = 0} -- tempat state khusus layout Pro (hemat variabel local)
+    local PRO = {notifCount = 0, log = {}, changelog = { -- tempat state khusus layout Pro (hemat variabel local)
+        "1. Pro dashboard fits one screen: no scrolling, accordions removed",
+        "2. Statistics moved into the main layout: live coordinates and Place/Game ID copy chips under Performance",
+        "3. Settings moved into a Settings card: UI scale, transparency, volume, Blur, Anim BG, Sound, Lite, No anim, Reset, menu key",
+        "4. Theme switch redesigned: arrows, color swatch and name. Tap it to open the theme picker with all 100+ themes",
+        "5. Theme picker: swatch grid, Random button, ring on the current theme, name preview",
+        "6. Bell opens a popup with recent notifications and this changelog",
+        "7. Session button has a progress ring showing the current hour in server",
+        "8. Cards get depth: top highlight and soft gradient",
+        "9. Status card replaced by Settings, Activity and Players cards resized",
+        "10. Default Pro window 880x574 so the dashboard needs no scroll",
+        "11. Lite mode layout is unchanged",
+    }}
     local function notify(title, msg, color, dur)
         PRO.notifCount = PRO.notifCount + 1
+        table.insert(PRO.log, 1, {title = tostring(title or ""), msg = tostring(msg or ""), color = color, at = os.date("%H:%M")})
+        if #PRO.log > 30 then table.remove(PRO.log) end
         if PRO.badgeUpd then PRO.badgeUpd() end
         color = color or ACCENT
         dur = dur or 3
@@ -1415,6 +1442,7 @@ function SORU:CreateWindow(C)
         if not isOpen then return end
         isOpen = false
         sfx("close")
+        if PRO.closePopup then PRO.closePopup() end
         local tok = openTok
         local off = launcherOffset()
         pulse.Visible = true
@@ -1501,8 +1529,9 @@ function SORU:CreateWindow(C)
         xB = hbtn(-38, "✕", T.bad, Color3.fromRGB(82, 36, 50))
     end
 
-    if not LITE then -- HEADER PRO: judul halaman besar, pill tema, lonceng, avatar
+    if not LITE then -- HEADER PRO: judul besar, switch tema, lonceng, avatar
         local tw0 = PRO.tw0
+        local Bold = Enum.Font.GothamBold
         PRO.titleL.Position = UDim2.fromOffset(54, 10)
         PRO.titleL.Size = UDim2.fromOffset(tw0 + 20, 20)
         PRO.subL.Position = UDim2.fromOffset(54, 31)
@@ -1510,14 +1539,129 @@ function SORU:CreateWindow(C)
         PRO.subL.TextSize = 10
         crumbL.AnchorPoint = Vector2.new(0, 0)
         crumbL.Position = UDim2.fromOffset(54 + math.max(tw0 + 20, 150) + 24, 0)
-        crumbL.Size = UDim2.fromOffset(190, HDR)
+        crumbL.Size = UDim2.fromOffset(170, HDR)
         crumbL.TextXAlignment = Enum.TextXAlignment.Left
         crumbL.TextSize = 20
         crumbL.TextColor3 = WHITE
-        PRO.chip.Position = UDim2.new(1, -440, 0.5, -13)
-        PRO.chip.Size = UDim2.fromOffset(118, 26)
+        PRO.chip.Position = UDim2.new(1, -452, 0.5, -13)
+        PRO.chip.Size = UDim2.fromOffset(104, 26)
 
+        ------------------------------------------------------------
+        -- POPUP generik (klik di luar = tutup). Dipakai pemilih tema + lonceng.
+        ------------------------------------------------------------
+        PRO.closePopup = function()
+            if PRO.pop then
+                for _, o in ipairs(PRO.pop) do o:Destroy() end
+                PRO.pop = nil
+            end
+            PRO.swatches = nil
+        end
+        local function openPopup(anchor, w, h, build)
+            PRO.closePopup()
+            local rs = math.max(rootScale.Scale, 0.01)
+            local ap, asz = anchor.AbsolutePosition, anchor.AbsoluteSize
+            local x = math.clamp((ap.X + asz.X) / rs - w, 8, math.max(8, virt.X - w - 8))
+            local y = math.clamp((ap.Y + asz.Y) / rs + 8, 8, math.max(8, virt.Y - h - 8))
+            local catcher = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 120}, root)
+            local pop = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, h), BackgroundColor3 = Color3.fromRGB(14, 14, 19), BorderSizePixel = 0, Active = true, ZIndex = 121}, root)
+            corner(pop, 14)
+            stroke(pop, T.stroke, 1.2, 0.15)
+            gloss(pop)
+            catcher.MouseButton1Click:Connect(function() PRO.closePopup() end)
+            PRO.pop = {catcher, pop}
+            build(pop)
+            if not NOANIM then
+                pop.Position = UDim2.fromOffset(x, y - 10)
+                play(pop, {Position = UDim2.fromOffset(x, y)}, 0.28, Enum.EasingStyle.Back)
+            end
+        end
+
+        ------------------------------------------------------------
+        -- PEMILIH TEMA (grid swatch semua tema)
+        ------------------------------------------------------------
+        PRO.openThemes = function(anchor)
+            openPopup(anchor, 308, 306, function(pop)
+                label(pop, {Text = "Themes", Position = UDim2.fromOffset(14, 10), Size = UDim2.fromOffset(70, 20), Font = Bold, TextSize = 14, TextTruncate = Enum.TextTruncate.None, ZIndex = 2})
+                label(pop, {Text = tostring(#THEME_ORDER).." presets", Position = UDim2.fromOffset(74, 12), Size = UDim2.fromOffset(80, 16), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+                local nameL = label(pop, {Text = curTheme, Position = UDim2.fromOffset(14, 32), Size = UDim2.new(1, -120, 0, 16), Font = Bold, TextSize = 11, TextColor3 = T.accent, ZIndex = 2})
+                local rnd = new("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 12), Size = UDim2.fromOffset(84, 28), BackgroundColor3 = T.accent, BackgroundTransparency = 0.78, Text = "Random", Font = Bold, TextSize = 11, TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, pop)
+                corner(rnd, FULL)
+                stroke(rnd, T.accent, 1, 0.3)
+                local sc = new("ScrollingFrame", {Position = UDim2.fromOffset(8, 56), Size = UDim2.new(1, -16, 1, -64), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 2}, pop)
+                new("UIGridLayout", {CellSize = UDim2.fromOffset(30, 30), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder}, sc)
+                new("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8)}, sc)
+                local ring = new("UIStroke", {Color = WHITE, Thickness = 2.4, Transparency = 0})
+                PRO.swatches = {}
+                local function pick(nm, b)
+                    sfx("pop")
+                    ring.Parent = b
+                    nameL.Text = nm
+                    PRO.setTheme(nm)
+                end
+                for i, nm in ipairs(THEME_ORDER) do
+                    local pal = THEMES[nm]
+                    local b = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE, BorderSizePixel = 0, LayoutOrder = i, ZIndex = 3}, sc)
+                    corner(b, FULL)
+                    local g = new("UIGradient", {Color = ColorSequence.new(pal[1], pal[3]), Rotation = 45}, b)
+                    PRO.swatches[i] = {b = b, g = g, name = nm}
+                    if nm == curTheme then ring.Parent = b end
+                    b.MouseEnter:Connect(function() nameL.Text = nm end)
+                    b.MouseLeave:Connect(function() nameL.Text = curTheme end)
+                    b.MouseButton1Click:Connect(function() pick(nm, b) end)
+                end
+                rnd.MouseButton1Click:Connect(function()
+                    local i = math.random(1, #THEME_ORDER)
+                    local sw = PRO.swatches and PRO.swatches[i]
+                    if sw then pick(sw.name, sw.b) end
+                end)
+                -- retheme mengubah warna yang sama dengan palet lama, jadi swatch digambar ulang setelah ganti tema
+                PRO.refreshSwatches = function()
+                    for _, sw in ipairs(PRO.swatches or {}) do
+                        if sw.g.Parent then
+                            local pal = THEMES[sw.name]
+                            sw.g.Color = ColorSequence.new(pal[1], pal[3])
+                        end
+                    end
+                end
+            end)
+        end
+
+        ------------------------------------------------------------
+        -- NOTIFIKASI + CHANGELOG (popup lonceng)
+        ------------------------------------------------------------
+        PRO.openBell = function(anchor)
+            PRO.notifCount = 0
+            if PRO.badgeUpd then PRO.badgeUpd() end
+            openPopup(anchor, 330, 376, function(pop)
+                label(pop, {Text = "Notifications", Position = UDim2.fromOffset(14, 10), Size = UDim2.fromOffset(160, 20), Font = Bold, TextSize = 14, TextTruncate = Enum.TextTruncate.None, ZIndex = 2})
+                local sc = new("ScrollingFrame", {Position = UDim2.fromOffset(8, 40), Size = UDim2.new(1, -16, 1, -48), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, ScrollBarImageColor3 = ACCENT, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 2}, pop)
+                new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, sc)
+                new("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 6), PaddingBottom = UDim.new(0, 8)}, sc)
+                local n = 0
+                local function nextO() n = n + 1 return n end
+                if #PRO.log == 0 then
+                    label(sc, {Text = "No notifications yet", Size = UDim2.new(1, 0, 0, 24), TextSize = 11, TextColor3 = DIM, LayoutOrder = nextO(), ZIndex = 2})
+                end
+                for i, it in ipairs(PRO.log) do
+                    if i > 6 then break end
+                    local r = new("Frame", {Size = UDim2.new(1, 0, 0, 42), BackgroundColor3 = Color3.fromRGB(25, 25, 32), BorderSizePixel = 0, LayoutOrder = nextO(), ZIndex = 2}, sc)
+                    corner(r, 10)
+                    local d = new("Frame", {Position = UDim2.fromOffset(10, 17), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = it.color or T.accent, BorderSizePixel = 0, ZIndex = 3}, r)
+                    corner(d, FULL)
+                    label(r, {Text = it.title, Position = UDim2.fromOffset(26, 5), Size = UDim2.new(1, -78, 0, 16), Font = Bold, TextSize = 11, ZIndex = 3})
+                    label(r, {Text = it.msg, Position = UDim2.fromOffset(26, 22), Size = UDim2.new(1, -78, 0, 14), TextSize = 10, TextColor3 = DIM, ZIndex = 3})
+                    label(r, {Text = it.at, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 5), Size = UDim2.fromOffset(40, 16), TextXAlignment = Enum.TextXAlignment.Right, TextSize = 9, TextColor3 = DIM, ZIndex = 3})
+                end
+                label(sc, {Text = "What's new  v"..VERSION, Size = UDim2.new(1, 0, 0, 26), Font = Bold, TextSize = 12, TextColor3 = T.accent, LayoutOrder = nextO(), ZIndex = 2})
+                for _, line in ipairs(PRO.changelog) do
+                    label(sc, {Text = line, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 10, TextColor3 = DIM, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = Enum.TextTruncate.None, LayoutOrder = nextO(), ZIndex = 2})
+                end
+            end)
+        end
+
+        ------------------------------------------------------------
         -- avatar + titik online
+        ------------------------------------------------------------
         local avWrap = new("Frame", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -112, 0.5, -16), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 11}, tb)
         corner(avWrap, FULL)
         stroke(avWrap, T.stroke, 1.2, 0.3)
@@ -1531,7 +1675,9 @@ function SORU:CreateWindow(C)
         corner(od, FULL)
         stroke(od, Color3.fromRGB(11, 11, 15), 1.5, 0)
 
-        -- lonceng + badge jumlah notifikasi (klik = bersihkan)
+        ------------------------------------------------------------
+        -- lonceng: badge jumlah, klik = buka popup
+        ------------------------------------------------------------
         local bell = new("TextButton", {Size = UDim2.fromOffset(32, 32), Position = UDim2.new(1, -152, 0.5, -16), Text = "", BackgroundColor3 = Color3.fromRGB(18, 18, 24), AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 11}, tb)
         corner(bell, FULL)
         stroke(bell, T.stroke, 1, 0.4)
@@ -1543,7 +1689,7 @@ function SORU:CreateWindow(C)
         bpart(12, 11, 0, -2, 6) bpart(16, 2, 0, 5, 1) bpart(4, 3, 0, 8, 2)
         local badge = new("Frame", {Size = UDim2.fromOffset(15, 15), Position = UDim2.new(1, -9, 0, -3), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 13, Visible = false}, bell)
         corner(badge, FULL)
-        local badgeL = label(badge, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = 8, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None, ZIndex = 14})
+        local badgeL = label(badge, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Bold, TextSize = 8, TextColor3 = WHITE, TextTruncate = Enum.TextTruncate.None, ZIndex = 14})
         PRO.badgeUpd = function()
             local n = PRO.notifCount
             badge.Visible = n > 0
@@ -1552,17 +1698,18 @@ function SORU:CreateWindow(C)
         end
         PRO.badgeUpd()
         bell.MouseButton1Click:Connect(function()
-            PRO.notifCount = 0
-            PRO.badgeUpd()
             sfx("click")
+            PRO.openBell(bell)
         end)
 
-        -- pill tema: panah kiri/kanan ganti tema (semua 100+ tema), klik nama = acak
-        local pillF = new("Frame", {Size = UDim2.fromOffset(150, 30), Position = UDim2.new(1, -312, 0.5, -15), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
-        corner(pillF, FULL)
-        stroke(pillF, T.stroke, 1, 0.4)
+        ------------------------------------------------------------
+        -- SWITCH TEMA: panah ganti tema, swatch + nama membuka pemilih tema
+        ------------------------------------------------------------
+        local sw = new("Frame", {Size = UDim2.fromOffset(176, 32), Position = UDim2.new(1, -340, 0.5, -16), BackgroundColor3 = Color3.fromRGB(18, 18, 24), BorderSizePixel = 0, ZIndex = 11}, tb)
+        corner(sw, FULL)
+        local swS = stroke(sw, T.accent, 1.2, 0.55)
         local function arrow(x, txt, d)
-            local b = new("TextButton", {Size = UDim2.fromOffset(26, 30), Position = UDim2.fromOffset(x, 0), BackgroundTransparency = 1, Text = txt, Font = Enum.Font.GothamBold, TextSize = 17, TextColor3 = DIM, AutoButtonColor = false, ZIndex = 12}, pillF)
+            local b = new("TextButton", {Size = UDim2.fromOffset(28, 32), Position = UDim2.fromOffset(x, 0), BackgroundTransparency = 1, Text = txt, Font = Bold, TextSize = 18, TextColor3 = DIM, AutoButtonColor = false, ZIndex = 12}, sw)
             b.MouseEnter:Connect(function() play(b, {TextColor3 = T.text}, 0.12) end)
             b.MouseLeave:Connect(function() play(b, {TextColor3 = DIM}, 0.15) end)
             b.MouseButton1Click:Connect(function()
@@ -1571,16 +1718,18 @@ function SORU:CreateWindow(C)
             end)
         end
         arrow(0, "‹", -1)
-        arrow(124, "›", 1)
-        for i, c in ipairs({T.accent, T.cyan, T.pink}) do -- pratinjau warna tema (ikut berganti saat tema diganti)
-            local d = new("Frame", {Size = UDim2.fromOffset(8, 8), Position = UDim2.fromOffset(27 + (i - 1) * 7, 11), BackgroundColor3 = c, BorderSizePixel = 0, ZIndex = 12}, pillF)
-            corner(d, FULL)
-        end
-        PRO.themeLbl = label(pillF, {Text = curTheme, Position = UDim2.fromOffset(54, 0), Size = UDim2.fromOffset(70, 30), Font = Enum.Font.GothamBold, TextSize = 10, ZIndex = 12})
-        local rnd = new("TextButton", {Position = UDim2.fromOffset(54, 0), Size = UDim2.fromOffset(70, 30), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 13}, pillF)
-        rnd.MouseButton1Click:Connect(function()
-            sfx("pop")
-            if PRO.cycleTheme then PRO.cycleTheme(math.random(1, math.max(1, #THEME_ORDER - 1))) end
+        arrow(148, "›", 1)
+        local swatch = new("Frame", {Position = UDim2.fromOffset(32, 5), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 12}, sw)
+        corner(swatch, FULL)
+        new("UIGradient", {Color = ColorSequence.new{ColorSequenceKeypoint.new(0, T.accent), ColorSequenceKeypoint.new(0.5, T.cyan), ColorSequenceKeypoint.new(1, T.pink)}, Rotation = 45}, swatch)
+        stroke(swatch, WHITE, 1.2, 0.55)
+        PRO.themeLbl = label(sw, {Text = curTheme, Position = UDim2.fromOffset(60, 0), Size = UDim2.fromOffset(86, 32), Font = Bold, TextSize = 11, ZIndex = 12})
+        local openBtn = new("TextButton", {Position = UDim2.fromOffset(30, 0), Size = UDim2.fromOffset(116, 32), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 13}, sw)
+        openBtn.MouseEnter:Connect(function() play(swS, {Transparency = 0.1}, 0.15) end)
+        openBtn.MouseLeave:Connect(function() play(swS, {Transparency = 0.55}, 0.2) end)
+        openBtn.MouseButton1Click:Connect(function()
+            sfx("click")
+            PRO.openThemes(sw)
         end)
         PRO.themeNameUpd = function() PRO.themeLbl.Text = curTheme end
     end
@@ -3416,7 +3565,7 @@ function SORU:CreateWindow(C)
     if LITE then PRO.lite() end
 
     ------------------------------------------------------------------
-    -- DASHBOARD PRO (Lite off): kartu gelap, grafik, donut. Semua warna memakai palet tema.
+    -- DASHBOARD PRO (Lite off): satu layar penuh, tanpa scroll. Warna memakai palet tema.
     ------------------------------------------------------------------
     function PRO.build()
         local TeleportService = game:GetService("TeleportService")
@@ -3426,11 +3575,16 @@ function SORU:CreateWindow(C)
         local DARK, TILE = Color3.fromRGB(11, 11, 15), Color3.fromRGB(25, 25, 32)
         local RW, GAP, PRO_H = 236, 8, 470
         local t0 = os.clock()
+        -- label penampung supaya loop FPS/ping bawaan tidak error (nilai ditampilkan di kartu Pro)
+        fpsV = Instance.new("TextLabel")
+        pingV = Instance.new("TextLabel")
 
         local function pcard(parent, pos, size, order)
             local f = new("Frame", {Position = pos, Size = size, BackgroundColor3 = DARK, BorderSizePixel = 0, LayoutOrder = order or 0}, parent)
             corner(f, 14) regTrans(f, 0)
             stroke(f, T.stroke, 1, 0.5)
+            grad(f, WHITE, Color3.fromRGB(190, 190, 206), 90)
+            gloss(f)
             return f
         end
         local function ptile(parent, order)
@@ -3480,32 +3634,42 @@ function SORU:CreateWindow(C)
         new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -6, 1, 0), CellPadding = UDim2.fromOffset(GAP, 0), SortOrder = Enum.SortOrder.LayoutOrder}, top)
 
         ------------------------------------------------------------
-        -- KARTU 1: Session (tombol besar = salin join script)
+        -- KARTU 1: Session (tombol besar = salin join script, cincin = progres jam ini)
         ------------------------------------------------------------
         local c1 = pcard(top, UDim2.new(), UDim2.new(), 1)
         local gT = txt(c1, gameName, 12, 12, 18, 13, T.text, Bold, CENTER)
         bindName(function(n) gT.Text = n end)
         txt(c1, "Place "..tostring(placeId), 12, 30, 14, 9, DIM, Med, CENTER)
-        local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 88), Size = UDim2.fromOffset(92, 92), BackgroundColor3 = T.accent, BackgroundTransparency = 0.86, BorderSizePixel = 0, ZIndex = 1}, c1)
+        local CY = 92
+        local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, CY), Size = UDim2.fromOffset(78, 78), BackgroundColor3 = T.accent, BackgroundTransparency = 0.84, BorderSizePixel = 0, ZIndex = 1}, c1)
         corner(glow, FULL)
-        wloop(glow, 1.6, {Size = UDim2.fromOffset(104, 104), BackgroundTransparency = 0.94})
-        local big = new("TextButton", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 88), Size = UDim2.fromOffset(70, 70), BackgroundColor3 = T.accent, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, c1)
+        wloop(glow, 1.6, {Size = UDim2.fromOffset(88, 88), BackgroundTransparency = 0.93})
+        local RS, RR, RTH = 48, 45, 4
+        local ringW = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, CY), Size = UDim2.fromOffset(100, 100), BackgroundTransparency = 1, ZIndex = 2}, c1)
+        local rsegs = {}
+        for i = 1, RS do
+            local th = (i - 1) / RS * math.pi * 2 - math.pi / 2
+            local arc = 2 * math.pi * RR / RS
+            rsegs[i] = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(50 + RR * math.cos(th), 50 + RR * math.sin(th)), Size = UDim2.fromOffset(arc - 1.5, RTH), Rotation = math.deg(th) + 90, BackgroundColor3 = Color3.fromRGB(38, 38, 50), BorderSizePixel = 0, ZIndex = 2}, ringW)
+            corner(rsegs[i], 2)
+        end
+        local big = new("TextButton", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, CY), Size = UDim2.fromOffset(66, 66), BackgroundColor3 = T.accent, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, c1)
         corner(big, FULL)
         grad(big, WHITE, Color3.fromRGB(205, 205, 220), 90)
         stroke(big, WHITE, 1.5, 0.75)
         ripple(big)
-        local back = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, -4, 0.5, -4), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, big)
+        local back = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, -4, 0.5, -4), Size = UDim2.fromOffset(17, 17), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 4}, big)
         corner(back, 4) stroke(back, WHITE, 2.2, 0)
-        local front = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 4, 0.5, 4), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 5}, big)
+        local front = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 4, 0.5, 4), Size = UDim2.fromOffset(17, 17), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 5}, big)
         corner(front, 4) stroke(front, WHITE, 2.2, 0)
-        big.MouseEnter:Connect(function() sfx("hover") play(big, {Size = UDim2.fromOffset(74, 74)}, 0.2, Enum.EasingStyle.Back) end)
-        big.MouseLeave:Connect(function() play(big, {Size = UDim2.fromOffset(70, 70)}, 0.2) end)
+        big.MouseEnter:Connect(function() sfx("hover") play(big, {Size = UDim2.fromOffset(70, 70)}, 0.2, Enum.EasingStyle.Back) end)
+        big.MouseLeave:Connect(function() play(big, {Size = UDim2.fromOffset(66, 66)}, 0.2) end)
         big.MouseButton1Click:Connect(function() sfx("click") copyJoin() end)
         local tA = ptile(c1)
-        tA.Position = UDim2.fromOffset(12, 142)
+        tA.Position = UDim2.fromOffset(12, 144)
         tA.Size = UDim2.new(0.5, -17, 0, 38)
         local tB = ptile(c1)
-        tB.Position = UDim2.new(0.5, 5, 0, 142)
+        tB.Position = UDim2.new(0.5, 5, 0, 144)
         tB.Size = UDim2.new(0.5, -17, 0, 38)
         txt(tA, "In server", 9, 4, 12, 9, DIM, Med)
         local vTime = txt(tA, "00:00:00", 9, 17, 16, 12, T.text, Bold)
@@ -3513,7 +3677,7 @@ function SORU:CreateWindow(C)
         local vPl = txt(tB, "-", 9, 17, 16, 12, T.text, Bold)
 
         ------------------------------------------------------------
-        -- KARTU 2: Quick actions (aksi yang menteleport minta konfirmasi tap kedua)
+        -- KARTU 2: Quick actions (aksi teleport minta tap kedua)
         ------------------------------------------------------------
         local c2 = pcard(top, UDim2.new(), UDim2.new(), 2)
         header(c2, "Quick actions", 3, nil)
@@ -3606,7 +3770,7 @@ function SORU:CreateWindow(C)
         end)
 
         ------------------------------------------------------------
-        -- BARIS 2: Performance (segmented FPS / Ping / Memory + riwayat bar)
+        -- BARIS 2: Performance (FPS / Ping / Memory) + koordinat dan ID di footer
         ------------------------------------------------------------
         local N = 60
         local hist = {fps = {}, ping = {}, mem = {}}
@@ -3652,11 +3816,11 @@ function SORU:CreateWindow(C)
         local bigV = label(gp, {Text = "-", Position = UDim2.fromOffset(16, 10), Size = UDim2.fromOffset(110, 34), Font = Bold, TextSize = 26, TextTruncate = NOTRUNC, ZIndex = 2})
         local unitL = label(gp, {Text = "FPS", Position = UDim2.fromOffset(60, 22), Size = UDim2.fromOffset(60, 18), Font = Med, TextSize = 11, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
         local statsL = label(gp, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 18), Size = UDim2.fromOffset(240, 16), TextXAlignment = RIGHT, TextSize = 10, TextColor3 = DIM, ZIndex = 2})
-        local plot = new("Frame", {Position = UDim2.fromOffset(52, 60), Size = UDim2.new(1, -68, 1, -90), BackgroundTransparency = 1}, gp)
-        local yax = new("Frame", {Position = UDim2.fromOffset(8, 60), Size = UDim2.new(0, 38, 1, -90), BackgroundTransparency = 1}, gp)
+        local plot = new("Frame", {Position = UDim2.fromOffset(52, 58), Size = UDim2.new(1, -68, 1, -100), BackgroundTransparency = 1}, gp)
+        local yax = new("Frame", {Position = UDim2.fromOffset(8, 58), Size = UDim2.new(0, 38, 1, -100), BackgroundTransparency = 1}, gp)
         local ylabels = {}
         for k, fr in ipairs({0, 0.5, 1}) do
-            local ln = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, fr, 0), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.9, BorderSizePixel = 0}, plot)
+            new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, fr, 0), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.9, BorderSizePixel = 0}, plot)
             ylabels[k] = label(yax, {Text = "", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, fr, 0), Size = UDim2.new(1, 0, 0, 12), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
         end
         local bars = {}
@@ -3668,9 +3832,22 @@ function SORU:CreateWindow(C)
         local nowLn = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 1, 0, -6), Size = UDim2.new(0, 1, 1, 6), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 3}, plot)
         local nowDot = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -3), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 3}, nowLn)
         corner(nowDot, FULL)
-        label(gp, {Text = "-60s", Position = UDim2.new(0, 52, 1, -22), Size = UDim2.fromOffset(40, 14), TextSize = 9, TextColor3 = DIM, ZIndex = 2})
-        label(gp, {Text = "-30s", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 26, 1, -22), Size = UDim2.fromOffset(40, 14), TextXAlignment = CENTER, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
-        label(gp, {Text = "now", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 1, -22), Size = UDim2.fromOffset(40, 14), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = T.bad, ZIndex = 2})
+
+        -- footer: koordinat live + salin Place ID / Game ID (dulu ada di accordion Statistics)
+        local function fchip(x, w, text, font, onClick)
+            local b = new("TextButton", {Position = UDim2.new(0, x, 1, -34), Size = UDim2.fromOffset(w, 24), BackgroundColor3 = TILE, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 2}, gp)
+            corner(b, 12)
+            stroke(b, T.stroke, 1, 0.6)
+            dot(b, T.accent, 9, 9, 6)
+            local l = label(b, {Text = text, Position = UDim2.fromOffset(21, 0), Size = UDim2.new(1, -28, 1, 0), TextSize = 10, Font = font or Med, TextColor3 = DIM, ZIndex = 3})
+            b.MouseEnter:Connect(function() play(b, {BackgroundColor3 = T.cardHover}, 0.12) end)
+            b.MouseLeave:Connect(function() play(b, {BackgroundColor3 = TILE}, 0.15) end)
+            b.MouseButton1Click:Connect(function() sfx("click") safe(onClick, l) end)
+            return l
+        end
+        xyv = fchip(16, 196, "X:0.0  Y:0.0  Z:0.0", Enum.Font.Code, function(l) copy(l.Text) notify("Copied", l.Text, ACCENT, 1.4) end)
+        fchip(218, 124, "Place "..tostring(placeId), nil, function() copy(tostring(placeId)) notify("Copied", "Place ID "..tostring(placeId), ACCENT, 1.4) end)
+        fchip(348, 124, "Game "..tostring(gameId), nil, function() copy(tostring(gameId)) notify("Copied", "Game ID "..tostring(gameId), ACCENT, 1.4) end)
 
         draw = function()
             local m = METRICS[metric]
@@ -3704,24 +3881,23 @@ function SORU:CreateWindow(C)
         paintSeg()
 
         ------------------------------------------------------------
-        -- KOLOM KANAN: Activity (skor kesehatan + 5 bar)
+        -- KOLOM KANAN: Activity
         ------------------------------------------------------------
-        local cAct = pcard(side, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 150))
+        local cAct = pcard(side, UDim2.fromOffset(0, 0), UDim2.new(1, 0, 0, 132))
         header(cAct, "Activity", nil, nil)
         local deltaChip = new("Frame", {Position = UDim2.fromOffset(14 + math.ceil(textW("Activity", 13)) + 10, 12), Size = UDim2.fromOffset(46, 17), BackgroundColor3 = T.ok, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 2}, cAct)
         corner(deltaChip, FULL)
         local deltaL = label(deltaChip, {Text = "+0%", Size = UDim2.fromScale(1, 1), TextXAlignment = CENTER, Font = Bold, TextSize = 9, TextColor3 = T.ok, TextTruncate = NOTRUNC, ZIndex = 3})
-        txt(cAct, "···", 14, 8, 20, 14, DIM, Bold, RIGHT)
-        local healthL = label(cAct, {Text = "-", Position = UDim2.fromOffset(14, 32), Size = UDim2.fromOffset(120, 30), Font = Bold, TextSize = 24, TextTruncate = NOTRUNC, ZIndex = 2})
+        local healthL = label(cAct, {Text = "-", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 6), Size = UDim2.fromOffset(90, 28), TextXAlignment = RIGHT, Font = Bold, TextSize = 22, TextTruncate = NOTRUNC, ZIndex = 2})
         local ACT_NAMES = {"FPS", "Ping", "Mem", "Plrs", "Up"}
-        local actGrid = new("Frame", {Position = UDim2.fromOffset(12, 66), Size = UDim2.new(1, -24, 0, 76), BackgroundTransparency = 1}, cAct)
+        local actGrid = new("Frame", {Position = UDim2.fromOffset(12, 42), Size = UDim2.new(1, -24, 0, 82), BackgroundTransparency = 1}, cAct)
         new("UIGridLayout", {CellSize = UDim2.new(0.2, -4, 1, 0), CellPadding = UDim2.fromOffset(5, 0), SortOrder = Enum.SortOrder.LayoutOrder}, actGrid)
         local actFill, actPct = {}, {}
         for i, nm in ipairs(ACT_NAMES) do
             local cell = new("Frame", {BackgroundTransparency = 1, LayoutOrder = i}, actGrid)
-            local track = new("Frame", {Size = UDim2.new(1, 0, 1, -26), BackgroundColor3 = Color3.fromRGB(22, 22, 29), BorderSizePixel = 0}, cell)
-            corner(track, 7)
-            actFill[i] = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0), BackgroundColor3 = T.accent, BackgroundTransparency = 0.25, BorderSizePixel = 0}, track)
+            local track_ = new("Frame", {Size = UDim2.new(1, 0, 1, -25), BackgroundColor3 = Color3.fromRGB(22, 22, 29), BorderSizePixel = 0}, cell)
+            corner(track_, 7)
+            actFill[i] = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0), BackgroundColor3 = T.accent, BackgroundTransparency = 0.25, BorderSizePixel = 0}, track_)
             corner(actFill[i], 7)
             label(cell, {Text = nm, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -12), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, TextSize = 9, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
             actPct[i] = label(cell, {Text = "-", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, Font = Bold, TextSize = 9, TextTruncate = NOTRUNC, ZIndex = 2})
@@ -3729,27 +3905,26 @@ function SORU:CreateWindow(C)
         local function statusCol(p) return (p >= 70 and T.ok) or (p >= 40 and T.warn) or T.bad end
 
         ------------------------------------------------------------
-        -- Donut pemain (56 segmen, warna dari palet tema)
+        -- Donut pemain (56 segmen)
         ------------------------------------------------------------
-        local cDon = pcard(side, UDim2.fromOffset(0, 158), UDim2.new(1, 0, 0, 148))
+        local cDon = pcard(side, UDim2.fromOffset(0, 140), UDim2.new(1, 0, 0, 132))
         header(cDon, "Players", nil, nil)
-        txt(cDon, "···", 14, 8, 20, 14, DIM, Bold, RIGHT)
-        local SEGN, R, TH = 56, 33, 9
-        local dWrap = new("Frame", {Position = UDim2.fromOffset(14, 46), Size = UDim2.fromOffset(84, 84), BackgroundTransparency = 1}, cDon)
+        local SEGN, R, TH = 56, 31, 9
+        local dWrap = new("Frame", {Position = UDim2.fromOffset(14, 42), Size = UDim2.fromOffset(80, 80), BackgroundTransparency = 1}, cDon)
         local segs = {}
         for i = 1, SEGN do
             local th = (i - 1) / SEGN * math.pi * 2 - math.pi / 2
             local arc = 2 * math.pi * R / SEGN
-            segs[i] = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(42 + R * math.cos(th), 42 + R * math.sin(th)), Size = UDim2.fromOffset(arc + 1.2, TH), Rotation = math.deg(th) + 90, BackgroundColor3 = T.off, BorderSizePixel = 0}, dWrap)
+            segs[i] = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(40 + R * math.cos(th), 40 + R * math.sin(th)), Size = UDim2.fromOffset(arc + 1.2, TH), Rotation = math.deg(th) + 90, BackgroundColor3 = T.off, BorderSizePixel = 0}, dWrap)
         end
-        local dNum = label(dWrap, {Text = "-", Position = UDim2.fromOffset(0, 28), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = CENTER, Font = Bold, TextSize = 18, TextTruncate = NOTRUNC, ZIndex = 2})
-        label(dWrap, {Text = "players", Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, TextSize = 8, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
+        local dNum = label(dWrap, {Text = "-", Position = UDim2.fromOffset(0, 26), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = CENTER, Font = Bold, TextSize = 18, TextTruncate = NOTRUNC, ZIndex = 2})
+        label(dWrap, {Text = "players", Position = UDim2.fromOffset(0, 46), Size = UDim2.new(1, 0, 0, 11), TextXAlignment = CENTER, TextSize = 8, TextColor3 = DIM, TextTruncate = NOTRUNC, ZIndex = 2})
         local LEG = {"Friends", "Others", "You", "Open"}
         local legDots, legPct = {}, {}
         for i, nm in ipairs(LEG) do
-            local y = 48 + (i - 1) * 21
-            legDots[i] = dot(cDon, T.accent, 112, y + 4, 7)
-            label(cDon, {Text = nm, Position = UDim2.fromOffset(124, y), Size = UDim2.new(1, -170, 0, 15), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+            local y = 42 + (i - 1) * 20
+            legDots[i] = dot(cDon, T.accent, 108, y + 4, 7)
+            label(cDon, {Text = nm, Position = UDim2.fromOffset(120, y), Size = UDim2.new(1, -166, 0, 15), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
             legPct[i] = label(cDon, {Text = "-", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, y), Size = UDim2.fromOffset(40, 15), TextXAlignment = RIGHT, Font = Bold, TextSize = 10, ZIndex = 2})
         end
         local nFriends = 0
@@ -3776,36 +3951,154 @@ function SORU:CreateWindow(C)
         end
 
         ------------------------------------------------------------
-        -- Status (daftar seperti "Reminders")
+        -- SETTINGS (dulu accordion Interface): slider + chip, semua langsung terlihat
         ------------------------------------------------------------
-        local cSt = pcard(side, UDim2.fromOffset(0, 314), UDim2.new(1, 0, 0, 156))
-        header(cSt, "Status", nil, "live")
-        local exeName = "Executor"
-        pcall(function() if identifyexecutor then exeName = tostring((identifyexecutor())) end end)
-        local have = {writefile = writefile, readfile = readfile, isfile = isfile, getcustomasset = getcustomasset, setclipboard = setclipboard or toclipboard}
-        local missing = {}
-        for _, nme in ipairs({"writefile", "readfile", "isfile", "getcustomasset", "setclipboard"}) do
-            if not have[nme] then missing[#missing + 1] = nme end
+        local cSet = pcard(side, UDim2.fromOffset(0, 280), UDim2.new(1, 0, 0, 190))
+        header(cSet, "Settings", nil, nil)
+
+        local function mslider(parent, y, title, mn, mx, step, init, suffix, onChange, onRelease)
+            local val = init
+            label(parent, {Text = title, Position = UDim2.fromOffset(14, y), Size = UDim2.fromOffset(78, 16), TextSize = 10, TextColor3 = DIM, ZIndex = 2})
+            local valL = label(parent, {Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, y), Size = UDim2.fromOffset(40, 16), TextXAlignment = RIGHT, Font = Bold, TextSize = 10, ZIndex = 2})
+            local hit = new("TextButton", {Position = UDim2.fromOffset(92, y), Size = UDim2.new(1, -144, 0, 16), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 3}, parent)
+            local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(1, 0, 0, 5), BackgroundColor3 = Color3.fromRGB(34, 34, 44), BorderSizePixel = 0}, hit)
+            corner(bar, FULL)
+            local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = T.accent, BorderSizePixel = 0}, bar)
+            corner(fill, FULL)
+            local knob = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, bar)
+            corner(knob, FULL)
+            local function paint()
+                local a = (mx == mn) and 0 or (val - mn) / (mx - mn)
+                fill.Size = UDim2.fromScale(a, 1)
+                knob.Position = UDim2.fromScale(a, 0.5)
+                valL.Text = tostring(val)..suffix
+            end
+            local function set(v)
+                v = math.clamp(mn + math.floor((v - mn) / step + 0.5) * step, mn, mx)
+                if v == val then return end
+                val = v
+                paint()
+                safe(onChange, v)
+            end
+            local function fromX(px)
+                local aw = bar.AbsoluteSize.X
+                if aw <= 0 then return end
+                set(mn + (mx - mn) * math.clamp((px - bar.AbsolutePosition.X) / aw, 0, 1))
+            end
+            track(hit,
+                function(pos) dashScroll.ScrollingEnabled = false fromX(pos.X) return true end,
+                function(dx, dy, st, moved, pos) fromX(pos.X) end,
+                function() dashScroll.ScrollingEnabled = true sfx("pop") safe(onRelease, val) end)
+            paint()
+            return {Set = function(v) val = v paint() end}
         end
-        local statusRows = {
-            {os.date("%I:%M %p"), "SORU HUB loaded", "OK", T.ok},
-            {exeName, (#missing == 0) and "Executor check passed" or ("Missing: "..table.concat(missing, ", ")), (#missing == 0) and "OK" or "Warn", (#missing == 0) and T.ok or T.warn},
-            {"Autosave", "Config: "..tostring(placeId), "Info", T.cyan},
-        }
-        for i, sr in ipairs(statusRows) do
-            local r = ptile(cSt)
-            r.Position = UDim2.fromOffset(10, 34 + (i - 1) * 40)
-            r.Size = UDim2.new(1, -20, 0, 36)
-            txt(r, sr[1], 10, 3, 17, 13, T.text, Bold, nil, 60)
-            txt(r, sr[2], 10, 20, 12, 9, DIM, Med, nil, 60)
-            label(r, {Text = sr[3], AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -20, 0, 0), Size = UDim2.fromOffset(40, 36), TextXAlignment = RIGHT, TextSize = 9, TextColor3 = DIM, ZIndex = 2})
-            dot(r, sr[4], 0, 15, 6).Position = UDim2.new(1, -14, 0, 15)
+        local scaleS = mslider(cSet, 36, "UI scale", 60, 150, 5, math.floor(userScale * 100 + 0.5), "%", nil, function(v)
+            userScale = v / 100
+            applyScale()
+            saveUI()
+        end)
+        mslider(cSet, 62, "Transparency", 0, 60, 5, math.floor(curTrans * 100 + 0.5), "%", function(v) applyTrans(v / 100) end, function(v)
+            Data.Features["UITrans"] = v / 100
+            persist()
+        end)
+        mslider(cSet, 88, "Volume", 0, 100, 5, math.floor(sndVol * 100 + 0.5), "%", function(v) sndVol = v / 100 end, function(v)
+            Data.Features["UIVol"] = v
+            persist()
+        end)
+
+        local chipGrid = new("Frame", {Position = UDim2.fromOffset(10, 116), Size = UDim2.new(1, -20, 0, 66), BackgroundTransparency = 1}, cSet)
+        new("UIGridLayout", {CellSize = UDim2.new(1 / 3, -5, 0, 29), CellPadding = UDim2.fromOffset(6, 8), SortOrder = Enum.SortOrder.LayoutOrder}, chipGrid)
+        local function mchip(order, text, flag, default, onChange)
+            local v = Data.Features[flag]
+            if type(v) ~= "boolean" then v = default end
+            if default ~= nil and flag == "UILite" then v = default end -- chip Lite/NoAnim menampilkan mode yang sedang berjalan
+            if flag == "UINoAnim" then v = default end
+            local b = new("TextButton", {BackgroundColor3 = TILE, BackgroundTransparency = 0.1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = order}, chipGrid)
+            corner(b, 9)
+            local st = stroke(b, T.stroke, 1, 0.6)
+            local d = dot(b, T.off, 8, 11, 7)
+            local l = label(b, {Text = text, Position = UDim2.fromOffset(21, 0), Size = UDim2.new(1, -24, 1, 0), TextSize = 10, Font = Bold, TextColor3 = DIM, ZIndex = 2})
+            local function paint()
+                d.BackgroundColor3 = v and T.ok or T.off
+                l.TextColor3 = v and T.text or DIM
+                st.Color = v and T.accent or T.stroke
+                st.Transparency = v and 0.3 or 0.6
+            end
+            paint()
+            b.MouseButton1Click:Connect(function()
+                v = not v
+                paint()
+                sfx(v and "on" or "off")
+                Data.Features[flag] = v
+                persist()
+                safe(onChange, v)
+            end)
+            Data.Features[flag] = v
+            return b
+        end
+        mchip(1, "Blur", "UIBlur2", false, function(v) blurOn = v updateBlur() end)
+        mchip(2, "Anim BG", "UIAnim2", false, function(v) ambientOn = v ambient.Visible = v end)
+        mchip(3, "Sound", "UISound2", false, function(v) sndOn = v if v then loadSfx() end end)
+        mchip(4, "Lite", "UILite", LITE, function(v)
+            if v ~= LITE then
+                Data.Features["UINoAnim"] = v
+                persist()
+                notify("Lite mode", "Re-execute the script to apply", ACCENT, 2.5)
+            end
+        end)
+        mchip(5, "No anim", "UINoAnim", NOANIM, function(v)
+            if v ~= NOANIM then notify("No animation", "Re-execute the script to apply", ACCENT, 2.5) end
+        end)
+        local rb = new("TextButton", {BackgroundColor3 = T.accent, BackgroundTransparency = 0.8, Text = "Reset UI", Font = Bold, TextSize = 10, TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = 6}, chipGrid)
+        corner(rb, 9)
+        stroke(rb, T.accent, 1, 0.4)
+        rb.MouseButton1Click:Connect(function()
+            sfx("click")
+            winSize = DEFAULT_SIZE
+            winPos = nil
+            userScale = autoScale()
+            scaleS.Set(math.floor(userScale * 100 + 0.5))
+            applyScale()
+            layoutWin(true)
+            saveUI()
+            notify("UI reset", "Size and scale restored", ACCENT, 2)
+        end)
+
+        -- tombol menu (hanya ada keyboard)
+        if UIS.KeyboardEnabled then
+            local keyBtn = new("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 9), Size = UDim2.fromOffset(96, 20), BackgroundColor3 = TILE, Text = "Menu: "..toggleKey.Name, Font = Bold, TextSize = 9, TextColor3 = T.text, AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, cSet)
+            corner(keyBtn, 7)
+            stroke(keyBtn, T.stroke, 1, 0.5)
+            local listening = false
+            keyBtn.MouseButton1Click:Connect(function()
+                if listening then return end
+                listening = true
+                binding = true
+                keyBtn.Text = "press a key..."
+                local conn
+                conn = UIS.InputBegan:Connect(function(i)
+                    local ut = i.UserInputType
+                    if ut == Enum.UserInputType.Keyboard then
+                        if i.KeyCode ~= Enum.KeyCode.Escape then
+                            toggleKey = i.KeyCode
+                            Data.Features["MenuKey"] = i.KeyCode.Name
+                            persist()
+                        end
+                    elseif ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then
+                        return
+                    end
+                    listening = false
+                    keyBtn.Text = "Menu: "..toggleKey.Name
+                    conn:Disconnect()
+                    task.delay(0.1, function() binding = false end)
+                end)
+            end)
         end
 
         ------------------------------------------------------------
         -- Sampling 1x per detik (hanya saat window terbuka dan tab Dashboard aktif)
         ------------------------------------------------------------
-        local frames, lastT, friendTick = 0, os.clock(), -100
+        local frames, lastT, friendTick, lastK = 0, os.clock(), -100, -1
         bind(RunService.RenderStepped, function() frames = frames + 1 end)
         local healthHist = {}
         local function sample()
@@ -3824,6 +4117,12 @@ function SORU:CreateWindow(C)
             local maxp = math.max(Players.MaxPlayers, 1)
             vTime.Text = fmtTime(now - t0)
             vPl.Text = n.."/"..maxp
+            -- cincin progres jam ini
+            local k = math.floor(((now - t0) % 3600) / 3600 * RS + 0.5)
+            if k ~= lastK then
+                lastK = k
+                for i = 1, RS do rsegs[i].BackgroundColor3 = (i <= k) and T.accent or Color3.fromRGB(38, 38, 50) end
+            end
             -- kartu server
             vPing.Text = tostring(math.floor(ping + 0.5))
             local pc = (ping <= 80 and T.ok) or (ping <= 150 and T.warn) or T.bad
@@ -3885,6 +4184,7 @@ function SORU:CreateWindow(C)
     end
     if not LITE then PRO.build() end
 
+    if LITE then
     local ST = D:Accordion({Title = "Statistics", Desc = "FPS, ping, game info, coordinates", Open = false})
 
     do -- statistik
@@ -4004,6 +4304,8 @@ function SORU:CreateWindow(C)
         end)
     end
 
+    end -- akhir blok Statistics (hanya mode Lite; di Pro sudah pindah ke layout utama)
+
     -- ganti warna aksen semua elemen yang sudah ada (cocokkan warna lama -> baru)
     local function retheme(oldPal)
         local nw = {T.accent, T.accent2, T.cyan, T.pink}
@@ -4045,6 +4347,28 @@ function SORU:CreateWindow(C)
         end
     end
 
+    local initTrans = (type(Data.Features["UITrans"]) == "number") and Data.Features["UITrans"] or 0.15
+
+    if not LITE then -- ganti tema untuk layout Pro (pemilih tema di header memanggil ini)
+        PRO.setTheme = function(v)
+            if type(v) ~= "string" or v == curTheme or not THEMES[v] then return end
+            curTheme = v
+            if PRO.themeNameUpd then PRO.themeNameUpd() end
+            local oldPal = applyPalette(v)
+            if not oldPal then return end
+            Data.Features["UITheme"] = v
+            persist()
+            retheme(oldPal)
+            if PRO.refreshSwatches then PRO.refreshSwatches() end
+        end
+        PRO.cycleTheme = function(d)
+            local i = table.find(THEME_ORDER, curTheme) or 1
+            i = (i - 1 + d) % #THEME_ORDER + 1
+            PRO.setTheme(THEME_ORDER[i])
+        end
+    end
+
+    if LITE then
     local SA = D:Accordion({Title = "Interface", Desc = "Theme, scale, transparency, sound", Open = false})
     SA:Section("Display")
     PRO.themeDD = SA:Dropdown({
@@ -4135,20 +4459,8 @@ function SORU:CreateWindow(C)
 
 
     local SC = D:Accordion({Title = "Changelog", Desc = "v"..VERSION.." Pro + Lite", Open = false})
-    SC:Paragraph({Title = "v5.8 - Pro layout", Desc = table.concat({
-        "1. Lite OFF now uses a Pro layout inspired by a dark dashboard (cards, charts, donut)",
-        "2. Pro header: big page title, two-line hub name, FPS and ping chip",
-        "3. Theme pill in the header: arrows cycle ALL 100+ themes, tap the name for random, 3-color preview",
-        "4. Notification bell with unread badge (tap to clear) and avatar with online dot",
-        "5. Session card: big round button copies the join script, live server timer and player count",
-        "6. Quick actions: Rejoin, Copy join script, Server hop (teleports ask for a second tap)",
-        "7. Server card: ping tinted by quality, FPS, Players, Join Discord tile",
-        "8. Performance panel: FPS / Ping / Memory segmented, 60s history, AVG/MIN/MAX, now line",
-        "9. Right column: Activity (health score + 5 bars), Players donut, Status list",
-        "10. Pro default size 880x564 with its own saved-size file, all colors follow the theme",
-        "11. Lite toggle now also sets animations: Lite ON = no animation, Lite OFF = full animation",
-        "(Lite ON layout is unchanged, see v5.5 to v5.7 in the script header)",
-    }, "\n")})
+    SC:Paragraph({Title = "v5.9 - Pro dashboard", Desc = table.concat(PRO.changelog, "\n")})
+    end -- akhir blok Interface/Changelog (hanya mode Lite)
 
     ------------------------------------------------------------------
     -- MODAL TUTUP
