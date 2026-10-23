@@ -1001,16 +1001,6 @@ local v7=v24[0x1C6];while true do if v159>v378 then break;end v159=v159+67.54;en
 local Window = getgenv().SORU_Window
 if not Window then return end
 repeat task.wait() until game:IsLoaded()
-local V3, V2, CF, C3 = Vector3.new, Vector2.new, CFrame.new, Color3.new
-
-local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
-local Window = SORU:CreateWindow({
-    Title = "FARM + PET HUB",
-    Subtitle = "Click / Win / Rebirth / Evolve / Egg",
-    Lite = false,
-    ToggleKey = Enum.KeyCode.RightShift
-})
-
 -- HELPER
 local function getPartFromObj(obj)
     if not obj then return nil end
