@@ -1871,7 +1871,7 @@ function SORU:CreateWindow(C)
             notify("UI reset", "Size and scale restored", T.accent, 2)
         end})
         local CL = D:Accordion({Title = "Changelog", Desc = "v" .. VERSION})
-        CL:Paragraph({Title = "v6.0 - Vora layout", Desc = "Sidebar tabs with sliding pill, accordion cards, dropdown drawer with search, gradient accent strokes, accent notch on hover, censored Hello card, 44 themes, ~3x lighter than v5.9."})
+        CL:Paragraph({Title = "v6.0", Desc = "Sidebar tabs with sliding pill, accordion cards, dropdown drawer with search, gradient accent strokes, accent notch on hover, censored Hello card, 44 themes, ~3x lighter than v5.9."})
     end
     buildDashboard(Window:Tab({Title = "Dashboard", Icon = "home"}))
 
