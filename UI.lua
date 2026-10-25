@@ -43,7 +43,7 @@ SORU.Icons = {
 }
 
 ----------------------------------------------------------------------
--- THEME: palet Vora. Aksen bisa diganti lewat Settings (45 preset)
+-- THEME: palet . Aksen bisa diganti lewat Settings (45 preset)
 ----------------------------------------------------------------------
 local T = {
     bg = Color3.fromRGB(10, 12, 25), side = Color3.fromRGB(15, 18, 32), el = Color3.fromRGB(25, 30, 50),
@@ -68,7 +68,7 @@ function SORU.AddTheme(name, a, b)
     THEMES[name] = {hx(a), hx(b)}
 end
 for _, s in ipairs({
-    "Vora 008CD2 0064B4", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
+    "Purple 008CD2 0064B4", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
     "Sunset FF963C F0465A", "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA", "Aqua 1ED2E6 2896EB",
     "Ice 82C8FF 648CFF", "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E", "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C",
     "Cyber FF28C8 8C3CFF", "Orchid D26EFF A050E6", "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64",
@@ -471,7 +471,7 @@ function SORU:CreateWindow(C)
         local m = new("Frame", {Position = UDim2.fromOffset(330, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BackgroundTransparency = 0.1, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
         corner(m, 8)
         stroke(m, T.outline, 1, 0)
-        local ic = new("ImageLabel", {Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, Image = img or "rbxassetid://112067161065104", ImageColor3 = color}, m)
+        local ic = new("ImageLabel", {Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, Image = img or "rxassetid://112067161065104", ImageColor3 = color}, m)
         corner(ic, 6)
         text(m, {Text = tostring(title or ""), Position = UDim2.fromOffset(58, 10), Size = UDim2.new(1, -68, 0, 20), W = 3})
         text(m, {Text = tostring(msg or ""), Position = UDim2.fromOffset(58, 30), Size = UDim2.new(1, -68, 0, 26), TextSize = 12, W = 1, TextColor3 = T.dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
@@ -494,7 +494,7 @@ function SORU:CreateWindow(C)
     end
 
     ------------------------------------------------------------------
-    -- SHELL + WINDOW + HEADER (gaya Vora)
+    -- SHELL + WINDOW + HEADER
     ------------------------------------------------------------------
     local Window = {Tabs = {}, Flags = Reg, Gui = gui, PlaceId = placeId, GameId = gameId}
     local shell = new("Frame", {Name = "Shell", BackgroundTransparency = 1, Visible = false}, root)
@@ -585,7 +585,7 @@ function SORU:CreateWindow(C)
     local CONT_X = SIDE_W
     local content = new("Frame", {Name = "ContentContainer", Position = UDim2.fromOffset(CONT_X, 45), Size = UDim2.new(1, -CONT_X, 1, -45), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, win)
 
-    -- resize handle: tiga garis diagonal (Vora)
+    -- resize handle: tiga garis diagonal ()
     local rh = new("TextButton", {Name = "ResizeHandle", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -4, 1, -4), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 100}, win)
     local rLines = {}
     for _, cfg in ipairs({{6, -2, -2}, {10, -2, -6}, {14, -2, -10}}) do
@@ -802,7 +802,7 @@ function SORU:CreateWindow(C)
         local order = 0
         local function nextOrder() order = order + 1 return order end
 
-        -- elemen dasar ala Vora: fill el (alpha 0.2), corner 6, outline tipis
+        -- elemen dasar fill el (alpha 0.2), corner 6, outline tipis
         local function elem(h)
             local f = new("Frame", {Size = UDim2.new(1, 0, 0, h), BackgroundColor3 = T.el, BackgroundTransparency = 0.2, BorderSizePixel = 0, LayoutOrder = nextOrder()}, K._cur or container)
             corner(f, 6)
