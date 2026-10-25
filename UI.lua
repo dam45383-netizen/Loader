@@ -1,45 +1,25 @@
+--[[ SORU HUB v7.0 - Cartoon Classic
+     Kertas krem, outline tinta tebal, bayangan keras, tombol "ditekan" ke bawah, animasi memantul.
+     Tanpa gradient & tanpa gambar bayangan = ringan. API sama dengan v6.1. ]]
+local SORU = {Version = "7.0"}
+local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
+local Market, Http, Stats, TextService = game:GetService("MarketplaceService"), game:GetService("HttpService"), game:GetService("Stats"), game:GetService("TextService")
+local GuiService, TeleportService, LocalizationService = game:GetService("GuiService"), game:GetService("TeleportService"), game:GetService("LocalizationService")
 
-local SORU = {}
-SORU.Version = "6.1"
-
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Market = game:GetService("MarketplaceService")
-local Http = game:GetService("HttpService")
-local Stats = game:GetService("Stats")
-local TextService = game:GetService("TextService")
-local GuiService = game:GetService("GuiService")
-local TeleportService = game:GetService("TeleportService")
-local LocalizationService = game:GetService("LocalizationService")
-
-local VERSION = SORU.Version
-local CFG = "SORU_HUB"
+local VERSION, CFG = SORU.Version, "SORU_HUB"
 local CFGS = CFG .. "/configs"
 pcall(function()
-    if makefolder then
-        if not isfolder(CFG) then makefolder(CFG) end
-        if not isfolder(CFGS) then makefolder(CFGS) end
-    end
+    if makefolder then for _, p in ipairs({CFG, CFGS}) do if not isfolder(p) then makefolder(p) end end end
 end)
 
-----------------------------------------------------------------------
 -- ICON (diunduh sekali, disimpan di folder SORU_HUB)
-----------------------------------------------------------------------
 local ICON_URL = "https://raw.githubusercontent.com/dam45383-netizen/UI/main/SORU_S_ICON_1024.png"
 local function getIcon()
     if not (isfile and getcustomasset and writefile) then return "" end
     local p = CFG .. "/SORU_S_ICON_1024.png"
-    local function asset()
-        local ok, a = pcall(getcustomasset, p)
-        return (ok and type(a) == "string" and a ~= "") and a or nil
-    end
+    local function asset() local ok, a = pcall(getcustomasset, p) return (ok and type(a) == "string" and a ~= "") and a or nil end
     local ok, has = pcall(isfile, p)
-    if ok and has then
-        local a = asset()
-        if a then return a end
-    end
+    if ok and has and asset() then return asset() end
     local ok2, data = pcall(function() return game:HttpGet(ICON_URL) end)
     if ok2 and type(data) == "string" and #data > 64 and not data:find("^404") then
         pcall(writefile, p, data)
@@ -51,26 +31,24 @@ end
 local ICON = getIcon()
 
 SORU.Icons = {
-    home = "home", player = "rbxassetid://12120698352", user = "rbxassetid://108483430622128",
-    settings = "rbxassetid://70386228443175", sword = "rbxassetid://82472368671405",
-    gamepad = "rbxassetid://84173963561612", crosshair = "rbxassetid://12614416478",
-    stat = "rbxassetid://12094445329", eyes = "rbxassetid://14321059114", shop = "rbxassetid://4985385964",
-    star = "rbxassetid://107005941750079", fish = "rbxassetid://97167558235554",
-    discord = "rbxassetid://94434236999817", gps = "rbxassetid://17824309485",
+    home = "home", player = "rbxassetid://12120698352", user = "rbxassetid://108483430622128", settings = "rbxassetid://70386228443175",
+    sword = "rbxassetid://82472368671405", gamepad = "rbxassetid://84173963561612", crosshair = "rbxassetid://12614416478",
+    stat = "rbxassetid://12094445329", eyes = "rbxassetid://14321059114", shop = "rbxassetid://4985385964", star = "rbxassetid://107005941750079",
+    fish = "rbxassetid://97167558235554", discord = "rbxassetid://94434236999817", gps = "rbxassetid://17824309485",
     boss = "rbxassetid://13132186360", loop = "rbxassetid://122032243989747",
 }
 
 ----------------------------------------------------------------------
--- THEME
+-- THEME: kertas krem + tinta cokelat tua. Aksen bisa diganti (44 preset)
 ----------------------------------------------------------------------
 local T = {
-    bg = Color3.fromRGB(10, 11, 21), side = Color3.fromRGB(15, 16, 29), card = Color3.fromRGB(24, 27, 45),
-    hover = Color3.fromRGB(34, 40, 66), line = Color3.fromRGB(40, 48, 78), text = Color3.fromRGB(240, 243, 255),
-    dim = Color3.fromRGB(165, 175, 210), off = Color3.fromRGB(46, 50, 72), input = Color3.fromRGB(12, 14, 26),
-    ok = Color3.fromRGB(74, 222, 128), warn = Color3.fromRGB(250, 204, 21), bad = Color3.fromRGB(248, 113, 113),
+    bg = Color3.fromRGB(255, 244, 214), side = Color3.fromRGB(253, 230, 172), card = Color3.fromRGB(255, 252, 242),
+    hover = Color3.fromRGB(255, 237, 190), ink = Color3.fromRGB(58, 38, 42), text = Color3.fromRGB(58, 38, 42),
+    dim = Color3.fromRGB(128, 100, 88), off = Color3.fromRGB(228, 210, 175), input = Color3.fromRGB(255, 255, 250),
+    ok = Color3.fromRGB(46, 170, 90), warn = Color3.fromRGB(226, 146, 12), bad = Color3.fromRGB(222, 66, 66),
     accent = Color3.fromRGB(145, 96, 255), accent2 = Color3.fromRGB(94, 106, 255),
 }
-local WHITE = Color3.new(1, 1, 1)
+local WHITE, BACK, R = Color3.new(1, 1, 1), Enum.EasingStyle.Back, 10
 local XL, XC, XR = Enum.TextXAlignment.Left, Enum.TextXAlignment.Center, Enum.TextXAlignment.Right
 local NOTRUNC = Enum.TextTruncate.None
 
@@ -84,34 +62,24 @@ function SORU.AddTheme(name, a, b)
     THEMES[name] = {hx(a), hx(b)}
 end
 for _, s in ipairs({
-    "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
-    "Sunset FF963C F0465A", "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA",
-    "Aqua 1ED2E6 2896EB", "Ice 82C8FF 648CFF", "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E",
-    "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C", "Cyber FF28C8 8C3CFF", "Orchid D26EFF A050E6",
-    "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64", "Steel 7896BE 506EA0",
-    "Mono BEC2D6 787EA0", "Ruby E0314B B3203F", "Coral FF6F61 F2496B", "Amber FFB000 E08700",
-    "Lime B6F03C 7CCB2B", "Jade 2FBF8F 1F8F6B", "Teal 14B8A6 0E8F83", "Cobalt 3D6BFF 2447D6",
-    "Indigo 6366F1 4338CA", "Grape 9B4DE0 6A2FB8", "Lavender B49CFF 8E78E6", "Bubblegum FF7EC8 E255A8",
-    "HotPink FF2E93 D6106F", "Synthwave FF2E97 7B2FF7", "Vaporwave FF71CE B967FF", "Tokyo F72585 7209B7",
-    "Dracula BD93F9 6272A4", "Nord 88C0D0 5E81AC", "Mocha CBA6F7 89B4FA", "Matrix 00FF66 00B347",
+    "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78", "Sunset FF963C F0465A",
+    "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA", "Aqua 1ED2E6 2896EB", "Ice 82C8FF 648CFF",
+    "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E", "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C", "Cyber FF28C8 8C3CFF",
+    "Orchid D26EFF A050E6", "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64", "Steel 7896BE 506EA0",
+    "Mono BEC2D6 787EA0", "Ruby E0314B B3203F", "Coral FF6F61 F2496B", "Amber FFB000 E08700", "Lime B6F03C 7CCB2B",
+    "Jade 2FBF8F 1F8F6B", "Teal 14B8A6 0E8F83", "Cobalt 3D6BFF 2447D6", "Indigo 6366F1 4338CA", "Grape 9B4DE0 6A2FB8",
+    "Lavender B49CFF 8E78E6", "Bubblegum FF7EC8 E255A8", "HotPink FF2E93 D6106F", "Synthwave FF2E97 7B2FF7", "Vaporwave FF71CE B967FF",
+    "Tokyo F72585 7209B7", "Dracula BD93F9 6272A4", "Nord 88C0D0 5E81AC", "Mocha CBA6F7 89B4FA", "Matrix 00FF66 00B347",
     "Aurora 4DE8B0 5C7CFA", "Nebula 7B5CFF 4A2FBF", "Cyan 00D8FF 0094E0", "Ember FF7A18 E0401C",
 }) do SORU.AddTheme(s:match("(%S+)%s+(%x+)%s+(%x+)")) end
 
--- elemen yang selalu berwarna aksen didaftarkan di sini; ganti tema = tulis ulang semuanya
+-- elemen berwarna aksen didaftarkan di sini; ganti tema = tulis ulang semuanya
 local skins, themeFns, transList = {}, {}, {}
-local curTrans = 0.08
-local NOANIM = false
-local SC = {v = 1}
-
+local curTrans, NOANIM = 0, false
 local function skin(o, prop, key)
     skins[#skins + 1] = {o, prop, key}
     o[prop] = T[key]
     return o
-end
-local function skinGrad(g)
-    skins[#skins + 1] = {g, "Color", "grad"}
-    g.Color = ColorSequence.new(T.accent, T.accent2)
-    return g
 end
 local function applyTheme(name)
     local p = THEMES[name]
@@ -119,9 +87,7 @@ local function applyTheme(name)
     T.accent, T.accent2 = p[1], p[2]
     for i = #skins, 1, -1 do
         local e = skins[i]
-        if e[1].Parent == nil then table.remove(skins, i)
-        elseif e[3] == "grad" then e[1].Color = ColorSequence.new(T.accent, T.accent2)
-        else e[1][e[2]] = T[e[3]] end
+        if e[1].Parent == nil then table.remove(skins, i) else e[1][e[2]] = T[e[3]] end
     end
     for _, fn in ipairs(themeFns) do pcall(fn) end
     return true
@@ -134,16 +100,16 @@ local function applyTrans(t)
     curTrans = math.clamp(t, 0, 0.7)
     for i = #transList, 1, -1 do
         local e = transList[i]
-        if e[1].Parent then e[1].BackgroundTransparency = math.clamp(curTrans + e[2], 0, 1)
-        else table.remove(transList, i) end
+        if e[1].Parent then e[1].BackgroundTransparency = math.clamp(curTrans + e[2], 0, 1) else table.remove(transList, i) end
     end
 end
 
 ----------------------------------------------------------------------
 -- HELPERS
 ----------------------------------------------------------------------
-local FAM = "rbxasset://fonts/families/Nunito.json"
-local FONT = {Font.new(FAM, Enum.FontWeight.Regular), Font.new(FAM, Enum.FontWeight.Medium), Font.new(FAM, Enum.FontWeight.Bold)}
+local NUN = "rbxasset://fonts/families/Nunito.json"
+-- W: 1 = isi (Nunito medium), 2 = label (Nunito bold), 3 = judul kartun (Fredoka One)
+local FONT = {Font.new(NUN, Enum.FontWeight.Medium), Font.new(NUN, Enum.FontWeight.Bold), Font.fromEnum(Enum.Font.FredokaOne)}
 local MONO = Font.new("rbxasset://fonts/families/RobotoMono.json")
 
 local function new(class, props, parent)
@@ -152,30 +118,35 @@ local function new(class, props, parent)
     if parent then o.Parent = parent end
     return o
 end
-local function corner(o, r)
-    return new("UICorner", {CornerRadius = (r == "full") and UDim.new(1, 0) or UDim.new(0, r or 8)}, o)
-end
+local function corner(o, r) return new("UICorner", {CornerRadius = (r == "full") and UDim.new(1, 0) or UDim.new(0, r or 8)}, o) end
 local function stroke(o, col, th, tr)
-    return new("UIStroke", {Color = col or T.line, Thickness = th or 1, Transparency = tr or 0.4, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
+    return new("UIStroke", {Color = col or T.ink, Thickness = th or 2, Transparency = tr or 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
 end
-local function grad(o, c0, c1, rot)
-    return new("UIGradient", {Color = ColorSequence.new(c0, c1), Rotation = rot or 0}, o)
+-- instance + corner + outline tinta sekaligus
+local function mk(class, props, parent, r, st)
+    local o = new(class, props, parent)
+    if r then corner(o, r) end
+    if st then stroke(o, T.ink, st) end
+    return o
 end
--- label: W = bobot font (1 reguler, 2 medium, 3 tebal), Mono = font monospace
+-- bayangan keras: kotak tinta bergeser, dibuat SEBELUM elemen yang dibayangi
+local function hardShadow(parent, r, off, size)
+    return mk("Frame", {Name = "Shadow", Position = UDim2.fromOffset(off, off), Size = size or UDim2.new(1, -6, 1, -6), BackgroundColor3 = T.ink, BorderSizePixel = 0}, parent, r)
+end
+-- body kartun + bayangan di dalam holder (body = holder - 6px)
+local function sticker(parent, r, st, bg, class)
+    hardShadow(parent, r, 4)
+    return mk(class or "Frame", {Name = "Body", Size = UDim2.new(1, -6, 1, -6), BackgroundColor3 = bg or T.card, BorderSizePixel = 0}, parent, r, st or 2)
+end
 local function text(parent, p)
     local d = {BackgroundTransparency = 1, BorderSizePixel = 0, FontFace = FONT[2], TextSize = 13, TextColor3 = T.text, TextXAlignment = XL, TextTruncate = Enum.TextTruncate.AtEnd}
     for k, v in pairs(p) do
-        if k == "W" then d.FontFace = FONT[v]
-        elseif k == "Mono" then d.FontFace = MONO
-        else d[k] = v end
+        if k == "W" then d.FontFace = FONT[v] elseif k == "Mono" then d.FontFace = MONO else d[k] = v end
     end
     return new("TextLabel", d, parent)
 end
 local function play(o, p, t, style, dir)
-    if NOANIM then
-        for k, v in pairs(p) do o[k] = v end
-        return
-    end
+    if NOANIM then for k, v in pairs(p) do o[k] = v end return end
     TweenService:Create(o, TweenInfo.new(t or 0.2, style or Enum.EasingStyle.Quint, dir or Enum.EasingDirection.Out), p):Play()
 end
 local function safe(fn, ...)
@@ -183,15 +154,13 @@ local function safe(fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then warn("[SORU HUB] " .. tostring(err)) end
 end
-local function copy(s)
-    if setclipboard then setclipboard(s) elseif toclipboard then toclipboard(s) end
-end
+local function copy(s) if setclipboard then setclipboard(s) elseif toclipboard then toclipboard(s) end end
 local function toKey(n)
     local ok, v = pcall(function() return Enum.KeyCode[n] end)
     return ok and v or nil
 end
 local function textW(s, size)
-    local ok, v = pcall(function() return TextService:GetTextSize(tostring(s), size, Enum.Font.GothamBold, Vector2.new(1000, 100)).X end)
+    local ok, v = pcall(function() return TextService:GetTextSize(tostring(s), size, Enum.Font.FredokaOne, Vector2.new(1000, 100)).X end)
     return ok and v or (#tostring(s) * size * 0.6)
 end
 
@@ -202,8 +171,7 @@ local function track(handle, onBegin, onMove, onEnd)
         if ut ~= Enum.UserInputType.MouseButton1 and ut ~= Enum.UserInputType.Touch then return end
         local start = input.Position
         local state = onBegin and onBegin(start) or nil
-        local moved, ended = false, false
-        local conn
+        local moved, ended, conn = false, false, nil
         conn = UIS.InputChanged:Connect(function(i)
             local it = i.UserInputType
             if it == Enum.UserInputType.MouseMovement or it == Enum.UserInputType.Touch then
@@ -223,57 +191,33 @@ local function track(handle, onBegin, onMove, onEnd)
     end)
 end
 
--- gelombang kecil saat tombol ditekan
-local function ripple(b)
-    b.ClipsDescendants = true
-    b.MouseButton1Down:Connect(function()
-        if NOANIM then return end
-        local m, ap = UIS:GetMouseLocation(), b.AbsolutePosition
-        local s = math.max(SC.v, 0.01)
-        local d = math.max(b.AbsoluteSize.X, b.AbsoluteSize.Y) / s * 2.2
-        local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset((m.X - ap.X) / s, (m.Y - ap.Y) / s), Size = UDim2.fromOffset(0, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.85, BorderSizePixel = 0, ZIndex = 0}, b)
-        corner(r, "full")
-        play(r, {Size = UDim2.fromOffset(d, d), BackgroundTransparency = 1}, 0.5)
-        task.delay(0.55, function() r:Destroy() end)
-    end)
-end
-
--- judul + deskripsi di sisi kiri kartu
+-- judul + deskripsi di sisi kiri kartu (h = tinggi holder, tinggi isi = h - 6)
 local function rowText(f, title, desc, rpad, h, ws)
     local w = ws or 1
-    local t = text(f, {Text = tostring(title), Position = UDim2.fromOffset(12, desc and 8 or 0), Size = UDim2.new(w, -(12 + rpad), 0, desc and 18 or h), W = 3})
-    local d = nil
-    if desc then
-        d = text(f, {Text = tostring(desc), Position = UDim2.fromOffset(12, 28), Size = UDim2.new(w, -(12 + rpad), 0, 16), TextSize = 11, TextColor3 = T.dim})
-    end
+    local t = text(f, {Text = tostring(title), Position = UDim2.fromOffset(14, desc and 7 or 0), Size = UDim2.new(w, -(14 + rpad), 0, desc and 20 or (h - 6)), W = 3})
+    local d = desc and text(f, {Text = tostring(desc), Position = UDim2.fromOffset(14, 27), Size = UDim2.new(w, -(14 + rpad), 0, 16), TextSize = 11, TextColor3 = T.dim, W = 1})
     return t, d
 end
 
--- kotak input kecil dengan garis fokus
+-- kotak input: outline tinta, terisi aksen tipis saat fokus
 local function inputBox(parent, p)
-    local wrap = new("Frame", {BackgroundColor3 = T.input, BorderSizePixel = 0, ClipsDescendants = true}, parent)
+    local wrap = mk("Frame", {BackgroundColor3 = T.input, BorderSizePixel = 0, ClipsDescendants = true}, parent, 8, 2)
     for k, v in pairs(p.wrap or {}) do wrap[k] = v end
-    corner(wrap, 7)
-    local ws = stroke(wrap, T.line, 1, 0.35)
-    local box = new("TextBox", {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = p.text or "", PlaceholderText = p.placeholder or "", PlaceholderColor3 = Color3.fromRGB(96, 102, 134), TextColor3 = T.text, FontFace = FONT[2], TextSize = 12, TextXAlignment = XL, ClearTextOnFocus = p.clear or false}, wrap)
-    box.Focused:Connect(function() play(ws, {Color = T.accent, Transparency = 0.1}, 0.15) end)
-    box.FocusLost:Connect(function() play(ws, {Color = T.line, Transparency = 0.35}, 0.2) end)
+    local box = new("TextBox", {Size = UDim2.new(1, -16, 1, 0), Position = UDim2.fromOffset(8, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = p.text or "", PlaceholderText = p.placeholder or "", PlaceholderColor3 = T.dim, TextColor3 = T.text, FontFace = FONT[2], TextSize = 12, TextXAlignment = XL, ClearTextOnFocus = p.clear or false}, wrap)
+    box.Focused:Connect(function() play(wrap, {BackgroundColor3 = T.input:Lerp(T.accent, 0.25)}, 0.15) end)
+    box.FocusLost:Connect(function() play(wrap, {BackgroundColor3 = T.input}, 0.2) end)
     return wrap, box
 end
 
 -- ikon tab: "home" (digambar) | gambar (rbxassetid / id angka) | huruf / simbol
 local function tabIcon(b, icon, name)
-    local box = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1}, b)
+    local box = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1}, b)
     local ic = icon and (SORU.Icons[icon] or tostring(icon)) or nil
     if ic == "home" then
         local parts = {}
-        local function part(w, h, x, y, rot)
-            local f = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, x, 0.5, y), Size = UDim2.fromOffset(w, h), Rotation = rot or 0, BackgroundColor3 = T.dim, BorderSizePixel = 0}, box)
-            corner(f, 2)
-            parts[#parts + 1] = f
+        for _, d in ipairs({{11, 11, -3, 45}, {13, 8, 4, 0}}) do
+            parts[#parts + 1] = mk("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, d[3]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = d[4], BackgroundColor3 = T.dim, BorderSizePixel = 0}, box, 2)
         end
-        part(11, 11, 0, -3, 45)
-        part(13, 8, 0, 4)
         return function(c) for _, f in ipairs(parts) do f.BackgroundColor3 = c end end
     elseif ic and (ic:match("^rbxasset") or ic:match("^%d%d%d+$")) then
         local img = new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = ic:match("^%d+$") and ("rbxassetid://" .. ic) or ic, ImageColor3 = T.dim}, box)
@@ -284,33 +228,27 @@ local function tabIcon(b, icon, name)
 end
 
 ----------------------------------------------------------------------
--- DRAWER: dropdown ala Vora, panel geser di sisi kanan window (satu per host, dibuat saat pertama dipakai)
+-- DRAWER: dropdown = panel geser di sisi kanan window (satu per host, dibuat saat pertama dipakai)
 ----------------------------------------------------------------------
 local function makeDrawer(host, rad)
-    local D = {}
-    local spec = nil
-    local ov = new("TextButton", {Name = "Drawer", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Visible = false, ClipsDescendants = true, ZIndex = 500, BorderSizePixel = 0}, host)
-    corner(ov, rad)
-    local dr = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 260, 0.5, 0), Size = UDim2.new(0.62, 0, 1, -16), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true}, ov)
-    new("UISizeConstraint", {MinSize = Vector2.new(190, 0), MaxSize = Vector2.new(236, 4000)}, dr)
-    corner(dr, 10)
-    skin(stroke(dr, WHITE, 1.2, 0.4), "Color", "accent")
-    local title = text(dr, {Position = UDim2.fromOffset(14, 10), Size = UDim2.new(1, -92, 0, 20), W = 3, TextSize = 14})
-    local count = text(dr, {Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -92, 0, 14), TextSize = 10, TextColor3 = T.dim})
+    local D, spec, rows = {}, nil, {}
+    local ov = mk("TextButton", {Name = "Drawer", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Visible = false, ClipsDescendants = true, ZIndex = 500, BorderSizePixel = 0}, host, rad)
+    local dr = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, 280, 0.5, 0), Size = UDim2.new(0.62, 0, 1, -24), BackgroundTransparency = 1, Active = true}, ov)
+    new("UISizeConstraint", {MinSize = Vector2.new(196, 0), MaxSize = Vector2.new(240, 4000)}, dr)
+    local bd = sticker(dr, 12, 3, T.side)
+    local title = text(bd, {Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -110, 0, 22), W = 3, TextSize = 16})
+    local count = text(bd, {Position = UDim2.fromOffset(14, 30), Size = UDim2.new(1, -110, 0, 14), TextSize = 11, TextColor3 = T.dim, W = 1})
     local function sbtn(x, txt, w)
-        local b = new("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, x, 0, 10), Size = UDim2.fromOffset(w, 24), BackgroundColor3 = T.card, Text = txt, FontFace = FONT[3], TextSize = 11, TextColor3 = T.dim, AutoButtonColor = false, BorderSizePixel = 0}, dr)
-        corner(b, 7)
-        b.MouseEnter:Connect(function() play(b, {BackgroundColor3 = T.hover, TextColor3 = T.text}, 0.12) end)
-        b.MouseLeave:Connect(function() play(b, {BackgroundColor3 = T.card, TextColor3 = T.dim}, 0.15) end)
+        local b = mk("TextButton", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, x, 0, 10), Size = UDim2.fromOffset(w, 26), BackgroundColor3 = T.card, Text = txt, FontFace = FONT[3], TextSize = 12, TextColor3 = T.ink, AutoButtonColor = false, BorderSizePixel = 0}, bd, 8, 2)
+        b.MouseEnter:Connect(function() play(b, {BackgroundColor3 = T.hover}, 0.12) end)
+        b.MouseLeave:Connect(function() play(b, {BackgroundColor3 = T.card}, 0.15) end)
         return b
     end
-    local closeB = sbtn(-10, "✕", 24)
-    local clearB = sbtn(-40, "Clear", 44)
-    local sw, box = inputBox(dr, {placeholder = "Search...", wrap = {Position = UDim2.fromOffset(10, 48), Size = UDim2.new(1, -20, 0, 28)}})
-    local list = new("ScrollingFrame", {Position = UDim2.fromOffset(8, 84), Size = UDim2.new(1, -16, 1, -92), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, dr)
-    skin(list, "ScrollBarImageColor3", "accent")
-    new("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder}, list)
-    local rows = {}
+    local closeB, clearB = sbtn(-12, "X", 26), sbtn(-46, "Clear", 52)
+    local sw, box = inputBox(bd, {placeholder = "Search...", wrap = {Position = UDim2.fromOffset(12, 52), Size = UDim2.new(1, -24, 0, 30)}})
+    local list = new("ScrollingFrame", {Position = UDim2.fromOffset(8, 92), Size = UDim2.new(1, -16, 1, -100), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = T.ink, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, bd)
+    new("UIListLayout", {Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, list)
+    new("UIPadding", {PaddingTop = UDim.new(0, 3), PaddingLeft = UDim.new(0, 4), PaddingBottom = UDim.new(0, 6)}, list)
 
     local function repaint()
         for _, r in ipairs(rows) do r.paint() end
@@ -321,8 +259,8 @@ local function makeDrawer(host, rad)
         local sp = spec
         spec = nil
         play(ov, {BackgroundTransparency = 1}, 0.2)
-        play(dr, {Position = UDim2.new(1, 260, 0.5, 0)}, 0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        task.delay(NOANIM and 0 or 0.24, function() if not spec then ov.Visible = false end end)
+        play(dr, {Position = UDim2.new(1, 280, 0.5, 0)}, 0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+        task.delay(NOANIM and 0 or 0.26, function() if not spec then ov.Visible = false end end)
         if sp and sp.onClose then safe(sp.onClose) end
     end
     function D.open(sp)
@@ -330,39 +268,32 @@ local function makeDrawer(host, rad)
         spec = sp
         title.Text = tostring(sp.title)
         count.Text = sp.count and (sp.count() .. " selected") or (#sp.options .. " options")
-        clearB.Visible = sp.clear ~= nil
-        box.Text = ""
-        sw.Visible = sp.search
-        list.Position = UDim2.fromOffset(8, sp.search and 84 or 52)
-        list.Size = UDim2.new(1, -16, 1, sp.search and -92 or -60)
+        clearB.Visible, sw.Visible, box.Text = sp.clear ~= nil, sp.search, ""
+        list.Position = UDim2.fromOffset(8, sp.search and 92 or 56)
+        list.Size = UDim2.new(1, -16, 1, sp.search and -100 or -64)
         list.CanvasPosition = Vector2.new(0, 0)
         for _, r in ipairs(rows) do r.btn:Destroy() end
         rows = {}
         for i, n in ipairs(sp.options) do
             local name = tostring(n)
-            local b = new("TextButton", {Size = UDim2.new(1, -4, 0, 30), BackgroundColor3 = T.accent, BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = i}, list)
-            corner(b, 7)
-            local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 3, 0.5, 0), Size = UDim2.fromOffset(3, 14), BackgroundColor3 = T.accent, BackgroundTransparency = 1, BorderSizePixel = 0}, b)
-            corner(bar, "full")
-            local tx = 16
-            local sc = sp.swatch and sp.swatch(name)
+            local b = mk("TextButton", {Size = UDim2.new(1, -10, 0, 32), BackgroundColor3 = T.hover, BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, LayoutOrder = i}, list, 8)
+            local rs = stroke(b, T.ink, 2, 1)
+            local tx, sc = 12, sp.swatch and sp.swatch(name)
             if sc then
-                local dot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = sc, BorderSizePixel = 0}, b)
-                corner(dot, "full")
+                mk("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = sc, BorderSizePixel = 0}, b, "full", 2)
                 tx = 32
             end
-            local lb = text(b, {Text = name, Position = UDim2.fromOffset(tx, 0), Size = UDim2.new(1, -(tx + 26), 1, 0), TextSize = 12, TextColor3 = T.dim})
-            local ck = text(b, {Text = "✓", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(16, 16), TextXAlignment = XC, W = 3, TextColor3 = T.accent, TextTruncate = NOTRUNC, TextTransparency = 1})
+            text(b, {Text = name, Position = UDim2.fromOffset(tx, 0), Size = UDim2.new(1, -(tx + 26), 1, 0), TextSize = 12, W = 3})
+            local ck = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ink, BackgroundTransparency = 1, BorderSizePixel = 0}, b, "full")
             local r = {btn = b, name = name}
             function r.paint()
                 local on = sp.isSel(name)
-                b.BackgroundTransparency = on and 0.86 or 1
-                bar.BackgroundTransparency = on and 0 or 1
-                lb.TextColor3 = on and T.text or T.dim
-                ck.TextTransparency = on and 0 or 1
+                b.BackgroundColor3 = on and T.accent or T.hover
+                b.BackgroundTransparency = on and 0 or 1
+                rs.Transparency, ck.BackgroundTransparency = on and 0 or 1, on and 0 or 1
             end
-            b.MouseEnter:Connect(function() if not sp.isSel(name) then b.BackgroundTransparency = 0.93 end end)
-            b.MouseLeave:Connect(function() r.paint() end)
+            b.MouseEnter:Connect(function() if not sp.isSel(name) then b.BackgroundTransparency = 0.3 end end)
+            b.MouseLeave:Connect(r.paint)
             b.MouseButton1Click:Connect(function()
                 sp.pick(name)
                 repaint()
@@ -373,8 +304,8 @@ local function makeDrawer(host, rad)
         end
         ov.Visible = true
         play(ov, {BackgroundTransparency = 0.45}, 0.2)
-        dr.Position = UDim2.new(1, 260, 0.5, 0)
-        play(dr, {Position = UDim2.new(1, -8, 0.5, 0)}, 0.28)
+        dr.Position = UDim2.new(1, 280, 0.5, 0)
+        play(dr, {Position = UDim2.new(1, -8, 0.5, 0)}, 0.34, BACK)
     end
     box:GetPropertyChangedSignal("Text"):Connect(function()
         local q = box.Text:lower()
@@ -419,21 +350,17 @@ function SORU:CreateWindow(C)
     -- CONFIG: nilai komponen ber-Flag disimpan otomatis per game
     local placeId, gameId = game.PlaceId, game.GameId
     local curName = tostring(placeId)
-    local Data = {Features = {}}
-    local Reg = {}
+    local Data, Reg = {Features = {}}, {}
     local function cpath(n) return CFGS .. "/" .. tostring(n) .. ".json" end
     local function readCfg(n)
         if not (isfile and readfile) then return nil end
-        local ok, d = pcall(function()
-            if isfile(cpath(n)) then return Http:JSONDecode(readfile(cpath(n))) end
-        end)
+        local ok, d = pcall(function() if isfile(cpath(n)) then return Http:JSONDecode(readfile(cpath(n))) end end)
         if ok and type(d) == "table" and type(d.Features) == "table" then return d end
         return nil
     end
     local function saveCfg(n) pcall(function() writefile(cpath(n or curName), Http:JSONEncode(Data)) end) end
     Data = readCfg(curName) or readCfg("default") or Data
-    local F = Data.Features
-    local saveQ = false
+    local F, saveQ = Data.Features, false
     local function persist()
         if saveQ then return end
         saveQ = true
@@ -441,16 +368,14 @@ function SORU:CreateWindow(C)
     end
 
     NOANIM = (C.NoAnim == true) or (F.UINoAnim == true)
-    local curTheme = "Violet"
-    if type(F.UITheme) == "string" and THEMES[F.UITheme] then curTheme = F.UITheme end
+    local curTheme = (type(F.UITheme) == "string" and THEMES[F.UITheme]) and F.UITheme or "Violet"
     applyTheme(curTheme)
-    curTrans = (type(F.UITrans) == "number") and F.UITrans or 0.08
+    curTrans = (type(F.UITrans) == "number") and F.UITrans or 0
     local toggleKey = C.ToggleKey or Enum.KeyCode.RightShift
     if type(F.MenuKey) == "string" then toggleKey = toKey(F.MenuKey) or toggleKey end
     local binding, activeStop = false, nil
 
-    local gameName = "Unknown"
-    local nameBinds = {}
+    local gameName, nameBinds = "Unknown", {}
     local function bindName(fn) nameBinds[#nameBinds + 1] = fn fn(gameName) end
     task.spawn(function()
         local ok, info = pcall(function() return Market:GetProductInfo(placeId) end)
@@ -468,8 +393,7 @@ function SORU:CreateWindow(C)
     local rootScale = new("UIScale", {}, root)
     local DEFAULT, MINS, MAXS = Vector2.new(700, 440), Vector2.new(520, 340), Vector2.new(980, 640)
     local winSize = Vector2.new(math.clamp(tonumber(F.UIW) or DEFAULT.X, MINS.X, MAXS.X), math.clamp(tonumber(F.UIH) or DEFAULT.Y, MINS.Y, MAXS.Y))
-    local winPos, curPos = nil, Vector2.new()
-    local virt = Vector2.new(REF.X, REF.Y)
+    local winPos, curPos, virt = nil, Vector2.new(), Vector2.new(REF.X, REF.Y)
     local layoutWin, layoutLauncher
 
     local function viewport()
@@ -480,19 +404,17 @@ function SORU:CreateWindow(C)
         end
         return s
     end
+    local function fitOf(vp) return math.clamp(math.min(vp.X / REF.X, vp.Y / REF.Y), 0.4, 5) end
     local function autoScale() -- HP/tablet: window ~82% tinggi layar
         if not UIS.TouchEnabled then return 1 end
         local vp = viewport()
-        local fit = math.clamp(math.min(vp.X / REF.X, vp.Y / REF.Y), 0.4, 5)
-        return math.clamp(0.82 * vp.Y / (winSize.Y * fit), 0.6, 1.5)
+        return math.clamp(0.82 * vp.Y / (winSize.Y * fitOf(vp)), 0.6, 1.5)
     end
     local userScale = math.clamp(C.Scale or ((tonumber(F.UIScale) or (autoScale() * 100)) / 100), 0.6, 1.5)
     local function applyScale()
         local vp = viewport()
-        local fit = math.clamp(math.min(vp.X / REF.X, vp.Y / REF.Y), 0.4, 5)
-        local s = math.clamp(fit * userScale, 0.3, 6)
+        local s = math.clamp(fitOf(vp) * userScale, 0.3, 6)
         rootScale.Scale = s
-        SC.v = s
         virt = Vector2.new(vp.X / s, vp.Y / s)
         root.Size = UDim2.fromOffset(virt.X, virt.Y)
         if layoutWin then layoutWin() end
@@ -502,150 +424,127 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- TOAST (kanan bawah, maksimal 5, klik untuk menutup)
     ------------------------------------------------------------------
-    local toastHolder = new("Frame", {Name = "Toasts", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.new(0, 290, 1, -28), BackgroundTransparency = 1, ZIndex = 200}, root)
-    new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom}, toastHolder)
+    local toastHolder = new("Frame", {Name = "Toasts", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -14, 1, -14), Size = UDim2.new(0, 300, 1, -28), BackgroundTransparency = 1, ZIndex = 200}, root)
+    new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom}, toastHolder)
     local toasts, toastN = {}, 0
     local function notify(title, msg, color, dur)
         color, dur = color or T.accent, dur or 3
         toastN = toastN + 1
         local glyph = (color == T.ok and "✓") or (color == T.bad and "✕") or (color == T.warn and "!") or "i"
-        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 58), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
-        local f = new("Frame", {Position = UDim2.fromOffset(320, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BorderSizePixel = 0}, wrap)
-        corner(f, 10)
-        stroke(f, color, 1, 0.45)
-        local ic = new("Frame", {Position = UDim2.fromOffset(12, 14), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = color, BackgroundTransparency = 0.8, BorderSizePixel = 0}, f)
-        corner(ic, "full")
-        text(ic, {Text = glyph, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextColor3 = color})
-        text(f, {Text = tostring(title or ""), Position = UDim2.fromOffset(52, 9), Size = UDim2.new(1, -62, 0, 16), W = 3, TextSize = 12})
-        text(f, {Text = tostring(msg or ""), Position = UDim2.fromOffset(52, 26), Size = UDim2.new(1, -62, 0, 24), TextSize = 11, TextColor3 = T.dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
-        local pr = new("Frame", {Position = UDim2.new(0, 10, 1, -3), Size = UDim2.new(1, -20, 0, 2), BackgroundColor3 = color, BackgroundTransparency = 0.3, BorderSizePixel = 0}, f)
-        corner(pr, "full")
-        local gone = false
-        local entry = {}
+        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 66), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
+        local m = new("Frame", {Position = UDim2.fromOffset(340, 0), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, wrap)
+        local f = sticker(m, 12, 2)
+        local ic = mk("Frame", {Position = UDim2.fromOffset(10, 11), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = color, BorderSizePixel = 0}, f, "full", 2)
+        text(ic, {Text = glyph, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 2, TextSize = 16, TextTruncate = NOTRUNC})
+        text(f, {Text = tostring(title or ""), Position = UDim2.fromOffset(52, 6), Size = UDim2.new(1, -62, 0, 18), W = 3, TextSize = 13})
+        text(f, {Text = tostring(msg or ""), Position = UDim2.fromOffset(52, 24), Size = UDim2.new(1, -62, 0, 22), TextSize = 11, W = 1, TextColor3 = T.dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
+        local pb = mk("Frame", {Position = UDim2.new(0, 12, 1, -12), Size = UDim2.new(1, -24, 0, 6), BackgroundColor3 = T.off, BorderSizePixel = 0}, f, "full", 1.5)
+        local pr = mk("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BorderSizePixel = 0}, pb, "full")
+        local gone, entry = false, {}
         local function leave()
             if gone then return end
             gone = true
             for i, e in ipairs(toasts) do if e == entry then table.remove(toasts, i) break end end
-            play(f, {Position = UDim2.fromOffset(320, 0)}, 0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
+            play(m, {Position = UDim2.fromOffset(340, 0)}, 0.25, BACK, Enum.EasingDirection.In)
             task.delay(NOANIM and 0 or 0.28, function() wrap:Destroy() end)
         end
         entry.leave = leave
         toasts[#toasts + 1] = entry
         if #toasts > 5 then task.spawn(toasts[1].leave) end
-        local hit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5}, f)
-        hit.MouseButton1Click:Connect(leave)
-        play(f, {Position = UDim2.fromOffset(0, 0)}, 0.4, Enum.EasingStyle.Back)
-        play(pr, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
+        new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5}, f).MouseButton1Click:Connect(leave)
+        play(m, {Position = UDim2.fromOffset(0, 0)}, 0.45, BACK)
+        play(pr, {Size = UDim2.new(0, 0, 1, 0)}, dur, Enum.EasingStyle.Linear)
         task.delay(dur, leave)
     end
 
     ------------------------------------------------------------------
-    -- SHELL + WINDOW
+    -- SHELL + WINDOW + HEADER
     ------------------------------------------------------------------
     local shell = new("Frame", {Name = "Shell", BackgroundTransparency = 1, Visible = false}, root)
-    new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 8), Size = UDim2.new(1, 56, 1, 56), BackgroundTransparency = 1, Image = "rbxassetid://6014261993", ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.5, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450)}, shell)
-    local win = new("Frame", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg, BorderSizePixel = 0, ClipsDescendants = true, Active = true}, shell)
-    corner(win, 10)
+    local wsh = hardShadow(shell, 14, 7, UDim2.fromScale(1, 1))
+    local win = mk("Frame", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg, BorderSizePixel = 0, ClipsDescendants = true, Active = true}, shell, 14, 3)
     regT(win, 0)
-    stroke(win, T.line, 1, 0)
     local winScale = new("UIScale", {Scale = 1}, win)
-    local ctxWin = newCtx(win, 10)
+    local ctxWin = newCtx(win, 14)
 
     layoutWin = function(animate)
-        local sz = Vector2.new(math.min(winSize.X, virt.X - 16), math.min(winSize.Y, virt.Y - 16))
+        local sz = Vector2.new(math.min(winSize.X, virt.X - 20), math.min(winSize.Y, virt.Y - 20))
         local x, y
         if winPos then x, y = winPos.X, winPos.Y else x, y = (virt.X - sz.X) / 2, (virt.Y - sz.Y) / 2 end
-        x = math.clamp(x, 8, math.max(8, virt.X - sz.X - 8))
-        y = math.clamp(y, 8, math.max(8, virt.Y - sz.Y - 8))
+        x = math.clamp(x, 10, math.max(10, virt.X - sz.X - 10))
+        y = math.clamp(y, 10, math.max(10, virt.Y - sz.Y - 10))
         if winPos then winPos = Vector2.new(x, y) end
         curPos = Vector2.new(x, y)
         shell.Size = UDim2.fromOffset(sz.X, sz.Y)
         if animate then play(shell, {Position = UDim2.fromOffset(x, y)}, 0.3) else shell.Position = UDim2.fromOffset(x, y) end
     end
 
-    ------------------------------------------------------------------
-    -- HEADER: logo, judul, chip fps, kontrol window
-    ------------------------------------------------------------------
-    local HDR = 38
-    local hd = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HDR), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true}, win)
-    corner(hd, 10)
-    new("Frame", {Position = UDim2.fromOffset(0, HDR - 10), Size = UDim2.new(1, 0, 0, 10), BackgroundColor3 = T.side, BorderSizePixel = 0}, hd)
-    local hl = new("Frame", {Position = UDim2.new(0, 0, 0, HDR - 1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.line, BorderSizePixel = 0, ZIndex = 2}, win)
+    local HDR = 42
+    local TOP = HDR + 3
+    local hd = mk("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HDR), BorderSizePixel = 0, Active = true}, win, 14)
+    skin(hd, "BackgroundColor3", "accent")
+    skin(new("Frame", {Position = UDim2.fromOffset(0, HDR - 14), Size = UDim2.new(1, 0, 0, 14), BorderSizePixel = 0}, hd), "BackgroundColor3", "accent")
+    new("Frame", {Position = UDim2.fromOffset(0, HDR), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = T.ink, BorderSizePixel = 0, ZIndex = 2}, win)
 
-    local logo = new("Frame", {Position = UDim2.fromOffset(10, 7), Size = UDim2.fromOffset(24, 24), BorderSizePixel = 0}, hd)
-    skin(logo, "BackgroundColor3", "accent")
-    corner(logo, 7)
+    local logo = mk("Frame", {Position = UDim2.fromOffset(10, 7), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = T.card, BorderSizePixel = 0}, hd, "full", 2)
     if ICON ~= "" then
-        new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit}, logo)
+        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.78, 0.78), BackgroundTransparency = 1, Image = ICON, ScaleType = Enum.ScaleType.Fit}, logo)
     else
-        text(logo, {Text = "S", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 15})
+        text(logo, {Text = "S", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 17})
     end
     local titleText = tostring(C.Title or "SORU HUB")
-    local tw0 = math.ceil(textW(titleText, 15)) + 6
-    text(hd, {Text = titleText, Position = UDim2.fromOffset(42, 2), Size = UDim2.fromOffset(tw0, 20), W = 3, TextSize = 15, TextTruncate = NOTRUNC})
-    local subL = text(hd, {Text = C.Subtitle and tostring(C.Subtitle) or ("v" .. VERSION), Position = UDim2.fromOffset(42, 21), Size = UDim2.new(1, -330, 0, 13), TextSize = 10, TextColor3 = T.dim})
+    text(hd, {Text = titleText, Position = UDim2.fromOffset(46, 3), Size = UDim2.fromOffset(math.ceil(textW(titleText, 17)) + 8, 20), W = 3, TextSize = 17, TextColor3 = WHITE, TextStrokeColor3 = T.ink, TextStrokeTransparency = 0, TextTruncate = NOTRUNC})
+    local subL = text(hd, {Text = C.Subtitle and tostring(C.Subtitle) or ("v" .. VERSION), Position = UDim2.fromOffset(46, 24), Size = UDim2.new(1, -330, 0, 13), TextSize = 10})
     if not C.Subtitle then
         bindName(function(n) subL.Text = (n == "Unknown") and ("v" .. VERSION) or ("v" .. VERSION .. "  •  " .. n) end)
     end
 
     local function hbtn(x, glyph)
-        local b = new("TextButton", {Size = UDim2.fromOffset(24, 24), Position = UDim2.new(1, x, 0.5, -12), BackgroundColor3 = T.side, Text = glyph or "", FontFace = FONT[3], TextSize = 13, TextColor3 = T.dim, AutoButtonColor = false, BorderSizePixel = 0}, hd)
-        corner(b, 8)
-        b.MouseEnter:Connect(function() play(b, {BackgroundColor3 = T.hover, TextColor3 = T.text}, 0.12) end)
-        b.MouseLeave:Connect(function() play(b, {BackgroundColor3 = T.side, TextColor3 = T.dim}, 0.15) end)
+        local b = mk("TextButton", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, x, 0.5, -13), BackgroundColor3 = T.card, Text = glyph or "", FontFace = FONT[3], TextSize = 13, TextColor3 = T.ink, AutoButtonColor = false, BorderSizePixel = 0}, hd, "full", 2)
+        b.MouseEnter:Connect(function() play(b, {BackgroundColor3 = T.hover}, 0.12) end)
+        b.MouseLeave:Connect(function() play(b, {BackgroundColor3 = T.card, TextColor3 = T.ink}, 0.15) end)
         return b
     end
-    local xB, maxB, minB = hbtn(-34, "✕"), hbtn(-62), hbtn(-90, "–")
-    xB.MouseEnter:Connect(function() play(xB, {BackgroundColor3 = Color3.fromRGB(86, 34, 48), TextColor3 = T.bad}, 0.12) end)
-    stroke(new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(9, 9), BackgroundTransparency = 1}, maxB), T.dim, 1.5, 0)
+    local xB, maxB, minB = hbtn(-38, "X"), hbtn(-68), hbtn(-98, "–")
+    xB.MouseEnter:Connect(function() play(xB, {BackgroundColor3 = T.bad, TextColor3 = WHITE}, 0.12) end)
+    stroke(new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(9, 9), BackgroundTransparency = 1}, maxB), T.ink, 2, 0)
 
-    local chip = new("Frame", {Size = UDim2.fromOffset(116, 24), Position = UDim2.new(1, -214, 0.5, -12), BackgroundColor3 = T.card, BorderSizePixel = 0}, hd)
-    corner(chip, "full")
-    stroke(chip, T.line, 1, 0.4)
-    local cdot = new("Frame", {Position = UDim2.fromOffset(10, 9), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = T.ok, BorderSizePixel = 0}, chip)
-    corner(cdot, "full")
-    local chipL = text(chip, {Text = "-- fps", Position = UDim2.fromOffset(22, 0), Size = UDim2.new(1, -26, 1, 0), W = 3, TextSize = 10, TextColor3 = T.dim})
+    local chip = mk("Frame", {Size = UDim2.fromOffset(130, 26), Position = UDim2.new(1, -236, 0.5, -13), BackgroundColor3 = T.card, BorderSizePixel = 0}, hd, "full", 2)
+    local cdot = mk("Frame", {Position = UDim2.fromOffset(10, 8), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ok, BorderSizePixel = 0}, chip, "full", 1.5)
+    local chipL = text(chip, {Text = "-- fps", Position = UDim2.fromOffset(26, 0), Size = UDim2.new(1, -30, 1, 0), W = 3, TextSize = 11})
 
     ------------------------------------------------------------------
     -- SIDEBAR + CONTENT
     ------------------------------------------------------------------
-    local SIDE_W, FOOT_H, TAB_H = 160, 52, 34
-    local bar = new("Frame", {Name = "Sidebar", Position = UDim2.fromOffset(0, HDR), Size = UDim2.new(0, SIDE_W, 1, -HDR), BackgroundTransparency = 1, BorderSizePixel = 0}, win)
-    new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = T.line, BorderSizePixel = 0}, bar)
-    local tabList = new("ScrollingFrame", {Size = UDim2.new(1, 0, 1, -FOOT_H), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0, CanvasSize = UDim2.new(), ScrollingDirection = Enum.ScrollingDirection.Y}, bar)
-    local pill = new("Frame", {Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -22, 0, TAB_H), BackgroundTransparency = 0.84, BorderSizePixel = 0, Visible = false}, tabList)
+    local SIDE_W, FOOT_H, TAB_H = 164, 58, 36
+    local bar = new("Frame", {Name = "Sidebar", Position = UDim2.fromOffset(0, TOP), Size = UDim2.new(0, SIDE_W, 1, -TOP), BackgroundColor3 = T.side, BorderSizePixel = 0}, win)
+    new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = T.ink, BorderSizePixel = 0}, bar)
+    local tabList = new("ScrollingFrame", {Size = UDim2.new(1, -3, 1, -FOOT_H), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0, CanvasSize = UDim2.new(), ScrollingDirection = Enum.ScrollingDirection.Y}, bar)
+    local pill = mk("Frame", {Position = UDim2.fromOffset(10, 8), Size = UDim2.new(1, -22, 0, TAB_H), BorderSizePixel = 0, Visible = false}, tabList, 10, 2)
     skin(pill, "BackgroundColor3", "accent")
-    corner(pill, 8)
-    local pbar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(3, 16), BorderSizePixel = 0}, pill)
-    skin(pbar, "BackgroundColor3", "accent")
-    corner(pbar, "full")
 
     do -- footer sidebar: avatar + nama
-        local sep = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -FOOT_H), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = T.line, BorderSizePixel = 0}, bar)
-        local av = new("ImageLabel", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -9), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = T.off, BorderSizePixel = 0}, bar)
-        corner(av, "full")
-        stroke(av, T.line, 1.5, 0)
-        local od = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 36, 1, -8), Size = UDim2.fromOffset(9, 9), BackgroundColor3 = T.ok, BorderSizePixel = 0}, bar)
-        corner(od, "full")
-        stroke(od, T.side, 2, 0)
-        text(bar, {Text = pl.DisplayName, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 50, 1, -25), Size = UDim2.new(1, -56, 0, 16), W = 3, TextSize = 12})
-        text(bar, {Text = "Online  •  v" .. VERSION, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 50, 1, -10), Size = UDim2.new(1, -56, 0, 14), TextSize = 10, TextColor3 = T.dim})
+        new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, -1, 1, -FOOT_H), Size = UDim2.new(1, -22, 0, 2), BackgroundColor3 = T.ink, BackgroundTransparency = 0.6, BorderSizePixel = 0}, bar)
+        local av = mk("ImageLabel", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -10), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = T.off, BorderSizePixel = 0}, bar, "full", 2)
+        mk("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 36, 1, -8), Size = UDim2.fromOffset(11, 11), BackgroundColor3 = T.ok, BorderSizePixel = 0}, bar, "full", 2)
+        text(bar, {Text = pl.DisplayName, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 54, 1, -26), Size = UDim2.new(1, -62, 0, 16), W = 3, TextSize = 12})
+        text(bar, {Text = "Online  •  v" .. VERSION, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 54, 1, -11), Size = UDim2.new(1, -62, 0, 14), TextSize = 10, TextColor3 = T.dim, W = 1})
         task.spawn(function()
             local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
             if ok and av.Parent then av.Image = img end
         end)
     end
 
-    local CONT_X = SIDE_W + 8
-    local content = new("Frame", {Position = UDim2.fromOffset(CONT_X, HDR + 6), Size = UDim2.new(1, -(CONT_X + 6), 1, -(HDR + 10)), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, win)
+    local CONT_X = SIDE_W + 10
+    local content = new("Frame", {Position = UDim2.fromOffset(CONT_X, TOP + 8), Size = UDim2.new(1, -(CONT_X + 6), 1, -(TOP + 14)), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, win)
 
-    local rh = new("Frame", {Size = UDim2.fromOffset(26, 26), Position = UDim2.new(1, -26, 1, -26), BackgroundTransparency = 1, Active = true, ZIndex = 30}, win)
-    local rhL = text(rh, {Text = "⋰", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(-4, -2), TextXAlignment = XR, TextYAlignment = Enum.TextYAlignment.Bottom, W = 3, TextSize = 16, TextColor3 = T.off})
-    rh.MouseEnter:Connect(function() play(rhL, {TextColor3 = T.accent}, 0.15) end)
-    rh.MouseLeave:Connect(function() play(rhL, {TextColor3 = T.off}, 0.2) end)
+    local rh = new("Frame", {Size = UDim2.fromOffset(28, 28), Position = UDim2.new(1, -28, 1, -28), BackgroundTransparency = 1, Active = true, ZIndex = 30}, win)
+    local rhL = text(rh, {Text = "⋰", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(-4, -2), TextXAlignment = XR, TextYAlignment = Enum.TextYAlignment.Bottom, W = 2, TextSize = 18, TextColor3 = T.dim})
+    rh.MouseEnter:Connect(function() play(rhL, {TextColor3 = T.ink}, 0.15) end)
+    rh.MouseLeave:Connect(function() play(rhL, {TextColor3 = T.dim}, 0.2) end)
 
     ------------------------------------------------------------------
-    -- OPEN / CLOSE + LAUNCHER
+    -- OPEN / CLOSE + LAUNCHER + DRAG / RESIZE
     ------------------------------------------------------------------
     local isOpen = false
     local function openA()
@@ -653,39 +552,40 @@ function SORU:CreateWindow(C)
         isOpen = true
         layoutWin()
         shell.Visible = true
-        winScale.Scale = 0.92
-        play(winScale, {Scale = 1}, 0.35, Enum.EasingStyle.Back)
+        winScale.Scale, wsh.BackgroundTransparency = 0.88, 1
+        play(winScale, {Scale = 1}, 0.45, BACK)
+        play(wsh, {BackgroundTransparency = 0}, 0.3)
     end
     local function closeA()
         if not isOpen then return end
         isOpen = false
         if ctxWin.d then ctxWin.d.close() end
         if NOANIM then shell.Visible = false return end
-        play(winScale, {Scale = 0.92}, 0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-        task.delay(0.18, function() if not isOpen then shell.Visible = false end end)
+        play(winScale, {Scale = 0.88}, 0.2, BACK, Enum.EasingDirection.In)
+        play(wsh, {BackgroundTransparency = 1}, 0.15)
+        task.delay(0.2, function() if not isOpen then shell.Visible = false end end)
     end
     local function toggleWin() if isOpen then closeA() else openA() end end
 
-    local LAUNCH = 46
-    local launchPos = nil
-    local launcher = new("Frame", {Name = "Launcher", Size = UDim2.fromOffset(LAUNCH, LAUNCH), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
-    corner(launcher, 14)
-    skin(stroke(launcher, WHITE, 1.8, 0), "Color", "accent")
+    local LAUNCH, launchPos = 48, nil
+    local launcher = new("Frame", {Name = "Launcher", Size = UDim2.fromOffset(LAUNCH + 5, LAUNCH + 5), BackgroundTransparency = 1, Active = true, ZIndex = 90}, root)
+    hardShadow(launcher, 16, 4, UDim2.fromOffset(LAUNCH, LAUNCH))
+    local lbody = mk("Frame", {Size = UDim2.fromOffset(LAUNCH, LAUNCH), BorderSizePixel = 0}, launcher, 16, 3)
+    skin(lbody, "BackgroundColor3", "accent")
     if ICON ~= "" then
-        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(28, 28), BackgroundTransparency = 1, Image = ICON}, launcher)
+        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(30, 30), BackgroundTransparency = 1, Image = ICON}, lbody)
     else
-        text(launcher, {Text = "S", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 20})
+        text(lbody, {Text = "S", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 22, TextColor3 = WHITE, TextStrokeColor3 = T.ink, TextStrokeTransparency = 0})
     end
-    local lsc = new("UIScale", {}, launcher)
     layoutLauncher = function()
         if not launchPos then launchPos = Vector2.new(14, math.floor(virt.Y / 2 - LAUNCH / 2)) end
-        launchPos = Vector2.new(math.clamp(launchPos.X, 4, math.max(4, virt.X - LAUNCH - 4)), math.clamp(launchPos.Y, 4, math.max(4, virt.Y - LAUNCH - 4)))
+        launchPos = Vector2.new(math.clamp(launchPos.X, 4, math.max(4, virt.X - LAUNCH - 8)), math.clamp(launchPos.Y, 4, math.max(4, virt.Y - LAUNCH - 8)))
         launcher.Position = UDim2.fromOffset(launchPos.X, launchPos.Y)
     end
-    launcher.MouseEnter:Connect(function() play(lsc, {Scale = 1.08}, 0.2) end)
-    launcher.MouseLeave:Connect(function() play(lsc, {Scale = 1}, 0.2) end)
+    launcher.MouseEnter:Connect(function() play(lbody, {Position = UDim2.fromOffset(-1, -2)}, 0.15, BACK) end)
+    launcher.MouseLeave:Connect(function() play(lbody, {Position = UDim2.fromOffset(0, 0)}, 0.2) end)
     track(launcher,
-        function() play(lsc, {Scale = 0.92}, 0.1) return launchPos end,
+        function() play(lbody, {Position = UDim2.fromOffset(3, 3)}, 0.06) return launchPos end,
         function(dx, dy, st, moved)
             if moved and st then
                 launchPos = Vector2.new(st.X + dx / rootScale.Scale, st.Y + dy / rootScale.Scale)
@@ -693,11 +593,9 @@ function SORU:CreateWindow(C)
             end
         end,
         function(moved)
-            play(lsc, {Scale = 1}, 0.25, Enum.EasingStyle.Back)
+            play(lbody, {Position = UDim2.fromOffset(0, 0)}, 0.3, BACK)
             if not moved then toggleWin() end
         end)
-
-    -- drag window (header) + resize (pojok kanan bawah)
     track(hd,
         function() winPos = curPos return curPos end,
         function(dx, dy, st, moved)
@@ -711,8 +609,8 @@ function SORU:CreateWindow(C)
         function(dx, dy, st)
             if not st then return end
             local s = rootScale.Scale
-            local mxW = math.max(MINS.X, math.min(MAXS.X, virt.X - 8 - curPos.X))
-            local mxH = math.max(MINS.Y, math.min(MAXS.Y, virt.Y - 8 - curPos.Y))
+            local mxW = math.max(MINS.X, math.min(MAXS.X, virt.X - 10 - curPos.X))
+            local mxH = math.max(MINS.Y, math.min(MAXS.Y, virt.Y - 10 - curPos.Y))
             winSize = Vector2.new(math.clamp(st.X + dx / s, MINS.X, mxW), math.clamp(st.Y + dy / s, MINS.Y, mxH))
             layoutWin()
         end,
@@ -728,11 +626,9 @@ function SORU:CreateWindow(C)
     local cur, tabN = nil, 0
 
     local function paintTab(t)
-        t.label.TextColor3 = t.on and T.text or T.dim
-        t.setIc(t.on and T.accent or T.dim)
+        t.label.TextColor3 = t.on and T.ink or T.dim
+        t.setIc(t.on and T.ink or T.dim)
     end
-    themeFns[#themeFns + 1] = function() for _, t in pairs(tabs) do paintTab(t) end end
-
     local function switchTab(n)
         local ne = tabs[n]
         if not ne or cur == n then return end
@@ -742,38 +638,32 @@ function SORU:CreateWindow(C)
             old.page.Visible = false
             paintTab(old)
         end
-        cur = n
-        ne.on = true
-        ne.page.Visible = true
+        cur, ne.on, ne.page.Visible = n, true, true
         paintTab(ne)
-        ne.page.Position = UDim2.fromOffset(14, 0)
-        play(ne.page, {Position = UDim2.fromOffset(0, 0)}, 0.3)
+        ne.page.Position = UDim2.fromOffset(0, 16)
+        play(ne.page, {Position = UDim2.fromOffset(0, 0)}, 0.35, BACK)
         pill.Visible = true
-        play(pill, {Position = UDim2.fromOffset(10, ne.y)}, 0.3)
+        play(pill, {Position = UDim2.fromOffset(10, ne.y)}, 0.35, BACK)
     end
 
     local function createTab(name, icon)
         tabN = tabN + 1
-        local y = 6 + (tabN - 1) * (TAB_H + 4)
-        local b = new("TextButton", {Name = name, Position = UDim2.fromOffset(10, y), Size = UDim2.new(1, -22, 0, TAB_H), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0}, tabList)
-        corner(b, 8)
+        local y = 8 + (tabN - 1) * (TAB_H + 6)
+        local b = mk("TextButton", {Name = name, Position = UDim2.fromOffset(10, y), Size = UDim2.new(1, -22, 0, TAB_H), BackgroundColor3 = T.hover, BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0}, tabList, 10)
         local setIc = tabIcon(b, icon, name)
-        local lb = text(b, {Text = name, Position = UDim2.fromOffset(36, 0), Size = UDim2.new(1, -42, 1, 0), W = 2, TextColor3 = T.dim})
-        tabList.CanvasSize = UDim2.fromOffset(0, y + TAB_H + 10)
+        local lb = text(b, {Text = name, Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -44, 1, 0), W = 3, TextColor3 = T.dim})
+        tabList.CanvasSize = UDim2.fromOffset(0, y + TAB_H + 12)
 
-        local page = new("ScrollingFrame", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false}, content)
-        skin(page, "ScrollBarImageColor3", "accent")
-        new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, page)
-        new("UIPadding", {PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 2), PaddingRight = UDim.new(0, 8)}, page)
-        local th = new("Frame", {Name = "Title", Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1, LayoutOrder = -1}, page)
-        text(th, {Text = name, Size = UDim2.new(1, 0, 0, 32), W = 3, TextSize = 26})
-        local ul = new("Frame", {Position = UDim2.fromOffset(2, 35), Size = UDim2.fromOffset(36, 3), BorderSizePixel = 0}, th)
-        skin(ul, "BackgroundColor3", "accent")
-        corner(ul, "full")
+        local page = new("ScrollingFrame", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = T.ink, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false}, content)
+        new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, page)
+        new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 16), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 12)}, page)
+        local th = new("Frame", {Name = "Title", Size = UDim2.new(1, 0, 0, 48), BackgroundTransparency = 1, LayoutOrder = -1}, page)
+        text(th, {Text = name, Size = UDim2.new(1, 0, 0, 34), W = 3, TextSize = 28})
+        skin(mk("Frame", {Position = UDim2.fromOffset(2, 37), Size = UDim2.fromOffset(44, 7), BorderSizePixel = 0}, th, "full", 2), "BackgroundColor3", "accent")
 
         local t = {name = name, btn = b, page = page, y = y, on = false, label = lb, setIc = setIc}
         tabs[name] = t
-        b.MouseEnter:Connect(function() if not t.on then play(b, {BackgroundTransparency = 0.9}, 0.12) lb.TextColor3 = T.text end end)
+        b.MouseEnter:Connect(function() if not t.on then play(b, {BackgroundTransparency = 0.3}, 0.12) lb.TextColor3 = T.ink end end)
         b.MouseLeave:Connect(function() play(b, {BackgroundTransparency = 1}, 0.15) if not t.on then lb.TextColor3 = T.dim end end)
         b.MouseButton1Click:Connect(function() switchTab(name) end)
         paintTab(t)
@@ -791,8 +681,7 @@ function SORU:CreateWindow(C)
         container = container or scroll
         local K = {}
         local order, count = 0, 0
-        local R = 6
-        local CH, CD = nested and 36 or 38, nested and 48 or 50 -- tinggi satu baris / dengan deskripsi
+        local CH, CD = nested and 42 or 44, nested and 54 or 56 -- tinggi holder: satu baris / dengan deskripsi
 
         local function holder(h, deco)
             order = order + 1
@@ -804,32 +693,27 @@ function SORU:CreateWindow(C)
             return hf
         end
 
-        -- kartu dasar: stroke + notch aksen di kiri yang menyala saat hover / aktif
+        -- kartu dasar: outline tinta + bayangan keras. Kartu yang bisa diklik "turun" saat ditekan
         local function card(h, clickable)
             local hf = holder(h)
-            local f = new(clickable and "TextButton" or "Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.card, BorderSizePixel = 0}, hf)
-            if clickable then f.Text = "" f.AutoButtonColor = false end
-            corner(f, R)
-            local s = stroke(f, T.line, 1, 0.4)
-            regT(f, 0)
+            local f = sticker(hf, R, 2, T.card, clickable and "TextButton" or "Frame")
+            if clickable then f.Text, f.AutoButtonColor = "", false end
             local fx, hov, act = {}, false, false
             local function paint()
-                local on = hov or act
-                local c = T.card
-                if act then c = T.card:Lerp(T.accent, 0.16) elseif hov then c = T.hover end
-                play(f, {BackgroundColor3 = c}, 0.15)
-                play(s, {Color = on and T.accent or T.line, Transparency = on and 0.25 or 0.4}, 0.18)
+                play(f, {BackgroundColor3 = act and T.card:Lerp(T.accent, 0.28) or (hov and T.hover or T.card)}, 0.15)
             end
             function fx.hover(v) hov = v paint() end
             function fx.active(v) act = v paint() end
             themeFns[#themeFns + 1] = paint
             if clickable then
                 f.MouseEnter:Connect(function() fx.hover(true) end)
-                f.MouseLeave:Connect(function() fx.hover(false) end)
+                f.MouseLeave:Connect(function() fx.hover(false) play(f, {Position = UDim2.fromOffset(0, 0)}, 0.1) end)
+                f.MouseButton1Down:Connect(function() play(f, {Position = UDim2.fromOffset(3, 3)}, 0.06) end)
+                f.MouseButton1Up:Connect(function() play(f, {Position = UDim2.fromOffset(0, 0)}, 0.25, BACK) end)
             end
-            return f, s, hf, fx
+            return f, hf, fx
         end
-        K._card, K._holder = card, holder
+        K._card = card
 
         ----------------------------------------------------------------
         -- SECTION / DIVIDER / LABEL / PARAGRAPH / INFO
@@ -837,16 +721,15 @@ function SORU:CreateWindow(C)
         function K:Section(t)
             if type(t) == "table" then t = t.Title or t.Name or t.Text end
             t = string.upper(tostring(t or ""))
-            local hf = holder(24, true)
-            skin(new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), Size = UDim2.fromOffset(6, 6), Rotation = 45, BorderSizePixel = 0}, hf), "BackgroundColor3", "accent")
-            local w = math.ceil(textW(t, 11))
-            text(hf, {Text = t, Position = UDim2.fromOffset(20, 0), Size = UDim2.fromOffset(w + 8, 24), W = 3, TextSize = 11, TextColor3 = T.dim, TextTruncate = NOTRUNC})
-            local ln = new("Frame", {Position = UDim2.new(0, 20 + w + 14, 0.5, 0), Size = UDim2.new(1, -(20 + w + 18), 0, 1), BackgroundColor3 = T.line, BorderSizePixel = 0}, hf)
+            local hf = holder(28, true)
+            stroke(skin(new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.fromOffset(10, 10), Rotation = 45, BorderSizePixel = 0}, hf), "BackgroundColor3", "accent"), T.ink, 2)
+            local w = math.ceil(textW(t, 12))
+            text(hf, {Text = t, Position = UDim2.fromOffset(26, 0), Size = UDim2.fromOffset(w + 8, 28), W = 3, TextSize = 12, TextTruncate = NOTRUNC})
+            new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 26 + w + 16, 0.5, 0), Size = UDim2.new(1, -(26 + w + 24), 0, 2), BackgroundColor3 = T.ink, BackgroundTransparency = 0.7, BorderSizePixel = 0}, hf)
         end
 
         function K:Divider()
-            local hf = holder(10, true)
-            new("Frame", {Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.new(1, -12, 0, 1), BackgroundColor3 = T.line, BorderSizePixel = 0}, hf)
+            new("Frame", {Position = UDim2.new(0, 6, 0.5, 0), Size = UDim2.new(1, -12, 0, 2), BackgroundColor3 = T.ink, BackgroundTransparency = 0.75, BorderSizePixel = 0}, holder(12, true))
         end
 
         function K:Label(t)
@@ -861,17 +744,14 @@ function SORU:CreateWindow(C)
             o = o or {}
             local hf = holder(0)
             hf.AutomaticSize = Enum.AutomaticSize.Y
-            local f = new("Frame", {Name = "Body", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BorderSizePixel = 0}, hf)
-            corner(f, R)
-            stroke(f, T.line, 1, 0.4)
-            regT(f, 0)
-            new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 12)}, f)
+            new("UIPadding", {PaddingBottom = UDim.new(0, 6)}, hf)
+            hardShadow(hf, R, 4, UDim2.new(1, -6, 1, 0))
+            local f = mk("Frame", {Name = "Body", Size = UDim2.new(1, -6, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.card, BorderSizePixel = 0}, hf, R, 2)
+            new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 12)}, f)
             new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, f)
-            local q = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -14, 0.5, 0), Size = UDim2.new(0, 3, 0.55, 0), BorderSizePixel = 0}, f)
-            skin(q, "BackgroundColor3", "accent")
-            corner(q, "full")
-            local t = text(f, {Text = tostring(o.Title or o.Name or ""), Size = UDim2.new(1, 0, 0, 18), W = 3, LayoutOrder = 1})
-            local d = text(f, {Text = tostring(o.Desc or o.Content or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 11, TextColor3 = T.dim, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = NOTRUNC, RichText = true, LayoutOrder = 2})
+            skin(mk("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, -12, 0.5, 0), Size = UDim2.new(0, 5, 0.6, 0), BorderSizePixel = 0}, f, "full", 1.5), "BackgroundColor3", "accent")
+            local t = text(f, {Text = tostring(o.Title or o.Name or ""), Size = UDim2.new(1, 0, 0, 20), W = 3, LayoutOrder = 1})
+            local d = text(f, {Text = tostring(o.Desc or o.Content or ""), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextSize = 11, W = 1, TextColor3 = T.dim, TextYAlignment = Enum.TextYAlignment.Top, TextTruncate = NOTRUNC, RichText = true, LayoutOrder = 2})
             return {Set = function(_, title, desc) if title then t.Text = tostring(title) end if desc then d.Text = tostring(desc) end end, SetTitle = function(_, s) t.Text = tostring(s) end, SetDesc = function(_, s) d.Text = tostring(s) end}
         end
 
@@ -879,16 +759,16 @@ function SORU:CreateWindow(C)
         function K:Info(o)
             if type(o) ~= "table" then o = {Title = tostring(o)} end
             local clickable = (o.Copy or o.Callback) and true or false
-            local f, s, _, fx = card(CH, clickable)
-            text(f, {Text = tostring(o.Title or o.Name or "Info"), Position = UDim2.fromOffset(12, 0), Size = UDim2.new(0.42, -12, 1, 0), W = 3})
-            local v = text(f, {Text = tostring(o.Value or "-"), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 0), Size = UDim2.new(0.58, -12, 1, 0), TextXAlignment = XR, TextSize = 12, TextColor3 = T.dim})
+            local f = card(CH, clickable)
+            text(f, {Text = tostring(o.Title or o.Name or "Info"), Position = UDim2.fromOffset(14, 0), Size = UDim2.new(0.42, -14, 1, 0), W = 3})
+            local v = text(f, {Text = tostring(o.Value or "-"), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 0), Size = UDim2.new(0.58, -14, 1, 0), TextXAlignment = XR, TextSize = 12, TextColor3 = T.dim})
             if clickable then
                 f.MouseButton1Click:Connect(function()
                     if o.Copy then copy(v.Text) notify("Copied", v.Text, T.accent, 1.4) end
                     safe(o.Callback, v.Text)
                 end)
             end
-            return {Set = function(_, t, col) v.Text = tostring(t) v.TextColor3 = col or T.dim end, Get = function() return v.Text end}
+            return {Set = function(_, t, col) v.Text, v.TextColor3 = tostring(t), col or T.dim end, Get = function() return v.Text end}
         end
 
         ----------------------------------------------------------------
@@ -896,24 +776,21 @@ function SORU:CreateWindow(C)
         ----------------------------------------------------------------
         function K:Button(o)
             o = o or {}
-            local title = o.Title or o.Name or "Button"
             local desc = o.Desc or o.SubText
             local h = desc and CD or CH
-            local f, s, _, fx = card(h, true)
-            local tl, dl = rowText(f, title, desc, 50, h)
-            local ar = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 0.82, BorderSizePixel = 0}, f)
+            local f = card(h, true)
+            local tl, dl = rowText(f, o.Title or o.Name or "Button", desc, 54, h)
+            local ar = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(26, 26), BorderSizePixel = 0}, f, "full", 2)
             skin(ar, "BackgroundColor3", "accent")
-            corner(ar, "full")
-            text(ar, {Text = o.Icon and tostring(o.Icon) or "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(1, -1), TextXAlignment = XC, W = 3, TextSize = 18, TextTruncate = NOTRUNC})
-            ripple(f)
+            text(ar, {Text = o.Icon and tostring(o.Icon) or "›", Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(1, -1), TextXAlignment = XC, W = 2, TextSize = 18, TextTruncate = NOTRUNC})
             f.MouseButton1Click:Connect(function()
-                play(ar, {Size = UDim2.fromOffset(30, 30)}, 0.08)
-                task.delay(0.1, function() play(ar, {Size = UDim2.fromOffset(24, 24)}, 0.25, Enum.EasingStyle.Back) end)
+                play(ar, {Size = UDim2.fromOffset(32, 32)}, 0.08)
+                task.delay(0.1, function() play(ar, {Size = UDim2.fromOffset(26, 26)}, 0.3, BACK) end)
                 safe(o.Callback)
             end)
             return {
-                SetTitle = function(_, s2) tl.Text = tostring(s2) end,
-                SetDesc = function(_, s2) if dl then dl.Text = tostring(s2) end end,
+                SetTitle = function(_, s) tl.Text = tostring(s) end,
+                SetDesc = function(_, s) if dl then dl.Text = tostring(s) end end,
                 Fire = function() safe(o.Callback) end,
             }
         end
@@ -928,34 +805,29 @@ function SORU:CreateWindow(C)
             local desc = o.Desc or o.SubText
             local v = F[flag]
             if type(v) ~= "boolean" then v = (o.Default == true) or (o.Value == true) end
-            local f, s, _, fx = card(desc and CD or CH, true)
-            rowText(f, title, desc, 64, desc and CD or CH)
-            local sw = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(40, 22), BackgroundColor3 = T.off, BorderSizePixel = 0}, f)
-            corner(sw, "full")
+            local h = desc and CD or CH
+            local f, _, fx = card(h, true)
+            rowText(f, title, desc, 72, h)
+            local sw = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.5, 0), Size = UDim2.fromOffset(46, 24), BackgroundColor3 = T.off, BorderSizePixel = 0}, f, "full", 2)
             local on = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = v and 0 or 1, BorderSizePixel = 0}, sw)
             skin(on, "BackgroundColor3", "accent")
             corner(on, "full")
-            local knob = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = v and UDim2.new(1, -19, 0.5, 0) or UDim2.new(0, 3, 0.5, 0), Size = UDim2.fromOffset(16, 16), BackgroundColor3 = WHITE, BorderSizePixel = 0}, sw)
-            corner(knob, "full")
+            local function kpos(x) return x and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0) end
+            local knob = mk("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = kpos(v), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = WHITE, BorderSizePixel = 0}, sw, "full", 2)
             local obj = {Value = v}
             local function upd(nv, silent)
-                v = nv
-                obj.Value = v
+                v, obj.Value = nv, nv
                 play(on, {BackgroundTransparency = v and 0 or 1}, 0.2)
-                play(knob, {Position = v and UDim2.new(1, -19, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)}, 0.25, Enum.EasingStyle.Back)
+                play(knob, {Position = kpos(v)}, 0.3, BACK)
                 fx.active(v)
                 F[flag] = v
-                if not silent then
-                    persist()
-                    safe(o.Callback, v)
-                end
+                if not silent then persist() safe(o.Callback, v) end
             end
             f.MouseButton1Click:Connect(function() upd(not v) end)
             function obj:Set(nv, fire) upd(nv and true or false, not fire) end
             function obj:Get() return v end
             fx.active(v)
-            F[flag] = v
-            Reg[flag] = obj
+            F[flag], Reg[flag] = v, obj
             if o.Callback then task.spawn(safe, o.Callback, v) end
             return obj
         end
@@ -965,28 +837,22 @@ function SORU:CreateWindow(C)
         ----------------------------------------------------------------
         function K:Slider(o)
             o = o or {}
-            local title = o.Title or o.Name or o.Flag or "Slider"
             local flag = o.Flag
             local mn, mx, step = o.Min or 0, o.Max or 100, o.Step or 1
             if mx < mn then mn, mx = mx, mn end
             if step <= 0 then step = 1 end
             local val = o.Default or o.Value or mn
             if flag and type(F[flag]) == "number" then val = F[flag] end
-            local f, s, _, fx = card(nested and 52 or 56, false)
-            text(f, {Text = title, Position = UDim2.fromOffset(12, 7), Size = UDim2.new(1, -90, 0, 20), W = 3})
-            local chipV = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(52, 20), BackgroundTransparency = 0.84, BorderSizePixel = 0}, f)
+            local f, _, fx = card(nested and 58 or 62, false)
+            text(f, {Text = o.Title or o.Name or flag or "Slider", Position = UDim2.fromOffset(14, 7), Size = UDim2.new(1, -96, 0, 20), W = 3})
+            local chipV = mk("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -12, 0, 8), Size = UDim2.fromOffset(52, 20), BorderSizePixel = 0}, f, "full", 2)
             skin(chipV, "BackgroundColor3", "accent")
-            corner(chipV, "full")
             local vl = text(chipV, {Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 11, TextTruncate = NOTRUNC})
-            local hit = new("TextButton", {Position = UDim2.new(0, 8, 1, -26), Size = UDim2.new(1, -16, 0, 22), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
-            local bar = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.new(1, -8, 0, 6), BackgroundColor3 = T.off, BorderSizePixel = 0}, hit)
-            corner(bar, "full")
-            local fill = new("Frame", {Size = UDim2.fromScale(0, 1), BorderSizePixel = 0}, bar)
+            local hit = new("TextButton", {Position = UDim2.new(0, 10, 1, -30), Size = UDim2.new(1, -20, 0, 26), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
+            local bar = mk("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 4, 0.5, 0), Size = UDim2.new(1, -8, 0, 10), BackgroundColor3 = T.off, BorderSizePixel = 0}, hit, "full", 2)
+            local fill = mk("Frame", {Size = UDim2.fromScale(0, 1), BorderSizePixel = 0}, bar, "full")
             skin(fill, "BackgroundColor3", "accent")
-            corner(fill, "full")
-            local knob = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, bar)
-            corner(knob, "full")
-            skin(stroke(knob, WHITE, 2.5, 0.2), "Color", "accent")
+            local knob = mk("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, bar, "full", 2.5)
             local function quant(x)
                 x = math.clamp(mn + math.floor((x - mn) / step + 0.5) * step, mn, mx)
                 return math.floor(x * 1000 + 0.5) / 1000
@@ -1004,8 +870,7 @@ function SORU:CreateWindow(C)
             local function set(x, silent)
                 x = quant(x)
                 if x == val then return end
-                val = x
-                obj.Value = x
+                val, obj.Value = x, x
                 render(x)
                 if flag then F[flag] = x end
                 if not silent then safe(o.Callback, x) end
@@ -1015,7 +880,7 @@ function SORU:CreateWindow(C)
                 if aw > 0 then set(mn + (mx - mn) * math.clamp((px - bar.AbsolutePosition.X) / aw, 0, 1)) end
             end
             local function grab(g)
-                play(knob, {Size = g and UDim2.fromOffset(18, 18) or UDim2.fromOffset(14, 14)}, 0.12, Enum.EasingStyle.Back)
+                play(knob, {Size = g and UDim2.fromOffset(24, 24) or UDim2.fromOffset(18, 18)}, 0.15, BACK)
                 fx.active(g)
             end
             hit.MouseEnter:Connect(function() fx.hover(true) end)
@@ -1031,7 +896,7 @@ function SORU:CreateWindow(C)
                 end)
             function obj:Set(x, fire) set(x, not fire) if flag then F[flag] = val end end
             function obj:Get() return val end
-            if flag then F[flag] = val Reg[flag] = obj end
+            if flag then F[flag], Reg[flag] = val, obj end
             if o.Callback then task.spawn(safe, o.Callback, val) end
             return obj
         end
@@ -1047,7 +912,7 @@ function SORU:CreateWindow(C)
             local val = (o.Default ~= nil) and tostring(o.Default) or ""
             if type(F[flag]) == "string" then val = F[flag] end
             local h = desc and CD or CH
-            local f, s, _, fx = card(h, false)
+            local f, _, fx = card(h, false)
             rowText(f, title, desc, 8, h, 0.5)
             local _, box = inputBox(f, {text = val, placeholder = o.Placeholder or "Type here...", clear = o.ClearOnFocus,
                 wrap = {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.new(0.42, 0, 0, 28)}})
@@ -1077,9 +942,7 @@ function SORU:CreateWindow(C)
             end
             box.FocusLost:Connect(function(enter)
                 local nv = norm(box.Text)
-                box.Text = nv
-                val = nv
-                F[flag] = nv
+                box.Text, val, F[flag] = nv, nv, nv
                 persist()
                 if o.Callback and not o.Live and (enter or nv ~= before) then
                     local v = out(nv)
@@ -1090,9 +953,7 @@ function SORU:CreateWindow(C)
             local obj = {Value = val}
             function obj:Set(v, fire)
                 val = tostring(v)
-                box.Text = val
-                obj.Value = val
-                F[flag] = val
+                box.Text, obj.Value, F[flag] = val, val, val
                 if fire then local r = out(val) if r ~= nil then safe(o.Callback, r) end end
             end
             function obj:Get() return out(box.Text) end
@@ -1128,24 +989,20 @@ function SORU:CreateWindow(C)
             end
             if F[flag] ~= nil then setFrom(F[flag]) else setFrom(o.Default or o.Value) end
             local function getVal()
-                if multi then
-                    local r = {}
-                    for _, n in ipairs(opts) do if chosen[tostring(n)] then r[#r + 1] = tostring(n) end end
-                    return r
-                end
-                return single
+                if not multi then return single end
+                local r = {}
+                for _, n in ipairs(opts) do if chosen[tostring(n)] then r[#r + 1] = tostring(n) end end
+                return r
             end
             local function isSel(n) if multi then return chosen[n] == true end return single == n end
 
             local h = desc and CD or CH
-            local f, s, _, fx = card(h, true)
-            local tl, dl = rowText(f, title, desc, 120, h)
-            local chipD = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -32, 0.5, 0), Size = UDim2.fromOffset(70, 22), BackgroundColor3 = T.input, BorderSizePixel = 0}, f)
-            corner(chipD, "full")
-            stroke(chipD, T.line, 1, 0.3)
+            local f, _, fx = card(h, true)
+            local tl, dl = rowText(f, title, desc, 124, h)
+            local chipD = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -34, 0.5, 0), Size = UDim2.fromOffset(70, 24), BorderSizePixel = 0}, f, "full", 2)
+            skin(chipD, "BackgroundColor3", "accent")
             local vl = text(chipD, {Position = UDim2.fromOffset(6, 0), Size = UDim2.new(1, -12, 1, 0), TextXAlignment = XC, W = 3, TextSize = 11})
-            skin(vl, "TextColor3", "accent")
-            text(f, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(16, 20), TextXAlignment = XC, W = 3, TextSize = 20, TextColor3 = T.dim, TextTruncate = NOTRUNC})
+            text(f, {Text = "›", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(18, 22), TextXAlignment = XC, W = 2, TextSize = 22, TextTruncate = NOTRUNC})
             local function refresh()
                 local t
                 if multi then
@@ -1155,10 +1012,10 @@ function SORU:CreateWindow(C)
                     t = single or "Select..."
                 end
                 vl.Text = t
-                local w = math.clamp(textW(t, 11) + 22, 54, 140)
-                chipD.Size = UDim2.fromOffset(w, 22)
-                tl.Size = UDim2.new(1, -(12 + w + 44), 0, tl.Size.Y.Offset)
-                if dl then dl.Size = UDim2.new(1, -(12 + w + 44), 0, 16) end
+                local w = math.clamp(textW(t, 11) + 24, 56, 140)
+                chipD.Size = UDim2.fromOffset(w, 24)
+                tl.Size = UDim2.new(1, -(14 + w + 46), 0, tl.Size.Y.Offset)
+                if dl then dl.Size = UDim2.new(1, -(14 + w + 46), 0, 16) end
             end
             local function commit()
                 local v = getVal()
@@ -1182,17 +1039,15 @@ function SORU:CreateWindow(C)
             end)
             refresh()
             F[flag] = getVal()
-            local api = {}
+            local api = {Value = getVal()}
             function api:Set(v, fire)
                 setFrom(v)
                 refresh()
-                F[flag] = getVal()
-                api.Value = getVal()
+                F[flag], api.Value = getVal(), getVal()
                 if fire then safe(o.Callback, getVal()) end
             end
             function api:Get() return getVal() end
             function api:Refresh(n) opts = n or {} end
-            api.Value = getVal()
             Reg[flag] = api
             if o.Callback and (multi or single ~= nil) then task.spawn(safe, o.Callback, getVal()) end
             return api
@@ -1211,22 +1066,19 @@ function SORU:CreateWindow(C)
             if type(key) == "string" then key = toKey(key) end
             if type(F[flag]) == "string" then key = (F[flag] ~= "None") and toKey(F[flag]) or nil end
             local h = desc and CD or CH
-            local f, s, _, fx = card(h, true)
-            rowText(f, title, desc, 90, h)
-            local cap = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(60, 24), BackgroundColor3 = T.input, BorderSizePixel = 0}, f)
-            corner(cap, 7)
-            local cs = stroke(cap, T.line, 1, 0.3)
+            local f, _, fx = card(h, true)
+            rowText(f, title, desc, 94, h)
+            local cap = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(60, 26), BackgroundColor3 = T.input, BorderSizePixel = 0}, f, 8, 2)
             local kl = text(cap, {Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 11, TextTruncate = NOTRUNC})
             local listening, lastCancel = false, 0
             local function show()
                 local t = listening and "..." or (key and key.Name or "None")
                 kl.Text = t
-                cap.Size = UDim2.fromOffset(math.max(52, textW(t, 11) + 22), 24)
-                play(cs, {Color = listening and T.accent or T.line}, 0.15)
-                kl.TextColor3 = listening and T.accent or T.text
+                cap.Size = UDim2.fromOffset(math.max(54, textW(t, 11) + 24), 26)
+                play(cap, {BackgroundColor3 = listening and T.accent or T.input}, 0.15)
                 fx.active(listening)
             end
-            local function stop(keep)
+            local function stop()
                 listening = false
                 lastCancel = os.clock()
                 if activeStop == stop then activeStop = nil end
@@ -1265,8 +1117,7 @@ function SORU:CreateWindow(C)
             local obj = {Value = key}
             function obj:Set(k)
                 if type(k) == "string" then k = toKey(k) end
-                key = k
-                obj.Value = k
+                key, obj.Value = k, k
                 show()
                 F[flag] = key and key.Name or "None"
             end
@@ -1288,40 +1139,29 @@ function SORU:CreateWindow(C)
             if type(sv) == "table" and #sv == 3 then col = Color3.fromRGB(sv[1], sv[2], sv[3]) end
             local hh, ss, vv = col:ToHSV()
             local H0, PH = CH, 100
-            local EXP = H0 + 4 + PH + 8 + 28 + 12
-            local open = false
-            local f, s, hf, fx = card(H0, false)
+            local VH, EXP, open = H0 - 6, H0 + PH + 50, false
+            local f, hf, fx = card(H0, false)
             f.ClipsDescendants = true
-            local head = new("TextButton", {Size = UDim2.new(1, 0, 0, H0), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
+            local head = new("TextButton", {Size = UDim2.new(1, 0, 0, VH), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
             head.MouseEnter:Connect(function() fx.hover(true) end)
             head.MouseLeave:Connect(function() fx.hover(false) end)
-            text(head, {Text = title, Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -130, 1, 0), W = 3})
-            local hexL = text(head, {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -56, 0, 0), Size = UDim2.fromOffset(70, H0), TextXAlignment = XR, Mono = true, TextSize = 11, TextColor3 = T.dim})
-            local sw = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(32, 20), BackgroundColor3 = col, BorderSizePixel = 0}, head)
-            corner(sw, 6)
-            stroke(sw, WHITE, 1.2, 0.6)
+            text(head, {Text = title, Position = UDim2.fromOffset(14, 0), Size = UDim2.new(1, -140, 1, 0), W = 3})
+            local hexL = text(head, {AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -58, 0, 0), Size = UDim2.fromOffset(70, VH), TextXAlignment = XR, Mono = true, TextSize = 11, TextColor3 = T.dim})
+            local sw = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(34, 22), BackgroundColor3 = col, BorderSizePixel = 0}, head, 7, 2)
 
-            local pop = new("Frame", {Position = UDim2.fromOffset(10, H0 + 4), Size = UDim2.new(1, -20, 0, EXP - H0 - 8), BackgroundTransparency = 1}, f)
-            local svBox = new("Frame", {Size = UDim2.new(1, -30, 0, PH), BackgroundColor3 = Color3.fromHSV(hh, 1, 1), BorderSizePixel = 0}, pop)
-            corner(svBox, 7)
-            local wf = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, svBox)
-            corner(wf, 7)
+            local pop = new("Frame", {Position = UDim2.fromOffset(12, VH + 4), Size = UDim2.new(1, -24, 0, PH + 8 + 28), BackgroundTransparency = 1}, f)
+            local svBox = mk("Frame", {Size = UDim2.new(1, -32, 0, PH), BackgroundColor3 = Color3.fromHSV(hh, 1, 1), BorderSizePixel = 0}, pop, 8, 2)
+            local wf = mk("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0}, svBox, 8)
             new("UIGradient", {Transparency = NumberSequence.new(0, 1)}, wf)
-            local bf = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0}, svBox)
-            corner(bf, 7)
+            local bf = mk("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0}, svBox, 8)
             new("UIGradient", {Transparency = NumberSequence.new(1, 0), Rotation = 90}, bf)
-            local pt = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1, BorderSizePixel = 0}, svBox)
-            corner(pt, "full")
-            stroke(pt, WHITE, 2, 0)
+            local pt = mk("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = WHITE, BorderSizePixel = 0}, svBox, "full", 2)
             local svHit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, svBox)
-            local hue = new("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(20, PH), BackgroundColor3 = WHITE, BorderSizePixel = 0}, pop)
-            corner(hue, 7)
+            local hue = mk("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(1, 0), Size = UDim2.fromOffset(22, PH), BackgroundColor3 = WHITE, BorderSizePixel = 0}, pop, 8, 2)
             local ks = {}
             for i = 0, 6 do ks[#ks + 1] = ColorSequenceKeypoint.new(i / 6, Color3.fromHSV(i / 6, 1, 1)) end
             new("UIGradient", {Color = ColorSequence.new(ks), Rotation = 90}, hue)
-            local hp = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(1, 4, 0, 6), BackgroundColor3 = WHITE, BorderSizePixel = 0}, hue)
-            corner(hp, 3)
-            stroke(hp, Color3.new(0, 0, 0), 1, 0.5)
+            local hp = mk("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.new(1, 6, 0, 8), BackgroundColor3 = WHITE, BorderSizePixel = 0}, hue, 4, 2)
             local hHit = new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, hue)
             local _, hexBox = inputBox(pop, {placeholder = "#RRGGBB", wrap = {Position = UDim2.fromOffset(0, PH + 8), Size = UDim2.new(1, 0, 0, 28)}})
 
@@ -1340,7 +1180,7 @@ function SORU:CreateWindow(C)
             local function save() F[flag] = rgbOf() persist() end
             local function yOf(pos) return pos.Y + GuiService:GetGuiInset().Y end
             track(svHit,
-                function(pos) scroll.ScrollingEnabled = false return true end,
+                function() scroll.ScrollingEnabled = false return true end,
                 function(dx, dy, st, moved, pos)
                     local ap, asz = svBox.AbsolutePosition, svBox.AbsoluteSize
                     if asz.X <= 0 or asz.Y <= 0 then return end
@@ -1350,7 +1190,7 @@ function SORU:CreateWindow(C)
                 end,
                 function() scroll.ScrollingEnabled = true save() end)
             track(hHit,
-                function(pos) scroll.ScrollingEnabled = false return true end,
+                function() scroll.ScrollingEnabled = false return true end,
                 function(dx, dy, st, moved, pos)
                     local ap, asz = hue.AbsolutePosition, hue.AbsoluteSize
                     if asz.Y <= 0 then return end
@@ -1373,7 +1213,7 @@ function SORU:CreateWindow(C)
             head.MouseButton1Click:Connect(function()
                 open = not open
                 fx.active(open)
-                play(hf, {Size = UDim2.new(1, 0, 0, open and EXP or H0)}, 0.3)
+                play(hf, {Size = UDim2.new(1, 0, 0, open and EXP or H0)}, 0.35, BACK)
             end)
             apply(true)
             F[flag] = rgbOf()
@@ -1383,8 +1223,7 @@ function SORU:CreateWindow(C)
                 if typeof(c) ~= "Color3" then return end
                 hh, ss, vv = c:ToHSV()
                 apply(not fire, c)
-                obj.Value = c
-                F[flag] = rgbOf()
+                obj.Value, F[flag] = c, rgbOf()
             end
             function obj:Get() return col end
             Reg[flag] = obj
@@ -1394,44 +1233,42 @@ function SORU:CreateWindow(C)
         K.Color = K.ColorPicker
 
         ----------------------------------------------------------------
-        -- ACCORDION ala Vora: klik header = buka / tutup, tinggi mengikuti isi
+        -- ACCORDION: klik header = buka / tutup, tinggi mengikuti isi
         ----------------------------------------------------------------
         function K:Accordion(o)
             o = o or {}
-            local title = o.Title or o.Name or "Accordion"
             local desc = o.Desc or o.SubText
             local HEAD = desc and CD or CH
+            local VH = HEAD - 6
             local open, animating, tok = false, false, 0
-            local f, s, hf, fx = card(HEAD, false)
+            local f, hf, fx = card(HEAD, false)
             f.ClipsDescendants = true
-            local tint = new("Frame", {Size = UDim2.new(1, 0, 0, HEAD), BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            local tint = mk("Frame", {Size = UDim2.new(1, 0, 0, VH), BackgroundTransparency = 1, BorderSizePixel = 0}, f, R)
             skin(tint, "BackgroundColor3", "accent")
-            corner(tint, R)
-            local head = new("TextButton", {Name = "Head", Size = UDim2.new(1, 0, 0, HEAD), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
-            rowText(head, title, desc, 76, HEAD)
-            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -34, 0.5, 0), Size = UDim2.fromOffset(24, 18), BackgroundColor3 = T.input, BorderSizePixel = 0}, head)
-            corner(cnt, "full")
-            local cntL = text(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 10, TextColor3 = T.dim, TextTruncate = NOTRUNC})
-            local chev = text(head, {Text = "›", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -18, 0.5, 0), Size = UDim2.fromOffset(20, 20), TextXAlignment = XC, W = 3, TextSize = 22, TextColor3 = T.dim, TextTruncate = NOTRUNC})
+            local fill = new("Frame", {Position = UDim2.fromOffset(0, VH - 12), Size = UDim2.new(1, 0, 0, 12), BackgroundTransparency = 1, BorderSizePixel = 0}, f)
+            skin(fill, "BackgroundColor3", "accent")
+            local sep = new("Frame", {Position = UDim2.fromOffset(0, VH), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = T.ink, BorderSizePixel = 0, Visible = false}, f)
+            local head = new("TextButton", {Name = "Head", Size = UDim2.new(1, 0, 0, VH), BackgroundTransparency = 1, Text = "", AutoButtonColor = false}, f)
+            rowText(head, o.Title or o.Name or "Accordion", desc, 84, HEAD)
+            local cnt = mk("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -36, 0.5, 0), Size = UDim2.fromOffset(26, 20), BackgroundColor3 = T.input, BorderSizePixel = 0}, head, "full", 1.5)
+            local cntL = text(cnt, {Text = "0", Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 10, TextTruncate = NOTRUNC})
+            local chev = text(head, {Text = "›", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -18, 0.5, 0), Size = UDim2.fromOffset(20, 20), TextXAlignment = XC, W = 2, TextSize = 24, TextTruncate = NOTRUNC})
 
-            local wrap = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, f)
+            local wrap = new("Frame", {Position = UDim2.fromOffset(0, VH), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, f)
             local cont = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, wrap)
-            new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 18), PaddingRight = UDim.new(0, 10)}, cont)
-            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cont)
-            local rail = new("Frame", {Position = UDim2.fromOffset(9, 4), Size = UDim2.new(0, 2, 1, -14), BackgroundTransparency = 0.6, BorderSizePixel = 0}, wrap)
-            skin(rail, "BackgroundColor3", "accent")
-            corner(rail, "full")
+            new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 20), PaddingRight = UDim.new(0, 10)}, cont)
+            local lay = new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, cont)
+            mk("Frame", {Position = UDim2.fromOffset(9, 10), Size = UDim2.new(0, 3, 1, -20), BackgroundColor3 = T.ink, BackgroundTransparency = 0.6, BorderSizePixel = 0}, wrap, "full")
 
             local sub = buildComponents(scroll, cont, true, ctx)
-            sub._badge = cntL
-            sub._content = cont
+            sub._badge, sub._content = cntL, cont
 
             local function contentH()
                 local ah = lay.AbsoluteContentSize.Y
                 if ah <= 0 then return 0 end
-                local fac = head.AbsoluteSize.Y / HEAD
+                local fac = head.AbsoluteSize.Y / VH
                 if fac < 0.01 then fac = math.max(rootScale.Scale, 0.01) end
-                return math.floor(ah / fac + 0.5) + 14
+                return math.floor(ah / fac + 0.5) + 18
             end
             local function setH(h)
                 wrap.Size = UDim2.new(1, 0, 0, h)
@@ -1443,8 +1280,10 @@ function SORU:CreateWindow(C)
                 tok = tok + 1
                 local my = tok
                 fx.active(v)
-                play(chev, {Rotation = v and 90 or 0, TextColor3 = v and T.accent or T.dim}, 0.25)
+                sep.Visible = v
+                play(chev, {Rotation = v and 90 or 0}, 0.3, BACK)
                 play(tint, {BackgroundTransparency = v and 0 or 1}, 0.25)
+                play(fill, {BackgroundTransparency = v and 0 or 1}, 0.25)
                 play(cnt, {BackgroundColor3 = v and T.card or T.input}, 0.2)
                 if v then wrap.Visible = true end
                 if instant or NOANIM then
@@ -1457,9 +1296,9 @@ function SORU:CreateWindow(C)
                     if v then RunService.Heartbeat:Wait() end
                     if tok ~= my then return end
                     local h = v and contentH() or 0
-                    play(hf, {Size = UDim2.new(1, 0, 0, HEAD + h)}, 0.3)
-                    play(wrap, {Size = UDim2.new(1, 0, 0, h)}, 0.3)
-                    task.wait(0.33)
+                    play(hf, {Size = UDim2.new(1, 0, 0, HEAD + h)}, 0.35, BACK)
+                    play(wrap, {Size = UDim2.new(1, 0, 0, h)}, 0.35, BACK)
+                    task.wait(0.38)
                     if tok ~= my then return end
                     animating = false
                     if open then setH(contentH()) else wrap.Visible = false end
@@ -1472,7 +1311,6 @@ function SORU:CreateWindow(C)
                     if math.abs(wrap.Size.Y.Offset - h) > 1 then setH(h) end
                 end
             end)
-            themeFns[#themeFns + 1] = function() if open then chev.TextColor3 = T.accent end end
             head.MouseEnter:Connect(function() fx.hover(true) end)
             head.MouseLeave:Connect(function() fx.hover(false) end)
             head.MouseButton1Click:Connect(function() setOpen(not open) end)
@@ -1486,7 +1324,6 @@ function SORU:CreateWindow(C)
         end
         K.Group = K.Accordion
 
-        -- panel samping bisa dibuat dari tab maupun window
         function K:Panel(o) return Window:Panel(o) end
 
         -- alias gaya Vora. CreateSection = accordion; komponen sesudahnya masuk ke dalamnya
@@ -1534,7 +1371,6 @@ function SORU:CreateWindow(C)
         return buildComponents(createTab(c.Title or c.Name or "Tab", c.Icon), nil, false, ctxWin)
     end
     function Window:CreateTab(c) c = c or {} return Window:Tab({Title = c.Name or c.Title, Icon = c.Icon}) end
-    Window.Notify = Window.Notify
 
     -- support game
     local supported, kickOnFail = C.SupportedGames, C.KickIfNotSupported
@@ -1549,18 +1385,19 @@ function SORU:CreateWindow(C)
     -- modal konfirmasi tutup
     local over = new("TextButton", {Name = "Modal", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, Text = "", AutoButtonColor = false, Visible = false, ZIndex = 300, BorderSizePixel = 0}, root)
     do
-        local dia = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(300, 150), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true}, over)
-        corner(dia, 10)
-        stroke(dia, T.line, 1, 0)
-        text(dia, {Text = "Close SORU Hub?", Position = UDim2.fromOffset(0, 18), Size = UDim2.new(1, 0, 0, 22), TextXAlignment = XC, W = 3, TextSize = 16})
-        text(dia, {Text = "The interface will be closed. Re-execute the script to open it again.", Position = UDim2.fromOffset(24, 46), Size = UDim2.new(1, -48, 0, 40), TextXAlignment = XC, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextSize = 12, TextColor3 = T.dim, TextTruncate = NOTRUNC})
+        local dh = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(320, 170), BackgroundTransparency = 1, Active = true}, over)
+        local dia = sticker(dh, 14, 3, T.bg)
+        text(dia, {Text = "Close SORU Hub?", Position = UDim2.fromOffset(0, 16), Size = UDim2.new(1, 0, 0, 26), TextXAlignment = XC, W = 3, TextSize = 20})
+        text(dia, {Text = "The interface will be closed. Re-execute the script to open it again.", Position = UDim2.fromOffset(24, 50), Size = UDim2.new(1, -48, 0, 40), TextXAlignment = XC, TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextSize = 12, W = 1, TextColor3 = T.dim, TextTruncate = NOTRUNC})
         local function mbtn(x, txt, col, tcol)
-            local b = new("TextButton", {Size = UDim2.new(0.5, -22, 0, 34), Position = UDim2.new(x, x == 0 and 16 or 6, 1, -50), Text = txt, FontFace = FONT[3], TextSize = 13, BackgroundColor3 = col, TextColor3 = tcol, AutoButtonColor = false, BorderSizePixel = 0}, dia)
-            corner(b, 9)
+            local p0 = UDim2.new(x, x == 0 and 16 or 8, 1, -56)
+            local b = mk("TextButton", {Size = UDim2.new(0.5, -24, 0, 36), Position = p0, Text = txt, FontFace = FONT[3], TextSize = 14, BackgroundColor3 = col, TextColor3 = tcol, AutoButtonColor = false, BorderSizePixel = 0}, dia, 10, 2)
+            b.MouseButton1Down:Connect(function() play(b, {Position = p0 + UDim2.fromOffset(0, 2)}, 0.05) end)
+            b.MouseButton1Up:Connect(function() play(b, {Position = p0}, 0.2, BACK) end)
             return b
         end
-        local no = mbtn(0, "Cancel", T.card, T.text)
-        local yes = mbtn(0.5, "Close", Color3.fromRGB(210, 60, 70), WHITE)
+        local no, yes = mbtn(0, "Cancel", T.card, T.ink), mbtn(0.5, "Close", T.bad, WHITE)
+        yes.TextStrokeColor3, yes.TextStrokeTransparency = T.ink, 0
         no.MouseButton1Click:Connect(function() over.Visible = false end)
         yes.MouseButton1Click:Connect(function() over.Visible = false closeA() task.delay(0.3, function() gui:Destroy() end) end)
     end
@@ -1571,7 +1408,7 @@ function SORU:CreateWindow(C)
         maxed = not maxed
         if maxed then
             prevSize = winSize
-            winSize = Vector2.new(math.min(MAXS.X, virt.X - 16), math.min(MAXS.Y, virt.Y - 16))
+            winSize = Vector2.new(math.min(MAXS.X, virt.X - 20), math.min(MAXS.Y, virt.Y - 20))
             winPos = nil
         else
             winSize = prevSize or DEFAULT
@@ -1609,47 +1446,42 @@ function SORU:CreateWindow(C)
     function Window:Panel(o)
         o = o or {}
         local W = math.clamp(tonumber(o.Width) or 300, 220, 520)
-        local GRIP, M, HEADP = 26, 10, 56
+        local GRIP, M, HEADP = 28, 12, 58
         local dockL = tostring(o.OpenDrag or "Left"):lower() == "right"
         local AX = dockL and 0 or 1
-        local isP, destroyed = false, false
-        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0), Size = UDim2.new(0, W + GRIP, 1, -24), BackgroundTransparency = 1, ZIndex = 60}, root)
+        local isP, destroyed, prog = false, false, 0
+        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0), Size = UDim2.new(0, W + GRIP, 1, -28), BackgroundTransparency = 1, ZIndex = 60}, root)
         local function pos(p)
             local x = (1 - p) * W - p * M
-            return UDim2.new(AX, dockL and -x or x, 0, 12)
+            return UDim2.new(AX, dockL and -x or x, 0, 14)
         end
         holder.Position = pos(0)
-        local body = new("Frame", {Name = "Body", AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, holder)
-        corner(body, 10)
-        regT(body, 0.02)
-        stroke(body, T.line, 1, 0)
+        local psh = mk("Frame", {AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, dockL and -5 or 5, 0, 5), Size = UDim2.new(0, W, 1, 0), BackgroundColor3 = T.ink, BorderSizePixel = 0}, holder, 14)
+        local body = mk("Frame", {Name = "Body", AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, holder, 14, 3)
+        regT(body, 0)
         local hasSub = o.Subtitle ~= nil and tostring(o.Subtitle) ~= ""
-        local tl = text(body, {Text = tostring(o.Title or "Panel"), Position = UDim2.fromOffset(16, hasSub and 9 or 0), Size = UDim2.new(1, -64, 0, hasSub and 22 or HEADP), W = 3, TextSize = 15})
-        local sl = text(body, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(16, 31), Size = UDim2.new(1, -64, 0, 14), TextSize = 11, TextColor3 = T.dim, Visible = hasSub})
-        local cb = new("TextButton", {Position = UDim2.new(1, -42, 0, 14), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = T.card, Text = dockL and "‹" or "›", FontFace = FONT[3], TextSize = 20, TextColor3 = T.dim, AutoButtonColor = false, BorderSizePixel = 0}, body)
-        corner(cb, "full")
-        new("Frame", {Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.line, BorderSizePixel = 0}, body)
-        local pscroll = new("ScrollingFrame", {Position = UDim2.fromOffset(0, HEADP + 2), Size = UDim2.new(1, 0, 1, -(HEADP + 2)), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, body)
-        skin(pscroll, "ScrollBarImageColor3", "accent")
-        new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
-        new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 14)}, pscroll)
+        local tl = text(body, {Text = tostring(o.Title or "Panel"), Position = UDim2.fromOffset(16, hasSub and 9 or 0), Size = UDim2.new(1, -64, 0, hasSub and 24 or HEADP), W = 3, TextSize = 17})
+        local sl = text(body, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(16, 33), Size = UDim2.new(1, -64, 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub})
+        local cb = mk("TextButton", {Position = UDim2.new(1, -44, 0, 15), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = T.card, Text = dockL and "‹" or "›", FontFace = FONT[2], TextSize = 20, TextColor3 = T.ink, AutoButtonColor = false, BorderSizePixel = 0}, body, "full", 2)
+        new("Frame", {Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = T.ink, BorderSizePixel = 0}, body)
+        local pscroll = new("ScrollingFrame", {Position = UDim2.fromOffset(0, HEADP + 3), Size = UDim2.new(1, 0, 1, -(HEADP + 3)), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 4, ScrollBarImageColor3 = T.ink, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, body)
+        new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
+        new("UIPadding", {PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 16), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14)}, pscroll)
         local pctx = newCtx(body, 14)
         local K = buildComponents(pscroll, nil, false, pctx)
 
-        local grip = new("Frame", {Name = "Grip", AnchorPoint = Vector2.new(1 - AX, 0.5), Position = UDim2.new(1 - AX, 0, math.clamp(tonumber(o.GripY) or 0.3, 0.1, 0.9), 0), Size = UDim2.fromOffset(GRIP, 120), BackgroundColor3 = T.side, BorderSizePixel = 0, Active = true}, holder)
+        local grip = new("Frame", {Name = "Grip", AnchorPoint = Vector2.new(1 - AX, 0.5), Position = UDim2.new(1 - AX, 0, math.clamp(tonumber(o.GripY) or 0.3, 0.1, 0.9), 0), Size = UDim2.fromOffset(GRIP, 124), BorderSizePixel = 0, Active = true}, holder)
+        skin(grip, "BackgroundColor3", "accent")
         corner(grip, 10)
-        skin(stroke(grip, WHITE, 1.3, 0.3), "Color", "accent")
-        local gt = text(grip, {Text = string.upper(tostring(o.Title or "Panel")), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(100, 16), Rotation = dockL and -90 or 90, TextXAlignment = XC, W = 3, TextSize = 10, TextColor3 = T.dim})
-        grip.MouseEnter:Connect(function() play(gt, {TextColor3 = T.text}, 0.15) end)
-        grip.MouseLeave:Connect(function() play(gt, {TextColor3 = T.dim}, 0.2) end)
+        stroke(grip, T.ink, 3)
+        local gt = text(grip, {Text = string.upper(tostring(o.Title or "Panel")), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(104, 16), Rotation = dockL and -90 or 90, TextXAlignment = XC, W = 3, TextSize = 11})
 
-        local prog = 0
         local function goTo(open)
             local was = isP
             isP = open and true or false
             prog = isP and 1 or 0
             if not isP and pctx.d then pctx.d.close() end
-            play(holder, {Position = pos(prog)}, 0.35)
+            play(holder, {Position = pos(prog)}, 0.4, BACK)
             if was ~= isP and o.Callback then task.spawn(safe, o.Callback, isP) end
         end
         cb.MouseButton1Click:Connect(function() goTo(false) end)
@@ -1662,27 +1494,24 @@ function SORU:CreateWindow(C)
                 prog = math.clamp(p0 - d / (W + M), 0, 1)
                 holder.Position = pos(prog)
             end,
-            function(moved)
-                if not moved then goTo(not isP) else goTo(prog > 0.5) end
-            end)
+            function(moved) if not moved then goTo(not isP) else goTo(prog > 0.5) end end)
 
         function K:Show() goTo(true) end
         function K:Hide() goTo(false) end
         function K:Switch() goTo(not isP) end
         function K:IsOpen() return isP end
-        function K:SetTitle(t) tl.Text = tostring(t) gt.Text = string.upper(tostring(t)) end
+        function K:SetTitle(t) tl.Text, gt.Text = tostring(t), string.upper(tostring(t)) end
         function K:SetSubtitle(t)
             local s = (t == nil) and "" or tostring(t)
-            sl.Text = s
-            sl.Visible = s ~= ""
+            sl.Text, sl.Visible = s, s ~= ""
             tl.Position = UDim2.fromOffset(16, s ~= "" and 9 or 0)
-            tl.Size = UDim2.new(1, -64, 0, s ~= "" and 22 or HEADP)
+            tl.Size = UDim2.new(1, -64, 0, s ~= "" and 24 or HEADP)
         end
         function K:SetVisible(v) holder.Visible = v and true or false end
         function K:SetWidth(w)
             W = math.clamp(tonumber(w) or W, 220, 520)
-            holder.Size = UDim2.new(0, W + GRIP, 1, -24)
-            body.Size = UDim2.new(0, W, 1, 0)
+            holder.Size = UDim2.new(0, W + GRIP, 1, -28)
+            body.Size, psh.Size = UDim2.new(0, W, 1, 0), UDim2.new(0, W, 1, 0)
             holder.Position = pos(prog)
         end
         function K:Destroy() if not destroyed then destroyed = true holder:Destroy() end end
@@ -1694,33 +1523,28 @@ function SORU:CreateWindow(C)
     end
 
     ------------------------------------------------------------------
-    -- DASHBOARD (tab pertama): profil, server, statistik, teman, executor, discord, interface
+    -- DASHBOARD (tab pertama): profil, server, statistik, executor, discord, interface
     ------------------------------------------------------------------
     local ticks = {}
     local function buildDashboard(D)
         -- kartu Hello: klik untuk menampilkan / menyensor nama
-        local hero = D._card(68, true)
-        local av = new("ImageLabel", {Position = UDim2.fromOffset(12, 10), Size = UDim2.fromOffset(46, 46), BackgroundColor3 = T.off, BorderSizePixel = 0}, hero)
-        corner(av, "full")
-        skin(stroke(av, WHITE, 2, 0), "Color", "accent")
+        local hero = D._card(70, true)
+        local av = mk("ImageLabel", {Position = UDim2.fromOffset(12, 9), Size = UDim2.fromOffset(46, 46), BackgroundColor3 = T.off, BorderSizePixel = 0}, hero, "full", 2)
         task.spawn(function()
             local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
             if ok and av.Parent then av.Image = img end
         end)
-        local hello = text(hero, {Position = UDim2.fromOffset(70, 11), Size = UDim2.new(1, -82, 0, 24), W = 3, TextSize = 17})
-        local subH = text(hero, {Position = UDim2.fromOffset(70, 37), Size = UDim2.new(1, -82, 0, 16), TextSize = 11, TextColor3 = T.dim})
+        local hello = text(hero, {Position = UDim2.fromOffset(72, 9), Size = UDim2.new(1, -84, 0, 26), W = 3, TextSize = 19})
+        local subH = text(hero, {Position = UDim2.fromOffset(72, 36), Size = UDim2.new(1, -84, 0, 16), TextSize = 11, W = 1, TextColor3 = T.dim})
         local shown = false
         local function paintHello()
             hello.Text = "Hello, " .. (shown and pl.DisplayName or string.rep("•", math.min(#pl.DisplayName, 10)))
             subH.Text = gameName .. (shown and "" or "  •  tap to show name")
         end
-        bindName(function() paintHello() end)
+        bindName(paintHello)
         hero.MouseButton1Click:Connect(function() shown = not shown paintHello() end)
 
         local t0 = os.clock()
-        local function joinScript()
-            return string.format('game:GetService("TeleportService"):TeleportToPlaceInstance(%s, "%s", game:GetService("Players").LocalPlayer)', tostring(placeId), tostring(game.JobId))
-        end
         local function confirmBtn(parent, title, desc, fn)
             local armed, b = false, nil
             b = parent:Button({Title = title, Desc = desc, Callback = function()
@@ -1735,6 +1559,7 @@ function SORU:CreateWindow(C)
                 fn()
             end})
         end
+        local function lvl(v, a, b) return (v <= a and T.ok) or (v <= b and T.warn) or T.bad end -- ping: kecil = bagus
 
         -- SERVER
         local S = D:Accordion({Title = "Server", Desc = "Information on your current session", Open = true})
@@ -1744,7 +1569,7 @@ function SORU:CreateWindow(C)
             iReg:Set(ok and tostring(r) or "-")
         end)
         S:Button({Title = "Copy join script", Desc = "Teleport straight into this server", Callback = function()
-            copy(joinScript())
+            copy(string.format('game:GetService("TeleportService"):TeleportToPlaceInstance(%s, "%s", game:GetService("Players").LocalPlayer)', tostring(placeId), tostring(game.JobId)))
             notify("Join script", "Copied to clipboard", T.accent, 1.8)
         end})
         confirmBtn(S, "Rejoin server", "Teleport back into this server", function() TeleportService:TeleportToPlaceInstance(placeId, game.JobId, pl) end)
@@ -1765,49 +1590,16 @@ function SORU:CreateWindow(C)
             local ping, mem = 0, 0
             pcall(function() ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue() + 0.5) end)
             pcall(function() mem = math.floor(Stats:GetTotalMemoryUsageMb() + 0.5) end)
-            iPl:Set(#Players:GetPlayers() .. " / " .. Players.MaxPlayers)
-            iLat:Set(ping .. " ms", (ping <= 80 and T.ok) or (ping <= 150 and T.warn) or T.bad)
             local s = math.floor(now - t0)
+            iPl:Set(#Players:GetPlayers() .. " / " .. Players.MaxPlayers)
+            iLat:Set(ping .. " ms", lvl(ping, 80, 150))
+            iPing:Set(ping .. " ms", lvl(ping, 80, 150))
             iTime:Set(string.format("%02d:%02d:%02d", math.floor(s / 3600), math.floor((s % 3600) / 60), s % 60))
             iFps:Set(fps .. " fps", (fps >= 50 and T.ok) or (fps >= 30 and T.warn) or T.bad)
-            iPing:Set(ping .. " ms", (ping <= 80 and T.ok) or (ping <= 150 and T.warn) or T.bad)
             iMem:Set(mem .. " MB")
             local hrp = pl.Character and pl.Character:FindFirstChild("HumanoidRootPart")
             if hrp then iPos:Set(string.format("X:%.1f  Y:%.1f  Z:%.1f", hrp.Position.X, hrp.Position.Y, hrp.Position.Z)) end
         end
-
-        -- FRIENDS (dimuat saat di-tap, tanpa request jaringan di awal)
-        local FR = D:Accordion({Title = "Friends", Desc = "What your friends are doing"})
-        local fIn, fOn, fAll = FR:Info({Title = "In server", Value = "tap load"}), FR:Info({Title = "Online", Value = "tap load"}), FR:Info({Title = "All friends", Value = "tap load"})
-        local loaded = false
-        FR:Button({Title = "Load friends", Desc = "Fetch friend counts", Callback = function()
-            if loaded then return end
-            loaded = true
-            task.spawn(function()
-                local inSrv = 0
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p ~= pl then
-                        local ok, isF = pcall(function() return pl:IsFriendsWith(p.UserId) end)
-                        if ok and isF then inSrv = inSrv + 1 end
-                    end
-                end
-                local nOn, nAll = "-", 0
-                local okOn, onl = pcall(function() return pl:GetFriendsOnline(200) end)
-                if okOn and type(onl) == "table" then nOn = #onl end
-                local okAll = pcall(function()
-                    local pages = Players:GetFriendsAsync(pl.UserId)
-                    for _ = 1, 10 do
-                        nAll = nAll + #pages:GetCurrentPage()
-                        if pages.IsFinished then break end
-                        pages:AdvanceToNextPageAsync()
-                    end
-                end)
-                fIn:Set(tostring(inSrv))
-                fOn:Set(tostring(nOn))
-                fAll:Set(okAll and tostring(nAll) or "-")
-                loaded = false
-            end)
-        end})
 
         -- EXECUTOR
         local EX = D:Accordion({Title = "Executor", Desc = "What this script needs from your executor"})
@@ -1860,8 +1652,7 @@ function SORU:CreateWindow(C)
             persist()
             notify("UI reset", "Size and scale restored", T.accent, 2)
         end})
-        local CL = D:Accordion({Title = "Changelog", Desc = "v" .. VERSION})
-        CL:Paragraph({Title = "v6.1 - Lite flat", Desc = "Flat and light: no gradients, text sidebar with sliding pill, accordion sections, right-side dropdown drawer with search, censored Hello card, 44 themes."})
+        D:Accordion({Title = "Changelog", Desc = "v" .. VERSION}):Paragraph({Title = "v7.0 - Cartoon Classic", Desc = "Cream paper look, thick ink outlines, hard shadows, press-down buttons, bouncy animations. Flat and light: no gradients, no shadow images."})
     end
     buildDashboard(Window:Tab({Title = "Dashboard", Icon = "home"}))
 
@@ -1888,20 +1679,16 @@ function SORU:CreateWindow(C)
         local S = Window:Tab({Title = "Showcase", Icon = "★"})
         S:Section("Basic")
         S:Button({Title = "Button", Desc = "Click me", Callback = function() notify("Button", "Clicked", T.accent, 1.5) end})
-        S:Toggle({Title = "Toggle", Desc = "On / off", Flag = "Demo_Toggle", Default = true})
+        S:Toggle({Title = "Toggle", Flag = "Demo_Toggle", Default = true})
         S:Slider({Title = "Slider", Flag = "Demo_Slider", Min = 0, Max = 100, Default = 40, Suffix = "%"})
         S:Section("Input")
-        S:Textbox({Title = "Textbox", Flag = "Demo_Text", Placeholder = "Type here..."})
+        S:Textbox({Title = "Textbox", Flag = "Demo_Text"})
         S:Dropdown({Title = "Dropdown", Flag = "Demo_DD", Options = {"Alpha", "Beta", "Gamma"}, Default = "Alpha"})
-        S:Dropdown({Title = "Multi dropdown", Flag = "Demo_MD", Multi = true, Options = {"One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight"}, Default = {"One"}})
         S:Keybind({Title = "Keybind", Flag = "Demo_Key", Default = Enum.KeyCode.F})
         S:ColorPicker({Title = "Color picker", Flag = "Demo_Col", Default = T.accent})
-        S:Section("Accordion")
-        local A = S:Accordion({Title = "Auto farm group", Desc = "Any component works inside", Open = true})
+        local A = S:Accordion({Title = "Accordion", Desc = "Any component works inside", Open = true})
         A:Toggle({Title = "Auto farm", Flag = "Demo_AF"})
         A:Slider({Title = "Farm speed", Flag = "Demo_FS", Min = 1, Max = 10, Default = 5})
-        A:Dropdown({Title = "Target", Flag = "Demo_TG", Options = {"Nearest", "Strongest", "Weakest"}, Default = "Nearest"})
-        S:Paragraph({Title = "Paragraph", Desc = "Long text wraps automatically and the card grows with it."})
     end
 
     openA()
