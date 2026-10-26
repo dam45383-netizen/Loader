@@ -190,27 +190,6 @@ local function inputBox(parent, p)
     return wrap, box
 end
 
--- ikon tab: "home" (digambar) | gambar (rbxassetid / id angka) | huruf / simbol. Return fungsi pewarna
-local function tabIcon(b, icon)
-    local ic = icon and tostring(icon) or nil
-    if ic == nil or ic == "" then return nil end
-    local box = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1}, b)
-    if ic == "home" then
-        local parts = {}
-        for _, d in ipairs({{11, 11, -3, 45}, {13, 8, 4, 0}}) do
-            local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, d[3]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = d[4], BackgroundColor3 = T.dim, BorderSizePixel = 0}, box)
-            corner(p, 2)
-            parts[#parts + 1] = p
-        end
-        return function(c) for _, f in ipairs(parts) do f.BackgroundColor3 = c end end
-    elseif ic:match("^rbxasset") or ic:match("^%d%d%d+$") then
-        local img = new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = ic:match("^%d+$") and ("rbxassetid://" .. ic) or ic, ImageColor3 = T.dim}, box)
-        return function(c) play(img, {ImageColor3 = c}, 0.2) end
-    end
-    local gl = text(box, {Text = ic, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 16, TextColor3 = T.dim, TextTruncate = NOTRUNC})
-    return function(c) gl.TextColor3 = c end
-end
-
 ----------------------------------------------------------------------
 -- DRAWER: dropdown = panel geser di sisi kanan window (satu per host, dibuat saat pertama dipakai)
 ----------------------------------------------------------------------
@@ -456,7 +435,7 @@ function SORU:CreateWindow(C)
         local m = new("Frame", {Position = UDim2.fromOffset(330, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BackgroundTransparency = 0.1, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
         corner(m, 8)
         stroke(m, T.outline, 1, 0)
-        local ic = new("ImageLabel", {Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, Image = img or "rbxassetid://112067161065104", ImageColor3 = color}, m)
+        local ic = new("ImageLabel", {Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(36, 36), BackgroundTransparency = 1, Image = img or "rbxassetid://", ImageColor3 = color}, m)
         corner(ic, 6)
         text(m, {Text = tostring(title or ""), Position = UDim2.fromOffset(58, 10), Size = UDim2.new(1, -68, 0, 20), W = 3})
         text(m, {Text = tostring(msg or ""), Position = UDim2.fromOffset(58, 30), Size = UDim2.new(1, -68, 0, 26), TextSize = 12, W = 1, TextColor3 = T.dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
@@ -684,39 +663,59 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     -- SIDEBAR + CONTENT
     ------------------------------------------------------------------
-    local SIDE_W, FOOT_H, TAB_H, TAB_GAP = 160, 56, 36, 5
-    local bar = new("Frame", {Name = "Sidebar", Position = UDim2.fromOffset(0, HDR), Size = UDim2.new(0, SIDE_W, 1, -HDR), BackgroundTransparency = 1, BorderSizePixel = 0}, win)
-    new("Frame", {Name = "Separator", Position = UDim2.new(1, -2, 0, 0), Size = UDim2.new(0, 2, 1, 0), BackgroundColor3 = T.outline, BorderSizePixel = 0}, bar)
-    local tabList = new("ScrollingFrame", {Name = "TabContainer", Active = true, Position = UDim2.fromOffset(0, 12), Size = UDim2.new(1, -2, 1, -(12 + FOOT_H)), BackgroundTransparency = 1, BorderSizePixel = 0,
+    local SIDE_W, FOOT_H, TAB_H, TAB_GAP, NAV_Y = 160, 64, 38, 5, 34
+    local bar = new("Frame", {Name = "Sidebar", Position = UDim2.fromOffset(0, HDR), Size = UDim2.new(0, SIDE_W, 1, -HDR), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, win)
+
+    -- latar sidebar: gradien tipis aksen -> gelap. Hanya sudut kiri-bawah yang membulat (sudut lain keluar bar & kepotong)
+    local sbg = new("Frame", {Name = "Background", Position = UDim2.fromOffset(1, -14), Size = UDim2.new(1, 13, 1, 13), BackgroundColor3 = WHITE, BorderSizePixel = 0}, bar)
+    corner(sbg, 9)
+    local sbgGrad = new("UIGradient", {Rotation = 90}, sbg)
+    local function paintSide()
+        sbgGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, T.side:Lerp(T.accent, 0.14)),
+            ColorSequenceKeypoint.new(0.5, T.side),
+            ColorSequenceKeypoint.new(1, T.side:Lerp(T.bg, 0.6)),
+        })
+    end
+    paintSide()
+    themeFns[#themeFns + 1] = paintSide
+
+    new("Frame", {Name = "Separator", Position = UDim2.new(1, -1, 0, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = T.outline, BackgroundTransparency = 0.2, BorderSizePixel = 0}, bar)
+    text(bar, {Name = "NavLabel", Text = "MENU", Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(40, 14), W = 3, TextSize = 10, TextColor3 = T.dim, TextTransparency = 0.3, TextTruncate = NOTRUNC})
+    new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromOffset(56, 19), Size = UDim2.new(1, -70, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.3, BorderSizePixel = 0}, bar)
+
+    local tabList = new("ScrollingFrame", {Name = "TabContainer", Active = true, Position = UDim2.fromOffset(0, NAV_Y), Size = UDim2.new(1, -1, 1, -(NAV_Y + FOOT_H)), BackgroundTransparency = 1, BorderSizePixel = 0,
         CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 2, ScrollingDirection = Enum.ScrollingDirection.Y}, bar)
     skin(tabList, "ScrollBarImageColor3", "accent")
     local btnHolder = new("Frame", {Name = "ButtonsHolder", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.Y}, tabList)
     new("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, TAB_GAP)}, btnHolder)
     new("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, btnHolder)
-    local indicator = new("Frame", {Name = "SlidingIndicator", Position = UDim2.fromOffset(0, 8), Size = UDim2.fromOffset(3, 20), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, tabList)
+    local indicator = new("Frame", {Name = "SlidingIndicator", Position = UDim2.fromOffset(0, 8), Size = UDim2.fromOffset(4, 22), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, tabList)
     skin(indicator, "BackgroundColor3", "accent")
     corner(indicator, "full")
 
-    -- footer sidebar: avatar + nama + tombol Settings (kanan avatar)
-    local foot = new("Frame", {Name = "Footer", Position = UDim2.new(0, 0, 1, -FOOT_H), Size = UDim2.new(1, -2, 0, FOOT_H), BackgroundTransparency = 1}, bar)
-    new("Frame", {Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = T.outline, BorderSizePixel = 0}, foot)
-    local av = new("ImageLabel", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), Size = UDim2.fromOffset(34, 34), BackgroundColor3 = T.el, BorderSizePixel = 0}, foot)
+    -- footer: kartu profil (avatar + nama + status) dengan tombol Settings di kanan
+    local foot = new("Frame", {Name = "Footer", Position = UDim2.new(0, 0, 1, -FOOT_H), Size = UDim2.new(1, -1, 0, FOOT_H), BackgroundTransparency = 1}, bar)
+    local card = new("Frame", {Name = "ProfileCard", Position = UDim2.fromOffset(8, 4), Size = UDim2.new(1, -16, 1, -14), BackgroundColor3 = T.bg, BackgroundTransparency = 0.45, BorderSizePixel = 0}, foot)
+    corner(card, 9)
+    stroke(card, T.outline, 1, 0.55)
+    local av = new("ImageLabel", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = T.el, BorderSizePixel = 0}, card)
     corner(av, "full")
-    stroke(av, T.outline, 1, 0)
-    local dot = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 34, 0.5, 18), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ok, BorderSizePixel = 0}, foot)
+    skin(stroke(av, T.accent, 1.5, 0.3), "Color", "accent")
+    local dot = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 34, 0.5, 11), Size = UDim2.fromOffset(10, 10), BackgroundColor3 = T.ok, BorderSizePixel = 0, ZIndex = 2}, card)
     corner(dot, "full")
     stroke(dot, T.side, 2, 0)
-    text(foot, {Text = pl.DisplayName, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 52, 0.5, 0), Size = UDim2.new(1, -100, 0, 16), W = 3, TextSize = 12})
-    text(foot, {Text = "Online", Position = UDim2.new(0, 52, 0.5, 1), Size = UDim2.new(1, -100, 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim})
+    text(card, {Text = pl.DisplayName, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 44, 0.5, 1), Size = UDim2.new(1, -86, 0, 16), W = 3, TextSize = 12})
+    text(card, {Text = "Online", Position = UDim2.new(0, 44, 0.5, 2), Size = UDim2.new(1, -86, 0, 14), TextSize = 11, W = 1, TextColor3 = T.ok})
     task.spawn(function()
         local ok, img = pcall(function() return Players:GetUserThumbnailAsync(pl.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100) end)
         if ok and av.Parent then av.Image = img end
     end)
-    local setBtn = new("TextButton", {Name = "SettingsButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(30, 30),
-        BackgroundColor3 = T.el, BackgroundTransparency = 0.2, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ClipsDescendants = true}, foot)
-    corner(setBtn, 6)
+    local setBtn = new("TextButton", {Name = "SettingsButton", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -7, 0.5, 0), Size = UDim2.fromOffset(28, 28),
+        BackgroundColor3 = T.el, BackgroundTransparency = 0.2, Text = "", AutoButtonColor = false, BorderSizePixel = 0, ClipsDescendants = true}, card)
+    corner(setBtn, 8)
     local setStroke = stroke(setBtn, T.outline, 1, 0.5)
-    local setImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(18, 18), BackgroundTransparency = 1, Image = "rbxassetid://70386228443175", ImageColor3 = T.dim}, setBtn)
+    local setImg = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Image = "rbxassetid://70386228443175", ImageColor3 = T.dim}, setBtn)
 
     local CONT_X, CONT_Y = SIDE_W, HDR + 7
     local content = new("Frame", {Name = "ContentContainer", Position = UDim2.fromOffset(CONT_X, CONT_Y), Size = UDim2.new(1, -CONT_X, 1, -CONT_Y), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, win)
@@ -890,29 +889,63 @@ function SORU:CreateWindow(C)
         end
     end)
 
+    -- ikon tab: tile kecil di kiri label, menyala (tint aksen) saat tab aktif
+    local function tabIcon(b, icon)
+        local ic = icon and tostring(icon) or nil
+        if ic == nil or ic == "" then return nil end
+        local tile = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = T.bg, BackgroundTransparency = 0.4, BorderSizePixel = 0}, b)
+        corner(tile, 8)
+        local box = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1}, tile)
+        local function tint(on)
+            play(tile, {BackgroundColor3 = on and T.accent or T.bg, BackgroundTransparency = on and 0.75 or 0.4}, 0.25)
+        end
+        if ic == "home" then
+            local parts = {}
+            for _, d in ipairs({{11, 11, -3, 45}, {13, 8, 4, 0}}) do
+                local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, d[3]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = d[4], BackgroundColor3 = T.dim, BorderSizePixel = 0}, box)
+                corner(p, 2)
+                parts[#parts + 1] = p
+            end
+            return function(c, on) tint(on) for _, f in ipairs(parts) do f.BackgroundColor3 = c end end
+        elseif ic:match("^rbxasset") or ic:match("^%d%d%d+$") then
+            local img = new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = ic:match("^%d+$") and ("rbxassetid://" .. ic) or ic, ImageColor3 = T.dim}, box)
+            return function(c, on) tint(on) play(img, {ImageColor3 = c}, 0.2) end
+        end
+        local gl = text(box, {Text = ic, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 15, TextColor3 = T.dim, TextTruncate = NOTRUNC})
+        return function(c, on) tint(on) gl.TextColor3 = c end
+    end
+
     local function createTab(name, icon)
         tabN = tabN + 1
         local y = (tabN - 1) * (TAB_H + TAB_GAP)
         local b = new("TextButton", {Name = name .. "Button", LayoutOrder = tabN, Size = UDim2.new(1, 0, 0, TAB_H), BackgroundColor3 = T.el, BackgroundTransparency = 1,
             BorderSizePixel = 0, AutoButtonColor = false, ClipsDescendants = true, Text = ""}, btnHolder)
-        corner(b, 6)
-        stroke(b, T.outline, 1, 0.8)
-        local setIc = tabIcon(b, icon)
-        local lb = text(b, {Text = name, Position = UDim2.fromOffset(setIc and 40 or 15, 0), Size = UDim2.new(1, setIc and -40 or -15, 1, 0), TextColor3 = T.dim})
+        corner(b, 9)
+        local bst = stroke(b, T.outline, 1, 0.8)
+        local rawIc = tabIcon(b, icon)
+        local lx = rawIc and 42 or 15
+        local lb = text(b, {Text = name, Position = UDim2.fromOffset(lx, 0), Size = UDim2.new(1, -(lx + 6), 1, 0), TextColor3 = T.dim})
         local page = newPage(name)
-        local t = {name = name, btn = b, page = page, y = y, on = false, label = lb, setIc = setIc or function() end}
+        local t = {name = name, btn = b, page = page, y = y, on = false, label = lb}
+        -- dipanggil paintTab / hover / ganti tema: sekalian mewarnai latar pill, outline, ikon & posisi label
+        t.setIc = function(c)
+            play(b, {BackgroundColor3 = t.on and T.accent or T.el}, 0.25)
+            play(bst, {Color = t.on and T.accent or T.outline, Transparency = t.on and 0.6 or 0.8}, 0.25)
+            if t.on then play(lb, {Position = UDim2.fromOffset(lx, 0)}, 0.2) end
+            if rawIc then rawIc(c, t.on) end
+        end
         tabs[name] = t
         b.MouseEnter:Connect(function()
             if not t.on then
                 play(b, {BackgroundTransparency = 0.9}, 0.2)
-                play(lb, {TextColor3 = T.text}, 0.2)
+                play(lb, {TextColor3 = T.text, Position = UDim2.fromOffset(lx + 3, 0)}, 0.2)
                 t.setIc(T.text)
             end
         end)
         b.MouseLeave:Connect(function()
             if not t.on then
                 play(b, {BackgroundTransparency = 1}, 0.2)
-                play(lb, {TextColor3 = T.dim}, 0.2)
+                play(lb, {TextColor3 = T.dim, Position = UDim2.fromOffset(lx, 0)}, 0.2)
                 t.setIc(T.dim)
             end
         end)
@@ -1692,56 +1725,135 @@ function SORU:CreateWindow(C)
     ------------------------------------------------------------------
     function Window:Panel(o)
         o = o or {}
-        local W = math.clamp(tonumber(o.Width) or 300, 220, 520)
-        local GRIP, M, HEADP = 28, 12, 52
+        local COMPACT = 0.82 -- Width (default 300) diperkecil jadi ~246px. Naikkan kalau mau lebih lebar
+        local function calcW(w) return math.clamp(math.floor((tonumber(w) or 300) * COMPACT + 0.5), 200, 400) end
+        local W = calcW(o.Width)
+        local GRIP, TUCK, M, HEADP = 24, 10, 10, 46
         local dockL = tostring(o.OpenDrag or "Left"):lower() == "right"
         local AX = dockL and 0 or 1
         local isP, destroyed, prog = false, false, 0
-        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0), Size = UDim2.new(0, W + GRIP, 1, -28), BackgroundTransparency = 1, ZIndex = 60}, root)
+        local title0 = tostring(o.Title or "Panel")
+        local GH = math.clamp(math.ceil(textW(string.upper(title0), 11)) + 52, 88, 150)
+        local minH = math.max(110, GH + 14)
+
+        -- holder: nempel di tengah layar (vertikal), tinggi diatur fit() mengikuti isi
+        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + GRIP, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
         local function pos(p)
             local x = (1 - p) * W - p * M
-            return UDim2.new(AX, dockL and -x or x, 0, 14)
+            return UDim2.new(AX, dockL and -x or x, 0.5, 0)
         end
         holder.Position = pos(0)
+
+        -- GRIP (dibuat duluan supaya ada di belakang body; 10px nyelip di bawah body jadi kelihatan seperti tab)
+        local gy = math.clamp(tonumber(o.GripY) or 0.3, 0.12, 0.88)
+        local cx = dockL and (TUCK + GRIP / 2) or (GRIP / 2)
+        local function arrowRot(open)
+            if dockL then return open and 90 or -90 end
+            return open and -90 or 90
+        end
+        local grip = new("TextButton", {Name = "Grip", AnchorPoint = Vector2.new(1 - AX, gy), Position = UDim2.new(1 - AX, 0, gy, 0), Size = UDim2.fromOffset(GRIP + TUCK, GH),
+            BackgroundColor3 = WHITE, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Active = true}, holder)
+        corner(grip, 9)
+        local gst = stroke(grip, WHITE, 1, 0.8)
+        local function gseq() return ColorSequence.new(T.accent, T.accent2) end
+        local gg = new("UIGradient", {Color = gseq(), Rotation = 90}, grip)
+        local arrow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, 15), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1,
+            Image = "rbxassetid://6031091004", ImageColor3 = WHITE, Rotation = arrowRot(false)}, grip)
+        local gt = text(grip, {Text = string.upper(title0), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, GH / 2 + 9), Size = UDim2.fromOffset(GH - 38, 16),
+            Rotation = dockL and -90 or 90, TextXAlignment = XC, W = 3, TextSize = 11})
+        grip.MouseEnter:Connect(function() play(gst, {Transparency = 0.3}, 0.2) end)
+        grip.MouseLeave:Connect(function() play(gst, {Transparency = 0.8}, 0.2) end)
+
+        -- BODY
         local bh = new("Frame", {Name = "BodyHolder", AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundTransparency = 1}, holder)
         local psh = shadow(bh)
         psh.ImageTransparency = 1
-        local body = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BackgroundTransparency = 0.05, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, bh)
-        corner(body, 10)
-        stroke(body, T.outline, 1, 0)
+        local body = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BackgroundTransparency = 0.03, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, bh)
+        corner(body, 12)
+        stroke(body, T.outline, 1, 0.2)
+
+        -- header: gradien aksen -> sidebar, ikon logo, judul + subjudul, tombol tutup, garis aksen di bawah
+        local function pseq()
+            return ColorSequence.new({ColorSequenceKeypoint.new(0, T.side:Lerp(T.accent, 0.22)), ColorSequenceKeypoint.new(1, T.side)})
+        end
+        local hdr = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HEADP), BackgroundColor3 = WHITE, BorderSizePixel = 0}, body)
+        corner(hdr, 12)
+        local hg1 = new("UIGradient", {Color = pseq()}, hdr)
+        local hfill = new("Frame", {Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = WHITE, BorderSizePixel = 0}, hdr)
+        local hg2 = new("UIGradient", {Color = pseq()}, hfill)
+        local hline = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, ZIndex = 2}, hdr)
+        skin(hline, "BackgroundColor3", "accent")
+        new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.45), NumberSequenceKeypoint.new(1, 1)})}, hline)
+
+        local ibox = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = T.bg, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 2}, hdr)
+        corner(ibox, 8)
+        skin(stroke(ibox, T.accent, 1, 0.45), "Color", "accent")
+        logoImg(ibox, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), ScaleType = Enum.ScaleType.Fit, ZIndex = 3})
+
         local hasSub = o.Subtitle ~= nil and tostring(o.Subtitle) ~= ""
-        local tl = text(body, {Text = tostring(o.Title or "Panel"), Position = UDim2.fromOffset(16, hasSub and 8 or 0), Size = UDim2.new(1, -64, 0, hasSub and 24 or HEADP), W = 3, TextSize = 17})
-        local sl = text(body, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(16, 30), Size = UDim2.new(1, -64, 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub})
-        local cb = new("TextButton", {Position = UDim2.new(1, -42, 0, 12), Size = UDim2.fromOffset(28, 28), BackgroundColor3 = T.el, BackgroundTransparency = 0.2, Text = dockL and "‹" or "›",
-            FontFace = FONT[3], TextSize = 20, TextColor3 = T.dim, AutoButtonColor = false, BorderSizePixel = 0}, body)
-        corner(cb, 6)
-        stroke(cb, T.outline, 1, 0.5)
-        cb.MouseEnter:Connect(function() play(cb, {TextColor3 = T.text, BackgroundColor3 = T.hover}, 0.2) end)
-        cb.MouseLeave:Connect(function() play(cb, {TextColor3 = T.dim, BackgroundColor3 = T.el}, 0.2) end)
-        new("Frame", {Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.outline, BorderSizePixel = 0}, body)
-        local pscroll = new("ScrollingFrame", {Position = UDim2.fromOffset(0, HEADP + 1), Size = UDim2.new(1, 0, 1, -(HEADP + 1)), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2,
+        local TXW = 48
+        local tl = text(hdr, {Text = title0, Position = UDim2.fromOffset(TXW, hasSub and 7 or 0), Size = UDim2.new(1, -(TXW + 40), 0, hasSub and 19 or HEADP), W = 3, TextSize = 14, ZIndex = 2})
+        local sl = text(hdr, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(TXW, 25), Size = UDim2.new(1, -(TXW + 40), 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub, ZIndex = 2})
+
+        local cb = new("TextButton", {Position = UDim2.new(1, -36, 0.5, -12), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = T.el, BackgroundTransparency = 0.45, Text = "",
+            AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, hdr)
+        corner(cb, 7)
+        local cst = stroke(cb, T.outline, 1, 0.65)
+        local cic = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1,
+            Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = dockL and 90 or -90, ZIndex = 4}, cb)
+        cb.MouseEnter:Connect(function()
+            play(cb, {BackgroundColor3 = T.hover, BackgroundTransparency = 0.15}, 0.2)
+            play(cst, {Color = T.accent, Transparency = 0.2}, 0.2)
+            play(cic, {ImageColor3 = T.text}, 0.2)
+        end)
+        cb.MouseLeave:Connect(function()
+            play(cb, {BackgroundColor3 = T.el, BackgroundTransparency = 0.45}, 0.2)
+            play(cst, {Color = T.outline, Transparency = 0.65}, 0.2)
+            play(cic, {ImageColor3 = T.dim}, 0.2)
+        end)
+
+        -- isi
+        local pscroll = new("ScrollingFrame", {Active = true, Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 1, -HEADP), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2,
             CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, body)
         skin(pscroll, "ScrollBarImageColor3", "accent")
-        new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
-        new("UIPadding", {PaddingTop = UDim.new(0, 12), PaddingBottom = UDim.new(0, 16), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14)}, pscroll)
-        local pctx = newCtx(body, 10)
-        local K = buildComponents(pscroll, nil, pctx)
+        local plist = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
+        new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, pscroll)
 
-        local grip = new("Frame", {Name = "Grip", AnchorPoint = Vector2.new(1 - AX, 0.5), Position = UDim2.new(1 - AX, 0, math.clamp(tonumber(o.GripY) or 0.3, 0.1, 0.9), 0),
-            Size = UDim2.fromOffset(GRIP, 124), BorderSizePixel = 0, Active = true}, holder)
-        skin(grip, "BackgroundColor3", "accent")
-        corner(grip, 8)
-        stroke(grip, T.outline, 1, 0)
-        local gt = text(grip, {Text = string.upper(tostring(o.Title or "Panel")), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(104, 16),
-            Rotation = dockL and -90 or 90, TextXAlignment = XC, W = 3, TextSize = 11})
+        -- tinggi panel = header + isi (maks 70% tinggi layar). Ikut berubah saat accordion buka/tutup & saat layar di-resize
+        local function fit(anim)
+            if destroyed then return end
+            local s = math.max(rootScale.Scale, 0.01)
+            local maxH = math.max(minH, gui.AbsoluteSize.Y / s * 0.7)
+            local want = HEADP + 22 + plist.AbsoluteContentSize.Y / s
+            local sz = UDim2.fromOffset(W + GRIP, math.floor(math.clamp(want, minH, maxH)))
+            if anim then play(holder, {Size = sz}, 0.2) else holder.Size = sz end
+        end
+        bind(plist:GetPropertyChangedSignal("AbsoluteContentSize"), function() fit() end)
+        bind(rootScale:GetPropertyChangedSignal("Scale"), function() fit() end)
+        fit()
+
+        -- drawer dropdown butuh ruang: begitu dipakai pertama kali, tinggi minimum panel dinaikkan
+        local pctx = newCtx(body, 12)
+        local rawDrawer = pctx.drawer
+        pctx.drawer = function()
+            local fresh = pctx.d == nil
+            local d = rawDrawer()
+            if fresh then
+                minH = math.max(minH, 230)
+                fit(true)
+            end
+            return d
+        end
+        local K = buildComponents(pscroll, nil, pctx)
 
         local function goTo(open)
             local was = isP
             isP = open and true or false
             prog = isP and 1 or 0
             if not isP and pctx.d then pctx.d.close() end
-            play(holder, {Position = pos(prog)}, 0.4, QUINT)
+            play(holder, {Position = pos(prog)}, 0.45, QUINT)
             play(psh, {ImageTransparency = isP and 0.5 or 1}, 0.4)
+            play(arrow, {Rotation = arrowRot(isP)}, 0.3)
             if was ~= isP and o.Callback then task.spawn(safe, o.Callback, isP) end
         end
         cb.MouseButton1Click:Connect(function() goTo(false) end)
@@ -1757,6 +1869,12 @@ function SORU:CreateWindow(C)
             end,
             function(moved) if not moved then goTo(not isP) else goTo(prog > 0.5) end end)
 
+        themeFns[#themeFns + 1] = function()
+            gg.Color = gseq()
+            hg1.Color, hg2.Color = pseq(), pseq()
+            cic.ImageColor3 = T.dim
+        end
+
         function K:Show() goTo(true) end
         function K:Hide() goTo(false) end
         function K:Switch() goTo(not isP) end
@@ -1765,14 +1883,14 @@ function SORU:CreateWindow(C)
         function K:SetSubtitle(t)
             local s = (t == nil) and "" or tostring(t)
             sl.Text, sl.Visible = s, s ~= ""
-            tl.Position = UDim2.fromOffset(16, s ~= "" and 8 or 0)
-            tl.Size = UDim2.new(1, -64, 0, s ~= "" and 24 or HEADP)
+            tl.Position = UDim2.fromOffset(TXW, s ~= "" and 7 or 0)
+            tl.Size = UDim2.new(1, -(TXW + 40), 0, s ~= "" and 19 or HEADP)
         end
         function K:SetVisible(v) holder.Visible = v and true or false end
         function K:SetWidth(w)
-            W = math.clamp(tonumber(w) or W, 220, 520)
-            holder.Size = UDim2.new(0, W + GRIP, 1, -28)
+            W = calcW(w)
             bh.Size = UDim2.new(0, W, 1, 0)
+            fit()
             holder.Position = pos(prog)
         end
         function K:Destroy() if not destroyed then destroyed = true holder:Destroy() end end
@@ -1780,6 +1898,7 @@ function SORU:CreateWindow(C)
             isP, prog = true, 1
             holder.Position = pos(1)
             psh.ImageTransparency = 0.5
+            arrow.Rotation = arrowRot(true)
         end
         return K
     end
