@@ -1,4 +1,4 @@
-local SORU = {Version = "8.0"}
+local SORU = {Version = "8.1"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
 
@@ -25,7 +25,7 @@ local function getIcon()
     return ""
 end
 local ICON = getIcon()
-local LOGO = (ICON ~= "") and ICON or "rbxassetid://119521146805131" -- logo Vora kalau ICON gagal diunduh
+local LOGO = (ICON ~= "") and ICON or "rbxassetid://119521146805131" --  kalau ICON gagal diunduh
 
 SORU.Icons = {
     home = "home", player = "rbxassetid://12120698352", web = "rbxassetid://137601480983962", bag = "rbxassetid://8601111810",
@@ -116,7 +116,7 @@ local function corner(o, r) return new("UICorner", {CornerRadius = (r == "full")
 local function stroke(o, col, th, tr)
     return new("UIStroke", {Color = col or T.outline, Thickness = th or 1, Transparency = tr or 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, o)
 end
--- shadow lembut ala Vora: dibuat SEBELUM elemen yang dibayangi (sibling di belakangnya)
+-- shadow lembut ala : dibuat SEBELUM elemen yang dibayangi (sibling di belakangnya)
 local function shadow(parent, z)
     return new("ImageLabel", {Name = "Shadow", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 34, 1, 34),
         BackgroundTransparency = 1, Image = "rbxassetid://6015897843", ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 0.5,
@@ -373,7 +373,7 @@ function SORU:CreateWindow(C)
     end
 
     NOANIM = (C.NoAnim == true) or (F.UINoAnim == true)
-    local curTheme = (type(F.UITheme) == "string" and THEMES[F.UITheme]) and F.UITheme or "Vora"
+    local curTheme = (type(F.UITheme) == "string" and THEMES[F.UITheme]) and F.UITheme or "S"
     applyTheme(curTheme)
     local toggleKey = C.ToggleKey or Enum.KeyCode.RightControl
     if type(F.MenuKey) == "string" then toggleKey = toKey(F.MenuKey) or toggleKey end
@@ -415,7 +415,7 @@ function SORU:CreateWindow(C)
         if layoutLauncher then layoutLauncher() end
     end
 
-    -- ripple klik ala Vora (posisi diambil dari kursor / sentuhan terakhir)
+    -- ripple klik (posisi diambil dari kursor / sentuhan terakhir)
     local function ripple(f, size)
         if NOANIM then return end
         local loc = UIS:GetMouseLocation()
