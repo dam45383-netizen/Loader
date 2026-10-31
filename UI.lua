@@ -1807,108 +1807,154 @@ function SORU:CreateWindow(C)
     end
 
     ------------------------------------------------------------------
-    -- PANEL SAMPING: tap grip = buka / tutup, tarik grip = geser
+    -- PANEL SAMPING ala iOS "Slide Over": panel kaca tipis yang melayang 10px dari tepi layar.
+    -- Handle = pil tipis bercahaya aksen. Tap handle = buka / tutup, tarik handle atau header = geser
+    -- (kibas cepat = langsung buka / tutup). Semua warna ikut tema.
+    -- Opsi: Title, Subtitle, Width (300), OpenDrag ("Left" / "Right"), GripY (0.5), Open, Callback(isOpen)
     ------------------------------------------------------------------
     function Window:Panel(o)
         o = o or {}
-        local COMPACT = 0.82 -- Width (default 300) diperkecil jadi ~246px. Naikkan kalau mau lebih lebar
-        local function calcW(w) return math.clamp(math.floor((tonumber(w) or 300) * COMPACT + 0.5), 200, 400) end
+        local COMPACT = 0.76 -- Width (default 300) diperkecil jadi ~228px. Naikkan kalau mau lebih lebar
+        local function calcW(w) return math.clamp(math.floor((tonumber(w) or 300) * COMPACT + 0.5), 190, 400) end
         local W = calcW(o.Width)
-        local GRIP, TUCK, M, HEADP = 24, 10, 10, 46
+        local touchOnly = UIS.TouchEnabled and not UIS.MouseEnabled
+        local HZ, HH = UIS.TouchEnabled and 26 or 18, UIS.TouchEnabled and 120 or 92 -- zona sentuh handle (lebar, tinggi)
+        local M, HEADP, RAD = 10, 46, 18 -- jarak panel ke tepi layar, tinggi header, radius sudut (radius elemen 8 + padding 10)
         local dockL = tostring(o.OpenDrag or "Left"):lower() == "right"
         local AX = dockL and 0 or 1
         local isP, destroyed, prog = false, false, 0
+        local hovering, pressing = false, false
         local title0 = tostring(o.Title or "Panel")
-        local GH = math.clamp(math.ceil(textW(string.upper(title0), 11)) + 52, 88, 150)
-        local minH = math.max(110, GH + 14)
+        local minH = 120
 
         -- holder: nempel di tengah layar (vertikal), tinggi diatur fit() mengikuti isi
-        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + GRIP, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
+        local holder = new("Frame", {Name = "SORU_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + HZ, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
         local function pos(p)
             local x = (1 - p) * W - p * M
             return UDim2.new(AX, dockL and -x or x, 0.5, 0)
         end
         holder.Position = pos(0)
 
-        -- GRIP (dibuat duluan supaya ada di belakang body; 10px nyelip di bawah body jadi kelihatan seperti tab)
-        local gy = math.clamp(tonumber(o.GripY) or 0.3, 0.12, 0.88)
-        local cx = dockL and (TUCK + GRIP / 2) or (GRIP / 2)
-        local function arrowRot(open)
-            if dockL then return open and 90 or -90 end
-            return open and -90 or 90
+        ------------------------------------------------------------------
+        -- HANDLE: pil tipis + dua lapis cahaya aksen. Ukuran & kecerahan berubah menurut keadaan
+        ------------------------------------------------------------------
+        local gy = math.clamp(tonumber(o.GripY) or 0.5, 0.12, 0.88)
+        local grip = new("TextButton", {Name = "Handle", AnchorPoint = Vector2.new(1 - AX, gy), Position = UDim2.new(1 - AX, 0, gy, 0), Size = UDim2.fromOffset(HZ, HH),
+            BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Active = true, ZIndex = 5}, holder)
+        local function halo(extra, tr)
+            local h = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4 + extra, 44 + extra),
+                BackgroundTransparency = tr, BorderSizePixel = 0, ZIndex = 6}, grip)
+            skin(h, "BackgroundColor3", "accent")
+            corner(h, "full")
+            return h
         end
-        local grip = new("TextButton", {Name = "Grip", AnchorPoint = Vector2.new(1 - AX, gy), Position = UDim2.new(1 - AX, 0, gy, 0), Size = UDim2.fromOffset(GRIP + TUCK, GH),
-            BackgroundColor3 = WHITE, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Active = true}, holder)
-        corner(grip, 9)
-        local gst = stroke(grip, WHITE, 1, 0.8)
-        local function gseq() return ColorSequence.new(T.accent, T.accent2) end
-        local gg = new("UIGradient", {Color = gseq(), Rotation = 90}, grip)
-        local arrow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, 15), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1,
-            Image = "rbxassetid://6031091004", ImageColor3 = WHITE, Rotation = arrowRot(false)}, grip)
-        local gt = text(grip, {Text = string.upper(title0), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, GH / 2 + 9), Size = UDim2.fromOffset(GH - 38, 16),
-            Rotation = dockL and -90 or 90, TextXAlignment = XC, W = 3, TextSize = 11})
-        grip.MouseEnter:Connect(function() play(gst, {Transparency = 0.3}, 0.2) end)
-        grip.MouseLeave:Connect(function() play(gst, {Transparency = 0.8}, 0.2) end)
+        local halo1, halo2 = halo(14, 0.93), halo(7, 0.85)
+        local pill = new("Frame", {Name = "Pill", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(4, 44),
+            BackgroundColor3 = WHITE, BackgroundTransparency = 0.1, BorderSizePixel = 0, ZIndex = 7}, grip)
+        corner(pill, "full")
+        local pillG = new("UIGradient", {Rotation = 90}, pill)
 
-        -- BODY
+        local PS = { -- keadaan handle: lebar, tinggi, transparansi pil, transparansi dua lapis cahaya
+            closed = {w = 4, h = 44, pt = 0.1, t1 = 0.93, t2 = 0.85},
+            open = {w = 4, h = 30, pt = 0.45, t1 = 1, t2 = 1},
+            hover = {w = 5, h = 54, pt = 0, t1 = 0.86, t2 = 0.72},
+            press = {w = 6, h = 60, pt = 0, t1 = 0.8, t2 = 0.64},
+        }
+        local function pillFx()
+            local s = (pressing and PS.press) or (hovering and PS.hover) or (isP and PS.open) or PS.closed
+            play(pill, {Size = UDim2.fromOffset(s.w, s.h), BackgroundTransparency = s.pt}, 0.25)
+            play(halo1, {Size = UDim2.fromOffset(s.w + 14, s.h + 14), BackgroundTransparency = s.t1}, 0.25)
+            play(halo2, {Size = UDim2.fromOffset(s.w + 7, s.h + 7), BackgroundTransparency = s.t2}, 0.25)
+        end
+        if not touchOnly then
+            grip.MouseEnter:Connect(function() hovering = true pillFx() end)
+            grip.MouseLeave:Connect(function() hovering = false pillFx() end)
+        end
+
+        ------------------------------------------------------------------
+        -- BODY: kaca gelap bergradien + outline gradien + cahaya aksen + pola tipis (sama seperti window)
+        ------------------------------------------------------------------
         local bh = new("Frame", {Name = "BodyHolder", AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundTransparency = 1}, holder)
         local psh = shadow(bh)
+        psh.Size = UDim2.new(1, 44, 1, 44)
         psh.ImageTransparency = 1
-        local body = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.side, BackgroundTransparency = 0.03, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, bh)
-        corner(body, 12)
-        local bstG = new("UIGradient", {Rotation = 90}, stroke(body, WHITE, 1, 0.1))
-        local function bseq() return ColorSequence.new(T.accent:Lerp(T.outline, 0.3), T.outline) end
-        bstG.Color = bseq()
+        local body = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.06, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, bh)
+        corner(body, RAD)
+        local bgG = new("UIGradient", {Rotation = 90}, body)
+        local bstG = new("UIGradient", {Rotation = 120}, stroke(body, WHITE, 1, 0.1))
+        local glow = new("Frame", {Name = "Glow", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 0}, body)
+        corner(glow, RAD)
+        local glowG = new("UIGradient", {Rotation = 135, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.78), NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1)})}, glow)
+        new("ImageLabel", {Name = "Pattern", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "rbxassetid://2151741365", ImageTransparency = 0.95,
+            TileSize = UDim2.fromOffset(20, 20), ScaleType = Enum.ScaleType.Tile, ZIndex = 1}, body)
+        -- kilau tipis di tepi atas (efek kaca)
+        local spec = new("Frame", {Position = UDim2.fromOffset(RAD, 0), Size = UDim2.new(1, -RAD * 2, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.72, BorderSizePixel = 0, ZIndex = 4}, body)
+        new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0), NumberSequenceKeypoint.new(0.75, 0), NumberSequenceKeypoint.new(1, 1)})}, spec)
 
-        -- header: gradien aksen -> sidebar, ikon logo, judul + subjudul, tombol tutup, garis aksen di bawah
-        local function pseq()
-            return ColorSequence.new({ColorSequenceKeypoint.new(0, T.side:Lerp(T.accent, 0.22)), ColorSequenceKeypoint.new(1, T.side)})
-        end
-        local hdr = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HEADP), BackgroundColor3 = WHITE, BorderSizePixel = 0}, body)
-        corner(hdr, 12)
-        local hg1 = new("UIGradient", {Color = pseq()}, hdr)
-        local hfill = new("Frame", {Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = WHITE, BorderSizePixel = 0}, hdr)
-        local hg2 = new("UIGradient", {Color = pseq()}, hfill)
-        local hline = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, ZIndex = 2}, hdr)
+        ------------------------------------------------------------------
+        -- HEADER: badge logo + judul / subjudul + tombol tutup bulat, garis aksen di bawah (senada header window)
+        ------------------------------------------------------------------
+        local hdr = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HEADP), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true, ZIndex = 2}, body)
+        new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 2}, hdr)
+        local hline = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, ZIndex = 3}, hdr)
         skin(hline, "BackgroundColor3", "accent")
         new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.45), NumberSequenceKeypoint.new(1, 1)})}, hline)
-        new("Frame", {Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.88, BorderSizePixel = 0, ZIndex = 2}, hdr)
+        -- kilau yang menyapu satu kali di garis aksen setiap kali panel dibuka
+        local shim = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 4}, hdr)
+        local sg = new("UIGradient", {Offset = Vector2.new(-1, 0), Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1),
+        })}, shim)
+        local sweep = TweenService:Create(sg, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+        local function shine()
+            sg.Offset = Vector2.new(-1, 0)
+            if NOANIM then sweep:Cancel() else sweep:Play() end
+        end
 
-        local ibox = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 0), Size = UDim2.fromOffset(26, 26), BackgroundColor3 = T.bg, BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 2}, hdr)
-        corner(ibox, 8)
-        skin(stroke(ibox, T.accent, 1, 0.45), "Color", "accent")
-        logoImg(ibox, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), ScaleType = Enum.ScaleType.Fit, ZIndex = 3})
+        -- badge logo: halo aksen + kotak dengan outline gradien
+        local bw = new("Frame", {Name = "LogoHolder", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, -1), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 1, ZIndex = 2}, hdr)
+        for _, hh in ipairs({{14, 0.94, 14}, {7, 0.86, 11}}) do
+            local hl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, hh[1], 1, hh[1]), BackgroundTransparency = hh[2], BorderSizePixel = 0, ZIndex = 1}, bw)
+            skin(hl, "BackgroundColor3", "accent")
+            corner(hl, hh[3])
+        end
+        local badge = new("Frame", {Name = "Badge", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg, BackgroundTransparency = 0.1, BorderSizePixel = 0, ZIndex = 2}, bw)
+        corner(badge, 8)
+        local bsg = new("UIGradient", {Rotation = 45}, stroke(badge, WHITE, 1.5, 0))
+        logoImg(badge, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), ScaleType = Enum.ScaleType.Fit, ZIndex = 3})
 
         local hasSub = o.Subtitle ~= nil and tostring(o.Subtitle) ~= ""
-        local TXW = 48
-        local tl = text(hdr, {Text = title0, Position = UDim2.fromOffset(TXW, hasSub and 7 or 0), Size = UDim2.new(1, -(TXW + 40), 0, hasSub and 19 or HEADP), W = 3, TextSize = 14, ZIndex = 2})
-        local sl = text(hdr, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(TXW, 25), Size = UDim2.new(1, -(TXW + 40), 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub, ZIndex = 2})
+        local TXW, TXR = 46, 44
+        local tl = text(hdr, {Text = title0, Position = UDim2.fromOffset(TXW, hasSub and 7 or 0), Size = UDim2.new(1, -(TXW + TXR), 0, hasSub and 19 or HEADP - 2), W = 3, TextSize = 14, ZIndex = 2})
+        local sl = text(hdr, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(TXW, 25), Size = UDim2.new(1, -(TXW + TXR), 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub, ZIndex = 2})
 
-        local cb = new("TextButton", {Position = UDim2.new(1, -36, 0.5, -12), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = T.el, BackgroundTransparency = 0.45, Text = "",
-            AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 3}, hdr)
-        corner(cb, 7)
-        local cst = stroke(cb, T.outline, 1, 0.65)
+        -- tombol tutup: lingkaran kecil ala iOS, panah menunjuk ke tepi layar
+        local cb = new("TextButton", {Name = "Close", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, -1), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = T.el, BackgroundTransparency = 0.4,
+            Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 4}, hdr)
+        corner(cb, "full")
+        local cst = stroke(cb, T.outline, 1, 0.6)
         local cic = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1,
-            Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = dockL and 90 or -90, ZIndex = 4}, cb)
+            Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = dockL and 90 or -90, ZIndex = 5}, cb)
         cb.MouseEnter:Connect(function()
             play(cb, {BackgroundColor3 = T.hover, BackgroundTransparency = 0.15}, 0.2)
             play(cst, {Color = T.accent, Transparency = 0.2}, 0.2)
             play(cic, {ImageColor3 = T.text}, 0.2)
         end)
         cb.MouseLeave:Connect(function()
-            play(cb, {BackgroundColor3 = T.el, BackgroundTransparency = 0.45}, 0.2)
-            play(cst, {Color = T.outline, Transparency = 0.65}, 0.2)
+            play(cb, {BackgroundColor3 = T.el, BackgroundTransparency = 0.4}, 0.2)
+            play(cst, {Color = T.outline, Transparency = 0.6}, 0.2)
             play(cic, {ImageColor3 = T.dim}, 0.2)
         end)
 
-        -- isi
-        local pscroll = new("ScrollingFrame", {Active = true, Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 1, -HEADP), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2,
-            CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, body)
+        ------------------------------------------------------------------
+        -- ISI: daftar komponen yang bisa di-scroll
+        ------------------------------------------------------------------
+        local pscroll = new("ScrollingFrame", {Name = "Content", Active = true, Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 1, -HEADP), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 2, ScrollBarImageTransparency = 0.25, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 2}, body)
         skin(pscroll, "ScrollBarImageColor3", "accent")
         local plist = new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
-        new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, pscroll)
-        -- pudar tipis di tepi bawah: penanda masih ada isi yang bisa di-scroll (hanya menutup padding bawah kalau isi muat)
-        local pfade = new("Frame", {Name = "Fade", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 12), BackgroundColor3 = T.side, BorderSizePixel = 0, ZIndex = 5}, body)
+        new("UIPadding", {PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 12), PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9)}, pscroll)
+        -- pudar tipis di tepi bawah: penanda masih ada isi yang bisa di-scroll (warnanya sama dengan dasar gradien body)
+        local pfade = new("Frame", {Name = "Fade", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 14), BackgroundColor3 = T.side:Lerp(T.bg, 0.6), BorderSizePixel = 0, ZIndex = 5}, body)
         new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new(1, 0)}, pfade)
 
         -- tinggi panel = header + isi (maks 70% tinggi layar). Ikut berubah saat accordion buka/tutup & saat layar di-resize
@@ -1917,7 +1963,7 @@ function SORU:CreateWindow(C)
             local s = math.max(rootScale.Scale, 0.01)
             local maxH = math.max(minH, gui.AbsoluteSize.Y / s * 0.7)
             local want = HEADP + 22 + plist.AbsoluteContentSize.Y / s
-            local sz = UDim2.fromOffset(W + GRIP, math.floor(math.clamp(want, minH, maxH)))
+            local sz = UDim2.fromOffset(W + HZ, math.floor(math.clamp(want, minH, maxH)))
             if anim then play(holder, {Size = sz}, 0.2) else holder.Size = sz end
         end
         bind(plist:GetPropertyChangedSignal("AbsoluteContentSize"), function() fit() end)
@@ -1925,7 +1971,7 @@ function SORU:CreateWindow(C)
         fit()
 
         -- drawer dropdown butuh ruang: begitu dipakai pertama kali, tinggi minimum panel dinaikkan
-        local pctx = newCtx(body, 12)
+        local pctx = newCtx(body, RAD)
         local rawDrawer = pctx.drawer
         pctx.drawer = function()
             local fresh = pctx.d == nil
@@ -1938,46 +1984,85 @@ function SORU:CreateWindow(C)
         end
         local K = buildComponents(pscroll, nil, pctx)
 
+        ------------------------------------------------------------------
+        -- BUKA / TUTUP + GESER
+        ------------------------------------------------------------------
         local function goTo(open)
+            if destroyed then return end
             local was = isP
             isP = open and true or false
             prog = isP and 1 or 0
             if not isP and pctx.d then pctx.d.close() end
-            play(holder, {Position = pos(prog)}, 0.45, QUINT)
-            play(psh, {ImageTransparency = isP and 0.5 or 1}, 0.4)
-            play(arrow, {Rotation = arrowRot(isP)}, 0.3)
+            play(holder, {Position = pos(prog)}, isP and 0.5 or 0.4, QUINT)
+            play(psh, {ImageTransparency = isP and 0.45 or 1}, 0.4)
+            pillFx()
+            if isP then shine() end
             if was ~= isP and o.Callback then task.spawn(safe, o.Callback, isP) end
         end
         cb.MouseButton1Click:Connect(function() goTo(false) end)
-        track(grip,
-            function() return prog end,
-            function(dx, dy, p0, moved)
-                if not moved then return end
-                local d = dx / math.max(rootScale.Scale, 0.01)
-                if dockL then d = -d end
-                prog = math.clamp(p0 - d / (W + M), 0, 1)
-                holder.Position = pos(prog)
-                psh.ImageTransparency = 1 - 0.5 * prog
-            end,
-            function(moved) if not moved then goTo(not isP) else goTo(prog > 0.5) end end)
 
-        themeFns[#themeFns + 1] = function()
-            gg.Color = gseq()
-            hg1.Color, hg2.Color = pseq(), pseq()
-            bstG.Color = bseq()
-            cic.ImageColor3 = T.dim
+        -- tarik: panel ikut jari; saat dilepas, kibasan cepat menentukan arah, kalau pelan lihat posisinya (lewat setengah = buka)
+        local vel, lastX, lastT = 0, nil, 0
+        local function dragBegin()
+            pressing, vel, lastX = true, 0, nil
+            pillFx()
+            return prog
         end
+        local function dragMove(dx, dy, p0, moved, ip)
+            if not moved then return end
+            local now = os.clock()
+            if lastX and now > lastT then
+                vel = vel * 0.6 + ((ip.X - lastX) / (now - lastT)) * 0.4
+            end
+            lastX, lastT = ip.X, now
+            local d = dx / math.max(rootScale.Scale, 0.01)
+            if dockL then d = -d end
+            prog = math.clamp(p0 - d / (W + M), 0, 1)
+            holder.Position = pos(prog)
+            psh.ImageTransparency = 1 - 0.55 * prog
+        end
+        local function release(moved, tapToggles)
+            pressing = false
+            if not moved then
+                pillFx()
+                if tapToggles then goTo(not isP) end
+                return
+            end
+            local openV = (os.clock() - lastT < 0.1) and (dockL and vel or -vel) or 0
+            if math.abs(openV) > 350 then goTo(openV > 0) else goTo(prog > 0.5) end
+        end
+        track(grip, dragBegin, dragMove, function(moved) release(moved, true) end)
+        track(hdr, dragBegin, dragMove, function(moved) release(moved, false) end)
+
+        -- ikut ganti tema
+        local function paint()
+            pillG.Color = ColorSequence.new(T.accent, T.accent2)
+            glowG.Color = ColorSequence.new(T.accent, T.accent2)
+            bsg.Color = ColorSequence.new(T.accent, T.accent2)
+            bgG.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, T.side:Lerp(T.accent, 0.14)),
+                ColorSequenceKeypoint.new(0.5, T.side),
+                ColorSequenceKeypoint.new(1, T.side:Lerp(T.bg, 0.6)),
+            })
+            bstG.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, T.outline:Lerp(T.accent, 0.55)),
+                ColorSequenceKeypoint.new(0.5, T.outline),
+                ColorSequenceKeypoint.new(1, T.outline:Lerp(T.accent2, 0.3)),
+            })
+        end
+        paint()
+        themeFns[#themeFns + 1] = paint
 
         function K:Show() goTo(true) end
         function K:Hide() goTo(false) end
         function K:Switch() goTo(not isP) end
         function K:IsOpen() return isP end
-        function K:SetTitle(t) tl.Text, gt.Text = tostring(t), string.upper(tostring(t)) end
+        function K:SetTitle(t) tl.Text = tostring(t) end
         function K:SetSubtitle(t)
             local s = (t == nil) and "" or tostring(t)
             sl.Text, sl.Visible = s, s ~= ""
             tl.Position = UDim2.fromOffset(TXW, s ~= "" and 7 or 0)
-            tl.Size = UDim2.new(1, -(TXW + 40), 0, s ~= "" and 19 or HEADP)
+            tl.Size = UDim2.new(1, -(TXW + TXR), 0, s ~= "" and 19 or HEADP - 2)
         end
         function K:SetVisible(v) holder.Visible = v and true or false end
         function K:SetWidth(w)
@@ -1990,8 +2075,8 @@ function SORU:CreateWindow(C)
         if o.Open then
             isP, prog = true, 1
             holder.Position = pos(1)
-            psh.ImageTransparency = 0.5
-            arrow.Rotation = arrowRot(true)
+            psh.ImageTransparency = 0.45
+            pillFx()
         end
         return K
     end
