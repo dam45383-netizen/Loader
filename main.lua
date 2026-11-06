@@ -1015,7 +1015,7 @@ local function loadHub()
 
     -- FIX attempt nil: masukin PlaceId sekarang ke Supported biar gak jadi dummy
     local supported = {
-        129827112113663,100655715596680,79039639963203,74023858073178,119672433229947,114326934417838,73956553001240,134314141048307,
+        129827112113663,95168737547508,100655715596680,79039639963203,74023858073178,119672433229947,114326934417838,73956553001240,134314141048307,
         74193805629461,85738654635245,111543903102439,96802054849934,76943966208523,
         119271610514030,72858262610964,110730550789828,132945794147519,109419302424115
     }
@@ -1046,6 +1046,8 @@ local function loadHub()
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/BAS.lua")
     elseif placeId == 129827112113663 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua")
+    elseif placeId == 95168737547508 then
+        loadRaw("")
     elseif placeId == 100655715596680 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Train%20For%20A%20Egg")
     elseif placeId == 79039639963203 then
