@@ -1047,7 +1047,7 @@ local function loadHub()
     elseif placeId == 129827112113663 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua")
     elseif placeId == 113742027864370 then
-        loadRaw("")
+        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Cut%20A%20Rock")
     elseif placeId == 120219252362013 then
         loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Throw%20Food%20For%20Animal")
     elseif placeId == 95168737547508 then
