@@ -597,19 +597,59 @@ function SORU:CreateWindow(C)
     new("Frame", {Position = UDim2.new(1, -12, 0, 0), Size = UDim2.new(0, 12, 1, 0), BackgroundColor3 = T.side, BorderSizePixel = 0}, sbg) -- luruskan sisi kanan
     new("Frame", {Name = "Separator", Position = UDim2.fromOffset(SIDE_W - 1, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = T.outline, BackgroundTransparency = 0.55, BorderSizePixel = 0}, win)
 
-    local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1, 0, LOGO_H), BackgroundTransparency = 1, Active = true}, win)
-    if LOGO ~= "" then
-        logoImg(dragLogo, {Name = "Logo", Position = UDim2.fromOffset(14, 7), Size = UDim2.new(1, -28, 1, -14), ScaleType = Enum.ScaleType.Fit})
-    else
-        logoImg(dragLogo, {Name = "Logo", Position = UDim2.fromOffset(14, 5), Size = UDim2.fromOffset(34, 46)})
-        local nm = text(dragLogo, {Name = "LogoName", Text = LOGONAME, Position = UDim2.fromOffset(50, 25), Size = UDim2.new(1, -62, 0, 18), FontFace = FONT_I, TextSize = 13, TextTruncate = NOTRUNC})
-        local ng = new("UIGradient", {}, nm)
-        local function paintNm() ng.Color = ColorSequence.new(T.accentL, T.accent) end
-        paintNm()
-        themeFns[#themeFns + 1] = paintNm
-    end
-    new("Frame", {Name = "LogoLine", Position = UDim2.fromOffset(0, LOGO_H), Size = UDim2.new(0, SIDE_W - 1, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.5, BorderSizePixel = 0}, win)
+local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1, 0, LOGO_H), BackgroundTransparency = 1, Active = true}, win)
+    local BS = 32                                    -- ukuran badge (px)
+    local BX, BY = 14, math.floor((LOGO_H - BS) / 2) -- posisi badge: kiri, tengah vertikal
 
+    -- glow aksen berlapis di belakang badge (berdenyut pelan, diam kalau "Reduce animation" aktif)
+    for i, pad in ipairs({5, 10, 15, 20}) do
+        local base = 0.74 + i * 0.05
+        local gl = new("Frame", {Name = "Glow" .. i, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(BX + BS / 2, BY + BS / 2),
+            Size = UDim2.fromOffset(BS + pad, BS + pad), BackgroundTransparency = base, BorderSizePixel = 0, ZIndex = 1}, dragLogo)
+        corner(gl, 11 + pad / 2)
+        skin(gl, "BackgroundColor3", "accent")
+        if not NOANIM then
+            TweenService:Create(gl, TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {BackgroundTransparency = math.min(1, base + 0.08)}):Play()
+        end
+    end
+
+    local bgG, chG -- gradien badge & huruf; dicat ulang saat tema berganti
+    if LOGO ~= "" then
+        -- kalau C.Logo / C.LogoUrl diisi, gambarnya dipakai sebagai ikon di kiri
+        new("ImageLabel", {Name = "Logo", Position = UDim2.fromOffset(BX, BY), Size = UDim2.fromOffset(BS, BS), BackgroundTransparency = 1,
+            Image = LOGO, ScaleType = Enum.ScaleType.Fit, ZIndex = 2}, dragLogo)
+    else
+        local badge = new("Frame", {Name = "Badge", Position = UDim2.fromOffset(BX, BY), Size = UDim2.fromOffset(BS, BS), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, dragLogo)
+        corner(badge, 11)
+        bgG = new("UIGradient", {Rotation = 90}, badge)
+        skin(stroke(badge, T.accentL, 1, 0.3), "Color", "accentL") -- garis tepi lavender tipis
+        local gloss = new("Frame", {Name = "Gloss", Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 0.55, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 3}, badge)
+        corner(gloss, 10)
+        new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.76), NumberSequenceKeypoint.new(1, 1)})}, gloss)
+        local ch = text(badge, {Name = "Letter", Text = LOGOCHAR, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, TextYAlignment = YC,
+            FontFace = FONT_I, TextSize = 26, TextTruncate = NOTRUNC, ZIndex = 4})
+        chG = new("UIGradient", {Rotation = 90}, ch)
+    end
+
+    -- nama: putih -> lavender muda, otomatis mengecil kalau namanya panjang
+    local NX = BX + BS + 10
+    local nm = text(dragLogo, {Name = "LogoName", Text = LOGONAME, Position = UDim2.fromOffset(NX, 0), Size = UDim2.new(1, -(NX + 8), 1, 0),
+        W = 3, TextSize = 15, TextScaled = true, TextTruncate = NOTRUNC, ZIndex = 2})
+    new("UITextSizeConstraint", {MinTextSize = 7, MaxTextSize = 15}, nm)
+    local ng = new("UIGradient", {}, nm)
+
+    -- garis pemisah tipis di bawah banner (nuansa ungu)
+    local ll = new("Frame", {Name = "LogoLine", Position = UDim2.fromOffset(0, LOGO_H), Size = UDim2.new(0, SIDE_W - 1, 0, 1), BackgroundTransparency = 0.4, BorderSizePixel = 0}, win)
+
+    local function paintBanner()
+        if bgG then bgG.Color = ColorSequence.new(T.accent:Lerp(WHITE, 0.12), T.accent2) end
+        if chG then chG.Color = ColorSequence.new(WHITE, T.accentL) end
+        ng.Color = ColorSequence.new(WHITE, T.accentL:Lerp(WHITE, 0.5))
+        ll.BackgroundColor3 = T.accent:Lerp(T.outline, 0.55)
+    end
+    paintBanner()
+    themeFns[#themeFns + 1] = paintBanner
+    
     local NAV_Y = LOGO_H + 5
     local nav = new("ScrollingFrame", {Name = "Nav", Active = true, Position = UDim2.fromOffset(0, NAV_Y), Size = UDim2.new(1, -1, 1, -(NAV_Y + FOOT_H)), BackgroundTransparency = 1, BorderSizePixel = 0,
         CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 0, ScrollingDirection = Enum.ScrollingDirection.Y}, sbg)
