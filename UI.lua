@@ -1,6 +1,6 @@
 
 -- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
-local SORU = {Version = "1.2.1"}
+local SORU = {Version = "1.2.2"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
 
@@ -60,18 +60,15 @@ function SORU.AddTheme(name, a, b)
     THEMES[name] = {hx(a), hx(b)}
 end
 for _, s in ipairs({
-    "Nemesis 813DC3 5E2F9E", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
-    "Sunset FF963C F0465A", "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA", "Aqua 1ED2E6 2896EB",
-    "Ice 82C8FF 648CFF", "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E", "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C",
-    "Cyber FF28C8 8C3CFF", "Orchid D26EFF A050E6", "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64",
-    "Steel 7896BE 506EA0", "Mono BEC2D6 787EA0", "Ruby E0314B B3203F", "Coral FF6F61 F2496B", "Amber FFB000 E08700",
-    "Lime B6F03C 7CCB2B", "Jade 2FBF8F 1F8F6B", "Teal 14B8A6 0E8F83", "Cobalt 3D6BFF 2447D6", "Indigo 6366F1 4338CA",
-    "Grape 9B4DE0 6A2FB8", "Lavender B49CFF 8E78E6", "Bubblegum FF7EC8 E255A8", "HotPink FF2E93 D6106F",
-    "Synthwave FF2E97 7B2FF7", "Vaporwave FF71CE B967FF", "Tokyo F72585 7209B7", "Dracula BD93F9 6272A4",
-    "Nord 88C0D0 5E81AC", "Mocha CBA6F7 89B4FA", "Matrix 00FF66 00B347", "Aurora 4DE8B0 5C7CFA",
-    "Nebula 7B5CFF 4A2FBF", "Cyan 00D8FF 0094E0", "Ember FF7A18 E0401C",
+    "Nemesis B15CFF 5B3DF5", "Sunset FF9A44 FC2F6E", "Ocean 00C6FF 0072FF", "Aurora 00F5A0 00A3FF", "Cyberpunk FF2BD6 00E5FF",
+    "Synthwave FF2E97 7B2FF7", "Vaporwave FF71CE 01CDFE", "Tokyo F72585 4361EE", "Lava FF512F DD2476", "Fire F83600 F9D423",
+    "Emerald 11998E 38EF7D", "Gold F7B733 FC4A1A", "Rose FF5F9E C471ED", "Sakura FFC0DD C084FC", "Ice 74EBD5 9FACE6",
+    "Midnight 5F72FF 9B23EA", "Nebula 8E2DE2 F953C6", "Orchid DA22FF 9733EE", "Blueberry 4776E6 8E54E9", "Toxic B8FF3A 00D26A",
+    "Matrix 00FF87 60EFFF", "Dracula FF79C6 8BE9FD", "Nord 8FBCBB 5E81AC", "Mocha F5C2E7 89B4FA", "Crimson FF416C FF4B2B",
+    "Jade 43C6AC F8FFAE", "Miami 00E5FF FF4DB8", "Galaxy 5B86E5 36D1DC", "Berry DC2430 7B4397", "Ultraviolet 654EA3 EAAFC8",
+    "NeonPink FF00CC 5B5BFF", "Amber FFD200 F7971E", "Bubblegum FF7EB3 7AA2FF", "Lavender C3A6FF 7FD1FF", "Forest 56AB2F A8E063",
+    "Teal 00C9FF 92FE9D", "Peach FFB88C DE6262", "Silver E0E0E0 8A8A9A", "CottonCandy FF9ACB 8EC5FF", "DeepSea 2BC0E4 8EE4C8",
 }) do SORU.AddTheme(s:match("(%S+)%s+(%x+)%s+(%x+)")) end
-
 -- elemen berwarna aksen didaftarkan di sini; ganti tema = tulis ulang semuanya
 local skins, themeFns = {}, {}
 local NOANIM = false
@@ -307,9 +304,9 @@ local function makeDrawer(host, rad)
             end
             local sc = sp.swatch and sp.swatch(name)
             if sc then
-                local dot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, tx, 0.5, 0), Size = UDim2.fromOffset(12, 12), BackgroundColor3 = sc, BorderSizePixel = 0}, b)
-                corner(dot, "full")
-                tx = tx + 20
+                                local dot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, tx, 0.5, 0), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = WHITE, BorderSizePixel = 0}, b)
+                local th = THEMES[name]
+                new("UIGradient", {Rotation = 45, Color = ColorSequence.new(th and th[1] or sc, th and th[2] or sc)}, dot)
             end
             local lb = text(b, {Text = name, Position = UDim2.fromOffset(tx, 0), Size = UDim2.new(1, -(tx + (tick and 26 or 6)), 1, 0), W = 2, TextSize = 11, TextColor3 = T.mid})
             local r = {btn = b, name = name}
@@ -568,8 +565,12 @@ function SORU:CreateWindow(C)
     corner(win, 12)
     stroke(win, T.outline, 1, 0.1)
     local winG = new("UIGradient", {Rotation = 135}, win)
-    local function paintWin()
-        winG.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.bg:Lerp(T.accent, 0.1)), ColorSequenceKeypoint.new(0.6, T.bg), ColorSequenceKeypoint.new(1, T.bg)})
+        local function paintWin()
+        winG.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, T.bg:Lerp(T.accent, 0.32)),
+            ColorSequenceKeypoint.new(0.5, T.bg:Lerp(T.accent2, 0.16)),
+            ColorSequenceKeypoint.new(1, T.bg:Lerp(T.accent, 0.05)),
+        })
     end
     paintWin()
     themeFns[#themeFns + 1] = paintWin
@@ -592,21 +593,58 @@ function SORU:CreateWindow(C)
     -- SIDEBAR: logo, grup navigasi (ikon + nama + panah urut), item halaman, tombol UI Settings
     ------------------------------------------------------------------
     local SIDE_W, LOGO_H, FOOT_H = 156, 58, 40
-    local sbg = new("Frame", {Name = "Sidebar", Size = UDim2.new(0, SIDE_W, 1, 0), BackgroundColor3 = T.side, BorderSizePixel = 0, ClipsDescendants = true}, win)
+        local sbg = new("Frame", {Name = "Sidebar", Size = UDim2.new(0, SIDE_W, 1, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.25, BorderSizePixel = 0, ClipsDescendants = true}, win)
     corner(sbg, 12)
-    new("Frame", {Position = UDim2.new(1, -12, 0, 0), Size = UDim2.new(0, 12, 1, 0), BackgroundColor3 = T.side, BorderSizePixel = 0}, sbg) -- luruskan sisi kanan
+    local sbgFix = new("Frame", {Position = UDim2.new(1, -12, 0, 0), Size = UDim2.new(0, 12, 1, 0), BackgroundColor3 = WHITE, BackgroundTransparency = 0.25, BorderSizePixel = 0}, sbg)
+    local sideGs = {new("UIGradient", {Rotation = 90}, sbg), new("UIGradient", {Rotation = 90}, sbgFix)}
+    local function paintSide()
+        for _, g in ipairs(sideGs) do g.Color = ColorSequence.new(T.side:Lerp(T.accent, 0.35), T.side:Lerp(T.accent2, 0.08)) end
+    end
+    paintSide(); themeFns[#themeFns + 1] = paintSide
     new("Frame", {Name = "Separator", Position = UDim2.fromOffset(SIDE_W - 1, 0), Size = UDim2.new(0, 1, 1, 0), BackgroundColor3 = T.outline, BackgroundTransparency = 0.55, BorderSizePixel = 0}, win)
 
     local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1, 0, LOGO_H), BackgroundTransparency = 1, Active = true}, win)
+    local banner = new("Frame", {Name = "Banner", Position = UDim2.fromOffset(10, 7), Size = UDim2.new(1, -20, 1, -14), BackgroundColor3 = WHITE, BorderSizePixel = 0}, dragLogo)
+    corner(banner, 10)
+    stroke(banner, WHITE, 1, 0.75)
+    local bannerG = new("UIGradient", {Rotation = 40}, banner)
+    local function paintBanner()
+        bannerG.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, T.accent:Lerp(WHITE, 0.15)),
+            ColorSequenceKeypoint.new(0.5, T.accent),
+            ColorSequenceKeypoint.new(1, T.accent2:Lerp(T.bg, 0.25)),
+        })
+    end
+    paintBanner(); themeFns[#themeFns + 1] = paintBanner
+    local shim = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, banner)
+    corner(shim, 10)
+    local shimG = new("UIGradient", {Rotation = 20, Offset = Vector2.new(-1, 0), Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.78),
+        NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1)})}, shim)
     if LOGO ~= "" then
-        logoImg(dragLogo, {Name = "Logo", Position = UDim2.fromOffset(14, 7), Size = UDim2.new(1, -28, 1, -14), ScaleType = Enum.ScaleType.Fit})
+        logoImg(banner, {Name = "Logo", Position = UDim2.fromOffset(8, 4), Size = UDim2.new(1, -16, 1, -8), ScaleType = Enum.ScaleType.Fit, ZIndex = 3})
     else
-        logoImg(dragLogo, {Name = "Logo", Position = UDim2.fromOffset(14, 5), Size = UDim2.fromOffset(34, 46)})
-        local nm = text(dragLogo, {Name = "LogoName", Text = LOGONAME, Position = UDim2.fromOffset(50, 25), Size = UDim2.new(1, -62, 0, 18), FontFace = FONT_I, TextSize = 13, TextTruncate = NOTRUNC})
-        local ng = new("UIGradient", {}, nm)
-        local function paintNm() ng.Color = ColorSequence.new(T.accentL, T.accent) end
-        paintNm()
-        themeFns[#themeFns + 1] = paintNm
+        local mono = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = T.bg, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 3}, banner)
+        corner(mono, 8); stroke(mono, WHITE, 1, 0.6)
+        text(mono, {Text = LOGOCHAR, Size = UDim2.fromScale(1, 1), W = 4, TextSize = 18, TextXAlignment = XC, TextColor3 = WHITE, ZIndex = 4, TextTruncate = NOTRUNC})
+        text(banner, {Name = "LogoName", Text = LOGONAME, Position = UDim2.fromOffset(46, 6), Size = UDim2.new(1, -52, 0, 20), W = 4, TextSize = 16, TextColor3 = WHITE, TextStrokeTransparency = 0.75, ZIndex = 3, TextTruncate = NOTRUNC})
+        text(banner, {Name = "LogoSub", Text = "HUB  •  v" .. VERSION, Position = UDim2.fromOffset(47, 26), Size = UDim2.new(1, -52, 0, 12), W = 2, TextSize = 8, TextColor3 = WHITE, TextTransparency = 0.25, ZIndex = 3, TextTruncate = NOTRUNC})
+    end
+    if not NOANIM then
+        task.spawn(function()
+            local t0 = os.clock()
+            while banner.Parent do
+                bannerG.Rotation = 40 + math.sin((os.clock() - t0) * 0.8) * 25
+                task.wait(1 / 30)
+            end
+        end)
+        task.spawn(function()
+            while banner.Parent do
+                shimG.Offset = Vector2.new(-1, 0)
+                TweenService:Create(shimG, TweenInfo.new(1.3, Enum.EasingStyle.Sine), {Offset = Vector2.new(1, 0)}):Play()
+                task.wait(4.5)
+            end
+        end)
     end
     new("Frame", {Name = "LogoLine", Position = UDim2.fromOffset(0, LOGO_H), Size = UDim2.new(0, SIDE_W - 1, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.5, BorderSizePixel = 0}, win)
 
