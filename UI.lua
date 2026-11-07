@@ -1720,4 +1720,659 @@ function SORU:CreateWindow(C)
             local chev = new("ImageLabel", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(15, 15), BackgroundTransparency = 1, Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = -90, ZIndex = 3}, hd2)
 
             local wrap = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, box)
-            local cont = new("Frame
+            local cont = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, wrap)
+            new("UIPadding", {PaddingTop = UDim.new(0, 2), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, cont)
+            local lay = new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, cont)
+
+            local sub = buildComponents(scroll, cont, ctx, nil)
+            sub._content = cont
+
+            local function contentH()
+                local ah = lay.AbsoluteContentSize.Y
+                if ah <= 0 then return 0 end
+                local fac = hd2.AbsoluteSize.Y / HEAD
+                if fac < 0.01 then fac = math.max(rootScale.Scale, 0.01) end
+                return math.floor(ah / fac + 0.5) + 12
+            end
+            local function setH(h)
+                wrap.Size = UDim2.new(1, 0, 0, h)
+                box.Size = UDim2.new(1, 0, 0, HEAD + h)
+            end
+            local function setOpen(v, instant)
+                if v == open then return end
+                open = v
+                tok = tok + 1
+                local my = tok
+                play(chev, {Rotation = v and 0 or -90}, 0.25)
+                if v then wrap.Visible = true end
+                if instant or NOANIM then
+                    wrap.Visible = v
+                    setH(v and contentH() or 0)
+                    return
+                end
+                animating = true
+                task.spawn(function()
+                    if v then RunService.Heartbeat:Wait() end
+                    if tok ~= my then return end
+                    local h = v and contentH() or 0
+                    play(wrap, {Size = UDim2.new(1, 0, 0, h)}, 0.3)
+                    play(box, {Size = UDim2.new(1, 0, 0, HEAD + h)}, 0.3)
+                    task.wait(0.33)
+                    if tok ~= my then return end
+                    animating = false
+                    if open then setH(contentH()) else wrap.Visible = false end
+                end)
+            end
+            -- isi berubah saat terbuka (komponen baru, dropdown, kartu di dalam kartu): tinggi ikut
+            lay:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                if open and not animating then
+                    local h = contentH()
+                    if math.abs(wrap.Size.Y.Offset - h) > 1 then setH(h) end
+                end
+            end)
+            hd2.MouseEnter:Connect(function() play(chev, {ImageColor3 = T.text}, 0.15) end)
+            hd2.MouseLeave:Connect(function() play(chev, {ImageColor3 = T.dim}, 0.15) end)
+            hd2.MouseButton1Click:Connect(function() setOpen(not open) end)
+
+            function sub:Expand() setOpen(true) end
+            function sub:Collapse() setOpen(false) end
+            function sub:SetOpen(v) setOpen(v and true or false) end
+            function sub:IsOpen() return open end
+            if o.Open ~= false then setOpen(true, true) end
+            return sub
+        end
+        K.Group, K.Card = K.Accordion, K.Accordion
+
+        function K:Panel(o) return Window:Panel(o) end
+
+        -- alias gaya lama: CreateSection = kartu; komponen sesudahnya masuk ke dalamnya
+        function K:CreateSection(o)
+            if type(o) ~= "table" then o = {Name = tostring(o)} end
+            K._cur = nil
+            local A = K:Accordion({Title = o.Name or o.Title, Icon = o.Icon, Open = o.Open, Column = o.Column})
+            K._cur = A._content
+            return A
+        end
+        for a, b in pairs({CreateButton = "Button", CreateToggle = "Toggle", CreateSlider = "Slider", CreateInput = "Textbox",
+            CreateDropdown = "Dropdown", CreateMultiDropdown = "MultiDropdown", CreateColorPicker = "ColorPicker",
+            CreateKeybind = "Keybind", CreateParagraph = "Paragraph", CreateLabel = "Label"}) do
+            K[a] = function(self, o) return K[b](self, o) end
+        end
+        return K
+    end
+
+    ------------------------------------------------------------------
+    -- WINDOW API
+    ------------------------------------------------------------------
+    function Window.Notify(a, b, c, d, e)
+        if a == Window then a, b, c, d, e = b, c, d, e, nil end
+        if type(a) == "table" then
+            local img = a.Image or a.Icon
+            return notify(a.Title or a.Name, a.Content or a.Desc or a.Message, a.Color, a.Duration, img)
+        end
+        return notify(a, b, c, d, e)
+    end
+    function Window:IsGame(id) return placeId == id or gameId == id end
+    function Window:Toggle() toggleWin() end
+    function Window:Open() openA() end
+    function Window:Close() closeA() end
+    function Window:OpenSettings() if isOpen == false then openA() end go(SETTINGS) end
+    function Window:SetScale(pct) userScale = math.clamp((tonumber(pct) or 100) / 100, 0.6, 1.5) F.UIScale = math.floor(userScale * 100 + 0.5) applyScale() persist() end
+    function Window:SaveConfig(name) saveCfg(name or curName) return true end
+    function Window:LoadConfig(name)
+        local d = readCfg(name or curName)
+        if not d then return false, "config not found" end
+        for flag, val in pairs(d.Features) do
+            local r = Reg[flag]
+            if r then pcall(function() r:Set(val, true) end) end
+        end
+        return true
+    end
+    function Window:Destroy() gui:Destroy() end
+
+    -- Window:Group({Title, Icon}) -> grup di sidebar (header + panah). G:Tab({Title, Icon, Subtitle}) -> halaman di bawah grup.
+    -- Hasil Tab = pembuat komponen; K:SubTab({Title, Icon}) menambah chip di atas konten dan mengembalikan pembuat komponennya.
+    local function addTab(gname, c)
+        c = (type(c) == "table") and c or {Title = tostring(c)}
+        local p = createPage(gname, tostring(c.Title or c.Name or "Tab"), c.Icon, c.Subtitle or c.Desc, c.Columns)
+        Window.Tabs[p.key] = p
+        if cur == nil then go(p.key) end
+        return p.K
+    end
+    function Window:Group(c)
+        if type(c) ~= "table" then c = {Title = tostring(c)} end
+        local gname = tostring(c.Title or c.Name or "Menu")
+        createGroup(gname, c.Icon)
+        local G = {}
+        function G:Tab(tc) return addTab(gname, tc) end
+        G.CreateTab = function(self, tc) tc = tc or {} return addTab(gname, {Title = tc.Name or tc.Title, Icon = tc.Icon, Subtitle = tc.Subtitle, Columns = tc.Columns}) end
+        return G
+    end
+    -- gaya lama (tanpa grup): halaman masuk ke grup "Menu" (atau c.Group)
+    function Window:Tab(c)
+        c = (type(c) == "table") and c or {Title = tostring(c)}
+        local gname = tostring(c.Group or "Menu")
+        if not groups[gname] then createGroup(gname, c.GroupIcon or ((gname == "Menu") and "grid" or nil)) end
+        return addTab(gname, c)
+    end
+    function Window:CreateTab(c) c = c or {} return Window:Tab({Title = c.Name or c.Title, Icon = c.Icon, Group = c.Group, Subtitle = c.Subtitle}) end
+
+    -- kontrol window: tombol kosong di video, jadi tutup lewat pill / tombol menu
+    bind(UIS.InputBegan, function(i, gp)
+        if binding or gp then return end
+        if i.KeyCode == toggleKey then toggleWin() end
+    end)
+    bind(gui:GetPropertyChangedSignal("AbsoluteSize"), applyScale)
+    applyScale()
+
+    -- support game
+    local supported, kickOnFail = C.SupportedGames, C.KickIfNotSupported
+    if kickOnFail == nil then kickOnFail = true end
+    local isSupported = true
+    if supported and #supported > 0 then
+        isSupported = false
+        for _, id in ipairs(supported) do if id == placeId or id == gameId then isSupported = true break end end
+    end
+    Window.IsSupported = isSupported
+    if not isSupported then
+        launcher.Visible = false
+        notify("Game not supported", "Place ID " .. tostring(placeId), T.bad, 5)
+        task.delay(5, function()
+            if kickOnFail then pcall(function() pl:Kick("NOT SUPPORTED - " .. LOGONAME .. "\n" .. placeId) end) end
+        end)
+        local function dummy()
+            local d = {}
+            return setmetatable(d, {__index = function() return function() return d end end})
+        end
+        function Window:Tab() return dummy() end
+        function Window:Group() return dummy() end
+        function Window:Panel() return dummy() end
+        Window.CreateTab = Window.Tab
+        return Window
+    end
+
+    ------------------------------------------------------------------
+    -- PANEL SAMPING glassmorphism (ala iOS "Slide Over"): kaca bergradien yang melayang 10px dari tepi layar.
+    -- Lapisan dari belakang: kaca bergradien > aurora aksen > butiran frost > kilap atas > isi > tepi kaca bercahaya.
+    -- Handle = pil kaca tipis. Tap = buka / tutup, tarik handle atau header = geser (kibas cepat = langsung buka / tutup).
+    -- Opsi: Title, Subtitle, Width (300), Glass (0.34 = tingkat bening kaca, 0.05 - 0.75), OpenDrag ("Left" / "Right"),
+    --       GripY (0.5), Open, Callback(isOpen). Baris komponen di dalam panel ikut jadi kaca (ctx.glass).
+    ------------------------------------------------------------------
+    function Window:Panel(o)
+        o = o or {}
+        local COMPACT = 0.76 -- Width (default 300) diperkecil jadi ~228px. Naikkan kalau mau lebih lebar
+        local function calcW(w) return math.clamp(math.floor((tonumber(w) or 300) * COMPACT + 0.5), 190, 400) end
+        local W = calcW(o.Width)
+        local GL = math.clamp(tonumber(o.Glass) or 0.34, 0.05, 0.75)
+        local touchOnly = UIS.TouchEnabled and not UIS.MouseEnabled
+        local HZ, HH = UIS.TouchEnabled and 26 or 18, UIS.TouchEnabled and 120 or 92 -- zona sentuh handle (lebar, tinggi)
+        local M, HEADP, RAD = 10, 48, 20 -- jarak panel ke tepi layar, tinggi header, radius sudut
+        local PADT, PADB, FOOT = 10, 12, 8 -- padding isi atas / bawah, jarak viewport ke tepi bawah (supaya baris tidak keluar dari sudut membulat)
+        local dockL = tostring(o.OpenDrag or "Left"):lower() == "right"
+        local AX = dockL and 0 or 1
+        local isP, destroyed, prog = false, false, 0
+        local hovering, pressing = false, false
+        local title0 = tostring(o.Title or "Panel")
+        local minH = 130
+        local function kp(t, v) return NumberSequenceKeypoint.new(t, math.clamp(v, 0, 1)) end
+        local function ck(t, c) return ColorSequenceKeypoint.new(t, c) end
+        local function ns(...) return NumberSequence.new({...}) end
+
+        -- holder: nempel di tengah layar (vertikal), tinggi diatur fit() mengikuti isi
+        local holder = new("Frame", {Name = "NEMESIS_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + HZ, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
+        local function pos(p)
+            local x = (1 - p) * W - p * M
+            return UDim2.new(AX, dockL and -x or x, 0.5, 0)
+        end
+        holder.Position = pos(0)
+
+        ------------------------------------------------------------------
+        -- HANDLE: pil kaca tipis + dua lapis cahaya aksen. Ukuran & kecerahan berubah menurut keadaan
+        ------------------------------------------------------------------
+        local gy = math.clamp(tonumber(o.GripY) or 0.5, 0.12, 0.88)
+        local grip = new("TextButton", {Name = "Handle", AnchorPoint = Vector2.new(1 - AX, gy), Position = UDim2.new(1 - AX, 0, gy, 0), Size = UDim2.fromOffset(HZ, HH),
+            BackgroundTransparency = 1, Text = "", AutoButtonColor = false, BorderSizePixel = 0, Active = true, ZIndex = 5}, holder)
+        local function halo(extra, tr)
+            local h = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5 + extra, 46 + extra),
+                BackgroundTransparency = tr, BorderSizePixel = 0, ZIndex = 6}, grip)
+            skin(h, "BackgroundColor3", "accent")
+            corner(h, "full")
+            return h
+        end
+        local halo1, halo2 = halo(14, 0.93), halo(7, 0.85)
+        local pill = new("Frame", {Name = "Pill", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(5, 46),
+            BackgroundColor3 = WHITE, BackgroundTransparency = 0.05, BorderSizePixel = 0, ZIndex = 7}, grip)
+        corner(pill, "full")
+        local pillG = new("UIGradient", {Rotation = 90}, pill)
+        stroke(pill, WHITE, 1, 0.6)
+
+        local PS = { -- keadaan handle: lebar, tinggi, transparansi pil, transparansi dua lapis cahaya
+            closed = {w = 5, h = 46, pt = 0.05, t1 = 0.93, t2 = 0.85},
+            open = {w = 5, h = 30, pt = 0.4, t1 = 1, t2 = 1},
+            hover = {w = 6, h = 56, pt = 0, t1 = 0.86, t2 = 0.72},
+            press = {w = 7, h = 62, pt = 0, t1 = 0.8, t2 = 0.64},
+        }
+        local function pillFx()
+            local s = (pressing and PS.press) or (hovering and PS.hover) or (isP and PS.open) or PS.closed
+            play(pill, {Size = UDim2.fromOffset(s.w, s.h), BackgroundTransparency = s.pt}, 0.25)
+            play(halo1, {Size = UDim2.fromOffset(s.w + 14, s.h + 14), BackgroundTransparency = s.t1}, 0.25)
+            play(halo2, {Size = UDim2.fromOffset(s.w + 7, s.h + 7), BackgroundTransparency = s.t2}, 0.25)
+        end
+        if not touchOnly then
+            grip.MouseEnter:Connect(function() hovering = true pillFx() end)
+            grip.MouseLeave:Connect(function() hovering = false pillFx() end)
+        end
+
+        ------------------------------------------------------------------
+        -- BODY: kaca bergradien (warna + tingkat bening ikut diagonal) + aurora aksen + frost + kilap + tepi kaca bercahaya
+        -- Catatan: sudut membulat TIDAK otomatis memotong anak-anaknya, jadi setiap lapisan penuh diberi corner sendiri.
+        ------------------------------------------------------------------
+        local bh = new("Frame", {Name = "BodyHolder", AnchorPoint = Vector2.new(AX, 0), Position = UDim2.new(AX, 0, 0, 0), Size = UDim2.new(0, W, 1, 0), BackgroundTransparency = 1}, holder)
+        local aura = new("ImageLabel", {Name = "Aura", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 80, 1, 80), BackgroundTransparency = 1,
+            Image = "rbxassetid://6015897843", ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 0}, bh)
+        skin(aura, "ImageColor3", "accent") -- cahaya ambient di sekeliling panel saat terbuka
+        local psh = shadow(bh)
+        psh.Size = UDim2.new(1, 44, 1, 44)
+        psh.ImageTransparency = 1
+        local body = new("Frame", {Name = "Body", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, Active = true, ClipsDescendants = true}, bh)
+        corner(body, RAD)
+        local bgG = new("UIGradient", {Rotation = 55, Transparency = ns(kp(0, GL + 0.1), kp(0.5, GL + 0.02), kp(1, GL - 0.06))}, body)
+        local rimG = new("UIGradient", {Rotation = 45, Transparency = ns(kp(0, 0.05), kp(0.3, 0.55), kp(0.65, 0.8), kp(1, 0.45))}, stroke(body, WHITE, 1.5, 0))
+
+        local function layer(name, z)
+            local f = new("Frame", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = z}, body)
+            corner(f, RAD)
+            return f
+        end
+        -- aurora: dua sapuan gradien aksen dari sudut berlawanan (pelan bergeser saat panel terbuka)
+        local wash1G = new("UIGradient", {Rotation = 40, Transparency = ns(kp(0, 0.6), kp(0.4, 0.88), kp(0.8, 1), kp(1, 1))}, layer("AuroraA", 0))
+        local wash2G = new("UIGradient", {Rotation = 220, Transparency = ns(kp(0, 0.72), kp(0.35, 0.93), kp(0.7, 1), kp(1, 1))}, layer("AuroraB", 0))
+        local function orb(px, py, w, h, tr, key)
+            local f = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), Size = UDim2.fromOffset(w, h), BackgroundTransparency = 1,
+                Image = "rbxassetid://6015897843", ImageTransparency = tr, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 0}, body)
+            skin(f, "ImageColor3", key)
+        end
+        orb(0.2, 0.06, 190, 120, 0.7, "accent")
+        orb(0.85, 0.96, 200, 130, 0.74, "accent2")
+        -- butiran frost (pola yang sama dengan window)
+        local frost = new("ImageLabel", {Name = "Frost", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = "rbxassetid://2151741365", ImageTransparency = 0.93,
+            TileSize = UDim2.fromOffset(20, 20), ScaleType = Enum.ScaleType.Tile, ZIndex = 1}, body)
+        corner(frost, RAD)
+        -- kilap cahaya dari atas
+        local gloss = new("Frame", {Name = "Gloss", Size = UDim2.new(1, 0, 0.55, 0), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, body)
+        corner(gloss, RAD)
+        new("UIGradient", {Rotation = 90, Transparency = ns(kp(0, 0.8), kp(0.5, 0.94), kp(1, 1))}, gloss)
+        -- kilau tipis di tepi atas
+        local spec = new("Frame", {Position = UDim2.fromOffset(RAD, 0), Size = UDim2.new(1, -RAD * 2, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 4}, body)
+        new("UIGradient", {Transparency = ns(kp(0, 1), kp(0.25, 0), kp(0.75, 0), kp(1, 1))}, spec)
+        -- tepi dalam bercahaya (kaca punya dua tepi: luar terang, dalam samar)
+        local inner = new("Frame", {Name = "InnerEdge", Position = UDim2.fromOffset(2, 2), Size = UDim2.new(1, -4, 1, -4), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7}, body)
+        corner(inner, RAD - 2)
+        local innerG = new("UIGradient", {Rotation = 45, Transparency = ns(kp(0, 0.7), kp(0.5, 0.93), kp(1, 0.8))}, stroke(inner, WHITE, 1, 0))
+
+        ------------------------------------------------------------------
+        -- HEADER: badge logo + judul bergradien + subjudul + tombol tutup kaca, garis aksen yang memudar di bawah
+        ------------------------------------------------------------------
+        local hdr = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HEADP), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true, ZIndex = 2}, body)
+        local sep = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 0), Size = UDim2.new(1, -24, 0, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 2}, hdr)
+        new("UIGradient", {Transparency = ns(kp(0, 1), kp(0.2, 0), kp(0.8, 0), kp(1, 1))}, sep)
+        local hline = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BorderSizePixel = 0, ZIndex = 3}, hdr)
+        skin(hline, "BackgroundColor3", "accent")
+        new("UIGradient", {Transparency = ns(kp(0, 1), kp(0.18, 0.15), kp(0.55, 0.6), kp(1, 1))}, hline)
+        -- kilau yang menyapu satu kali di garis aksen setiap kali panel dibuka
+        local shim = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 4}, hdr)
+        local sg = new("UIGradient", {Offset = Vector2.new(-1, 0), Transparency = ns(kp(0, 1), kp(0.42, 1), kp(0.5, 0.2), kp(0.58, 1), kp(1, 1))}, shim)
+        local sweep = TweenService:Create(sg, TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Offset = Vector2.new(1, 0)})
+        local function shine()
+            sg.Offset = Vector2.new(-1, 0)
+            if NOANIM then sweep:Cancel() else sweep:Play() end
+        end
+        -- aurora hidup: gradien pelan bergeser bolak-balik selama panel terbuka (mati kalau animasi dimatikan)
+        local drift1 = TweenService:Create(wash1G, TweenInfo.new(5.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(0.25, 0.2)})
+        local drift2 = TweenService:Create(wash2G, TweenInfo.new(7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(-0.25, -0.2)})
+        local function ambient(on)
+            if on and not NOANIM then
+                drift1:Play()
+                drift2:Play()
+            else
+                drift1:Cancel()
+                drift2:Cancel()
+                wash1G.Offset, wash2G.Offset = Vector2.new(0, 0), Vector2.new(0, 0)
+            end
+        end
+
+        -- badge logo: halo aksen + kotak kaca dengan outline gradien
+        local bw = new("Frame", {Name = "LogoHolder", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, -1), Size = UDim2.fromOffset(24, 24), BackgroundTransparency = 1, ZIndex = 2}, hdr)
+        for _, hh in ipairs({{14, 0.94, 14}, {7, 0.86, 11}}) do
+            local hl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, hh[1], 1, hh[1]), BackgroundTransparency = hh[2], BorderSizePixel = 0, ZIndex = 1}, bw)
+            skin(hl, "BackgroundColor3", "accent")
+            corner(hl, hh[3])
+        end
+        local badge = new("Frame", {Name = "Badge", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg, BackgroundTransparency = 0.25, BorderSizePixel = 0, ZIndex = 2}, bw)
+        corner(badge, 8)
+        local bsg = new("UIGradient", {Rotation = 45}, stroke(badge, WHITE, 1.5, 0))
+        logoImg(badge, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(16, 16), ScaleType = Enum.ScaleType.Fit, ZIndex = 3})
+
+        local hasSub = o.Subtitle ~= nil and tostring(o.Subtitle) ~= ""
+        local TXW, TXR = 46, 44
+        local tl = text(hdr, {Text = title0, Position = UDim2.fromOffset(TXW, hasSub and 8 or 0), Size = UDim2.new(1, -(TXW + TXR), 0, hasSub and 19 or HEADP - 2), W = 3, TextSize = 14, ZIndex = 2})
+        local tG = new("UIGradient", {}, tl) -- judul memudar dari putih ke aksen
+        local sl = text(hdr, {Text = tostring(o.Subtitle or ""), Position = UDim2.fromOffset(TXW, 26), Size = UDim2.new(1, -(TXW + TXR), 0, 14), TextSize = 11, W = 1, TextColor3 = T.dim, Visible = hasSub, ZIndex = 2})
+
+        -- tombol tutup: lingkaran kaca kecil, panah menunjuk ke tepi layar
+        local cb = new("TextButton", {Name = "Close", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, -1), Size = UDim2.fromOffset(24, 24), BackgroundColor3 = WHITE,
+            Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 4}, hdr)
+        corner(cb, "full")
+        new("UIGradient", {Rotation = 45, Transparency = ns(kp(0, 0.8), kp(1, 0.94))}, cb)
+        local cst = stroke(cb, WHITE, 1, 0.72)
+        local cic = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1,
+            Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = dockL and 90 or -90, ZIndex = 5}, cb)
+        cb.MouseEnter:Connect(function()
+            play(cb, {BackgroundColor3 = T.accent}, 0.2)
+            play(cst, {Color = T.accent, Transparency = 0.2}, 0.2)
+            play(cic, {ImageColor3 = T.text}, 0.2)
+        end)
+        cb.MouseLeave:Connect(function()
+            play(cb, {BackgroundColor3 = WHITE}, 0.2)
+            play(cst, {Color = WHITE, Transparency = 0.72}, 0.2)
+            play(cic, {ImageColor3 = T.dim}, 0.2)
+        end)
+
+        ------------------------------------------------------------------
+        -- ISI: daftar komponen yang bisa di-scroll. Viewport berhenti FOOT px di atas tepi bawah supaya baris
+        -- yang ter-scroll tidak menembus sudut membulat. Pudar tipis di bawah = penanda masih ada isi.
+        ------------------------------------------------------------------
+        local pscroll = new("ScrollingFrame", {Name = "Content", Active = true, Position = UDim2.fromOffset(0, HEADP), Size = UDim2.new(1, 0, 1, -(HEADP + FOOT)), BackgroundTransparency = 1, BorderSizePixel = 0,
+            ScrollBarThickness = 2, ScrollBarImageTransparency = 0.25, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 2}, body)
+        skin(pscroll, "ScrollBarImageColor3", "accent")
+        local plist = new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder}, pscroll)
+        new("UIPadding", {PaddingTop = UDim.new(0, PADT), PaddingBottom = UDim.new(0, PADB), PaddingLeft = UDim.new(0, 9), PaddingRight = UDim.new(0, 9)}, pscroll)
+        local pfade = new("Frame", {Name = "Fade", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -FOOT), Size = UDim2.new(1, 0, 0, PADB), BackgroundColor3 = T.bg, BorderSizePixel = 0, ZIndex = 5}, body)
+        new("UIGradient", {Rotation = 90, Transparency = ns(kp(0, 1), kp(1, 0.55))}, pfade)
+
+        -- tinggi panel = header + isi (maks 70% tinggi layar). Ikut berubah saat accordion buka/tutup & saat layar di-resize
+        local function fit(anim)
+            if destroyed then return end
+            local s = math.max(rootScale.Scale, 0.01)
+            local maxH = math.max(minH, gui.AbsoluteSize.Y / s * 0.7)
+            local want = HEADP + PADT + PADB + FOOT + plist.AbsoluteContentSize.Y / s
+            local sz = UDim2.fromOffset(W + HZ, math.floor(math.clamp(want, minH, maxH)))
+            if anim then play(holder, {Size = sz}, 0.2) else holder.Size = sz end
+        end
+        bind(plist:GetPropertyChangedSignal("AbsoluteContentSize"), function() fit() end)
+        bind(rootScale:GetPropertyChangedSignal("Scale"), function() fit() end)
+        fit()
+
+        -- drawer dropdown butuh ruang: begitu dipakai pertama kali, tinggi minimum panel dinaikkan
+        local pctx = newCtx(body, RAD)
+        pctx.glass = true -- baris komponen di panel ini dibuat lebih bening (dibaca buildComponents)
+        local rawDrawer = pctx.drawer
+        pctx.drawer = function()
+            local fresh = pctx.d == nil
+            local d = rawDrawer()
+            if fresh then
+                minH = math.max(minH, 260)
+                fit(true)
+            end
+            return d
+        end
+        local K = buildComponents(pscroll, nil, pctx)
+
+        ------------------------------------------------------------------
+        -- BUKA / TUTUP + GESER
+        ------------------------------------------------------------------
+        local function goTo(open)
+            if destroyed then return end
+            local was = isP
+            isP = open and true or false
+            prog = isP and 1 or 0
+            if not isP and pctx.d then pctx.d.close() end
+            play(holder, {Position = pos(prog)}, isP and 0.55 or 0.4, isP and BACK or QUINT) -- buka: pegas sedikit, tutup: mulus
+            play(psh, {ImageTransparency = isP and 0.45 or 1}, 0.4)
+            play(aura, {ImageTransparency = isP and 0.82 or 1}, 0.5)
+            pillFx()
+            ambient(isP)
+            if isP then shine() end
+            if was ~= isP and o.Callback then task.spawn(safe, o.Callback, isP) end
+        end
+        cb.MouseButton1Click:Connect(function() goTo(false) end)
+
+        -- tarik: panel ikut jari; saat dilepas, kibasan cepat menentukan arah, kalau pelan lihat posisinya (lewat setengah = buka)
+        local vel, lastX, lastT = 0, nil, 0
+        local function dragBegin()
+            pressing, vel, lastX = true, 0, nil
+            pillFx()
+            return prog
+        end
+        local function dragMove(dx, dy, p0, moved, ip)
+            if not moved then return end
+            local now = os.clock()
+            if lastX and now > lastT then
+                vel = vel * 0.6 + ((ip.X - lastX) / (now - lastT)) * 0.4
+            end
+            lastX, lastT = ip.X, now
+            local d = dx / math.max(rootScale.Scale, 0.01)
+            if dockL then d = -d end
+            prog = math.clamp(p0 - d / (W + M), 0, 1)
+            holder.Position = pos(prog)
+            psh.ImageTransparency = 1 - 0.55 * prog
+            aura.ImageTransparency = 1 - 0.18 * prog
+        end
+        local function release(moved, tapToggles)
+            pressing = false
+            if not moved then
+                pillFx()
+                if tapToggles then goTo(not isP) end
+                return
+            end
+            local openV = (os.clock() - lastT < 0.1) and (dockL and vel or -vel) or 0
+            if math.abs(openV) > 350 then goTo(openV > 0) else goTo(prog > 0.5) end
+        end
+        track(grip, dragBegin, dragMove, function(moved) release(moved, true) end)
+        track(hdr, dragBegin, dragMove, function(moved) release(moved, false) end)
+
+        -- ikut ganti tema
+        local function paint()
+            local a, b = T.accent, T.accent2
+            bgG.Color = ColorSequence.new({ck(0, T.side:Lerp(a, 0.4)), ck(0.5, T.side:Lerp(b, 0.14)), ck(1, T.bg:Lerp(b, 0.12))})
+            wash1G.Color = ColorSequence.new(a, b)
+            wash2G.Color = ColorSequence.new(b, a)
+            rimG.Color = ColorSequence.new({ck(0, WHITE), ck(0.35, WHITE:Lerp(a, 0.55)), ck(0.7, b), ck(1, WHITE:Lerp(b, 0.4))})
+            innerG.Color = ColorSequence.new(WHITE:Lerp(a, 0.4), b)
+            pillG.Color = ColorSequence.new(a, b)
+            bsg.Color = ColorSequence.new(a, b)
+            tG.Color = ColorSequence.new({ck(0, WHITE), ck(0.35, WHITE:Lerp(a, 0.5)), ck(1, WHITE:Lerp(a, 0.7))})
+        end
+        paint()
+        themeFns[#themeFns + 1] = paint
+
+        function K:Show() goTo(true) end
+        function K:Hide() goTo(false) end
+        function K:Switch() goTo(not isP) end
+        function K:IsOpen() return isP end
+        function K:SetTitle(t) tl.Text = tostring(t) end
+        function K:SetSubtitle(t)
+            local s = (t == nil) and "" or tostring(t)
+            sl.Text, sl.Visible = s, s ~= ""
+            tl.Position = UDim2.fromOffset(TXW, s ~= "" and 8 or 0)
+            tl.Size = UDim2.new(1, -(TXW + TXR), 0, s ~= "" and 19 or HEADP - 2)
+        end
+        function K:SetVisible(v) holder.Visible = v and true or false end
+        function K:SetWidth(w)
+            W = calcW(w)
+            bh.Size = UDim2.new(0, W, 1, 0)
+            fit()
+            holder.Position = pos(prog)
+        end
+        function K:Destroy()
+            if destroyed then return end
+            destroyed = true
+            ambient(false)
+            holder:Destroy()
+        end
+        if o.Open then
+            isP, prog = true, 1
+            holder.Position = pos(1)
+            psh.ImageTransparency = 0.45
+            aura.ImageTransparency = 0.82
+            pillFx()
+            ambient(true)
+        end
+        return K
+    end
+
+
+    ------------------------------------------------------------------
+    -- UI SETTINGS (halaman tersembunyi, dibuka lewat tombol "UI Settings" di kiri bawah)
+    ------------------------------------------------------------------
+    do
+        local sp = createPage(nil, "Settings", nil, "Theme, window size, blur and keys", nil, true)
+        sp.title = "UI Settings"
+        local S = sp.K
+
+        local AP = S:Accordion({Title = "Theme", Icon = "palette"})
+        AP:Dropdown({Title = "Accent color", Desc = "Pick an accent color preset", Flag = "UITheme", Options = ORDER, Default = curTheme,
+            Swatch = function(n) return THEMES[n] and THEMES[n][1] or nil end,
+            Callback = function(v)
+                if type(v) == "string" and THEMES[v] then
+                    curTheme = v
+                    applyTheme(v)
+                end
+            end})
+        AP:Toggle({Title = "Top pill", Desc = "Show the name + FPS pill at the top", Flag = "UIPill", Default = true,
+            Callback = function(v) launcher.Visible = v and true or false end})
+
+        local WS = S:Accordion({Title = "Window size", Icon = "sliders"})
+        sizeUI.w = WS:Slider({Title = "Width", Flag = "UIW", Min = MINS.X, Max = MAXS.X, Step = 5, Suffix = " px", Default = math.floor(winSize.X + 0.5),
+            Callback = function(v)
+                winSize = Vector2.new(v, winSize.Y)
+                layoutWin()
+            end})
+        sizeUI.h = WS:Slider({Title = "Height", Flag = "UIH", Min = MINS.Y, Max = MAXS.Y, Step = 5, Suffix = " px", Default = math.floor(winSize.Y + 0.5),
+            Callback = function(v)
+                winSize = Vector2.new(winSize.X, v)
+                layoutWin()
+            end})
+        local scaleS = WS:Slider({Title = "UI scale", Flag = "UIScale", Min = 60, Max = 150, Step = 5, Suffix = "%", Default = math.floor(userScale * 100 + 0.5),
+            OnRelease = function(v) userScale = v / 100 applyScale() end})
+        WS:Button({Title = "Reset window", Desc = "Back to the default size and scale", Callback = function()
+            winSize, winPos = DEFAULT, nil
+            userScale = autoScale()
+            sizeUI.w:Set(DEFAULT.X)
+            sizeUI.h:Set(DEFAULT.Y)
+            scaleS:Set(math.floor(userScale * 100 + 0.5))
+            F.UIW, F.UIH = nil, nil
+            applyScale()
+            layoutWin(true)
+            persist()
+            notify("Window reset", "Size and scale restored", T.accent, 2)
+        end})
+
+        local BL = S:Accordion({Title = "Blur", Icon = "eye"})
+        BL:Toggle({Title = "Background blur", Desc = "Only active while the menu is open", Flag = "UIBlur", Default = false,
+            Callback = function(v)
+                blurOn = v and true or false
+                blurUpdate()
+            end})
+        BL:Slider({Title = "Blur intensity", Flag = "UIBlurSize", Min = 2, Max = 56, Step = 1, Default = blurSize,
+            Callback = function(v)
+                blurSize = v
+                if blurOn and isOpen and blurFx and blurFx.Parent then blurFx.Size = v end
+            end})
+
+        local GN = S:Accordion({Title = "General", Icon = "settings"})
+        GN:Keybind({Title = "Menu key", Desc = "Show or hide the interface", Flag = "MenuKey", Default = toggleKey,
+            OnChange = function(k) if k then toggleKey = k end end})
+        GN:Toggle({Title = "Reduce animation", Desc = "Instant changes, lightest on weak devices", Flag = "UINoAnim", Default = NOANIM,
+            Callback = function(v) NOANIM = v and true or false end})
+    end
+    if F.UIPill == false then launcher.Visible = false end
+
+    ------------------------------------------------------------------
+    -- DEMO: tiruan isi video (C.Demo = true). Dashboard / GrowBlox (Farm + 6 sub-tab) / Settings
+    ------------------------------------------------------------------
+    if C.Demo then
+        local D = Window:Group({Title = "Dashboard", Icon = "grid"})
+        local dash = D:Tab({Title = "Dashboard", Icon = "grid", Subtitle = "Overview and component showcase"})
+        local c1 = dash:Accordion({Title = "Components", Icon = "layers", Column = 1})
+        c1:Button({Title = "Button", Desc = "Click me", Callback = function() notify("Button", "Clicked", T.accent, 1.5) end})
+        c1:Toggle({Title = "Toggle", Desc = "Switch with a description", Flag = "Demo_Toggle", Default = true})
+        c1:Slider({Title = "Slider", Desc = "Drag the knob", Flag = "Demo_Slider", Min = 0, Max = 100, Default = 40, Suffix = "%"})
+        c1:Textbox({Title = "Textbox", Flag = "Demo_Text", Placeholder = "Type here..."})
+        local c2 = dash:Accordion({Title = "Inputs", Icon = "sliders", Column = 2})
+        c2:Dropdown({Title = "Dropdown", Flag = "Demo_DD", Options = {"Alpha", "Beta", "Gamma"}, Default = "Alpha"})
+        c2:Keybind({Title = "Keybind", Flag = "Demo_Key", Default = Enum.KeyCode.F})
+        c2:ColorPicker({Title = "Color picker", Flag = "Demo_Col", Default = T.accent})
+        c2:Info({Title = "Version", Value = "v" .. VERSION})
+        local c3 = dash:Accordion({Title = "About", Icon = "info", Column = 1})
+        c3:Paragraph({Title = "Nemesis style", Desc = "Dark cards, purple accent, pill launcher at the top. Tap the pill to open or close."})
+
+        local GB = Window:Group({Title = "GrowBlox", Icon = "sprout"})
+        local farm = GB:Tab({Title = "Farm", Icon = "pickaxe", Subtitle = "Clear, mine, farm, loot"})
+        local cw = farm:SubTab({Title = "Clear World", Icon = "eraser"})
+        local a = cw:Accordion({Title = "Clear World", Icon = "eraser", Column = 1})
+        a:Toggle({Title = "Auto Clear World", Desc = "Break every tile, row by row", Flag = "CW_Auto", Default = false})
+        a:Dropdown({Title = "Targets", Flag = "CW_Targets", Options = {"Everything", "Blocks", "Background", "Hazards"}, Default = "Everything"})
+        a:Toggle({Title = "Clear background", Desc = "Also break the cave layer", Flag = "CW_Bg", Default = true})
+        a:Toggle({Title = "Break lava / spikes", Desc = "Hit them from a safe distance", Flag = "CW_Lava", Default = true})
+        a:Toggle({Title = "Break trees", Desc = "Planted trees are skipped by default", Flag = "CW_Trees", Default = false})
+        local pr = cw:Accordion({Title = "Progress", Icon = "activity", Column = 1})
+        pr:Section("Clear")
+        pr:Label("Idle")
+        local pc = cw:Accordion({Title = "Pace", Icon = "gauge", Column = 2})
+        pc:Dropdown({Title = "Hit method", Flag = "CW_Method", Options = {"Hold", "Tap", "Burst"}, Default = "Hold"})
+        pc:Slider({Title = "Hit interval", Desc = "Act call only, game cooldown 0.22s", Flag = "CW_Interval", Min = 0.05, Max = 1, Step = 0.01, Default = 0.25, Suffix = "s"})
+        pc:Button({Title = "Test one hit", Desc = "Checks the server keeps the break", Callback = function() notify("Test", "One hit sent", T.accent, 1.5) end})
+        pc:Toggle({Title = "Pick up drops", Desc = "Take drops while clearing", Flag = "CW_Drops", Default = true})
+        pc:Slider({Title = "Pickup radius", Desc = "Tiles around you", Flag = "CW_Radius", Min = 1, Max = 8, Step = 0.1, Default = 2.2})
+
+        local mine = farm:SubTab({Title = "Mine", Icon = "pickaxe"})
+        local am = mine:Accordion({Title = "Auto Mine", Icon = "pickaxe", Column = 1})
+        am:Toggle({Title = "Auto Mine", Desc = "Break matching blocks nearby", Flag = "M_Auto"})
+        am:Textbox({Title = "Filter", Flag = "M_Filter", Placeholder = "name or id, comma separated"})
+        am:Slider({Title = "Radius", Desc = "Tiles from where you stand", Flag = "M_Radius", Min = 1, Max = 12, Default = 3})
+        am:Toggle({Title = "Single block", Desc = "Stop after one block", Flag = "M_Single"})
+        am:Toggle({Title = "Whole world", Desc = "Ignore radius, farm until gone", Flag = "M_World"})
+        local dd = mine:Accordion({Title = "Auto Dig Down", Icon = "pickaxe", Column = 2})
+        dd:Toggle({Title = "Auto Dig Down", Desc = "Break the block below, fall, repeat", Flag = "M_Dig"})
+        dd:Toggle({Title = "Stop before hazards", Desc = "Act call only, game cooldown 0.22s", Flag = "M_Haz", Default = true})
+        local fs = mine:Accordion({Title = "Farm Selected", Icon = "target", Column = 1})
+        fs:Textbox({Title = "Block", Flag = "FS_Block", Default = "Rock"})
+        fs:Buttons({{Title = "Add"}, {Title = "Clear"}})
+        fs:Section("Targets")
+        fs:Label("Lava #4, Rock #10")
+        fs:Toggle({Title = "Auto Farm Selected", Desc = "Digs top-down to every target", Flag = "FS_Auto"})
+        fs:Toggle({Title = "Collect drops", Desc = "Pick up seeds / gems / blocks after a break", Flag = "FS_Drops", Default = true})
+        fs:Slider({Title = "Collect range", Desc = "Tiles to walk for a drop", Flag = "FS_Range", Min = 1, Max = 12, Default = 6})
+        fs:Section("Status")
+        fs:Label("Off")
+        fs:Label("Targets broken 0 | Dug 0 | Left ?")
+
+        for _, nm in ipairs({{"Farm", "sprout"}, {"Loot", "box"}, {"Dirt Farm", "layers"}, {"Harvest", "wheat"}}) do
+            local st = farm:SubTab({Title = nm[1], Icon = nm[2]})
+            local card = st:Accordion({Title = nm[1], Icon = nm[2], Column = 1})
+            card:Toggle({Title = "Auto " .. nm[1], Desc = "Turn the " .. nm[1]:lower() .. " routine on", Flag = "T_" .. nm[1]})
+            card:Slider({Title = "Delay", Desc = "Seconds between actions", Flag = "T_" .. nm[1] .. "_D", Min = 0, Max = 2, Step = 0.05, Default = 0.2, Suffix = "s"})
+        end
+        GB:Tab({Title = "Move", Icon = "zap", Subtitle = "Movement helpers"}):Accordion({Title = "Movement", Icon = "zap"}):Toggle({Title = "Fast walk", Desc = "Move quicker than normal", Flag = "Mv_Fast"})
+        GB:Tab({Title = "Utility", Icon = "wrench", Subtitle = "Small tools"}):Accordion({Title = "Utility", Icon = "wrench"}):Toggle({Title = "Anti AFK", Desc = "Prevent the idle kick", Flag = "Ut_AFK", Default = true})
+
+        local SG = Window:Group({Title = "Settings", Icon = "sliders"})
+        local cfg = SG:Tab({Title = "Config", Icon = "save", Subtitle = "Save and load your settings"})
+        local cc = cfg:Accordion({Title = "Configs", Icon = "save", Column = 1})
+        local cname = cc:Textbox({Title = "Config name", Flag = "Cfg_Name", Default = "default"})
+        cc:Buttons({
+            {Title = "Save", Callback = function() Window:SaveConfig(cname:Get()) notify("Config", "Saved " .. tostring(cname:Get()), T.ok, 2) end},
+            {Title = "Load", Callback = function()
+                local ok, err = Window:LoadConfig(cname:Get())
+                notify("Config", ok and ("Loaded " .. tostring(cname:Get())) or tostring(err), ok and T.ok or T.bad, 2)
+            end},
+        })
+    end
+
+    openA()
+    notify(LOGONAME .. " v" .. VERSION, "Loaded successfully", T.accent, 3)
+    return Window
+end
+
+return SORU
