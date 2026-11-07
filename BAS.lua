@@ -116,7 +116,6 @@ local function parseFilterInput(text)
     return parseCash(text)
 end
 
--- Lib baru: Dropdown single return string, bukan table
 local function unwrap(v)
     if type(v) == "table" then return v[1] end
     return v
@@ -368,7 +367,7 @@ local function stealMethod(targetModel)
     else local ok = walkToSafeBaseFallback(targetModel) if not ok then return end end
 end
 
--- ESP Animal (logic lama, tidak diubah)
+-- ESP ANIMAL
 local function removeAnimalEsp(model)
     local data = espCache[model]
     if data then pcall(function() if data.hl then data.hl:Destroy() end end) pcall(function() if data.bb then data.bb:Destroy() end end) espCache[model] = nil end
@@ -408,7 +407,7 @@ local function refreshAllEsp()
     for m, _ in pairs(espCache) do if not m.Parent then removeAnimalEsp(m) end end
 end
 
--- Egg helpers
+-- EGG HELPERS
 local function getEggSize(model)
     for _, a in ipairs({"Size","EggSize","Scale","WeightKg","Weight","SizeMultiplier"}) do local v = model:GetAttribute(a) if typeof(v) == "number" then return v end end
     for _, d in ipairs(model:GetDescendants()) do if d:IsA("NumberValue") and d.Name:lower():find("size") then return d.Value end end
@@ -518,7 +517,7 @@ local function equipPickaxe()
     return char:FindFirstChildOfClass("Tool")
 end
 
--- ================= TRACKER HELPERS (buat Panel) =================
+-- ================= TRACKER HELPERS BUAT PANEL =================
 local function getPromptAnchorPosT(pr)
     local p = pr.Parent
     if p:IsA("BasePart") then return p.Position end
@@ -591,7 +590,7 @@ local function getSortedAnimals()
     return list
 end
 
--- ================= DIAMOND LOGIC BARU: GEM DULU SAMPE HABIS, BARU BREAK LAGI =================
+-- ================= DIAMOND DIRECT =================
 local diamondZone = nil
 local diamondFarmSpeed = 60
 local diamondOn = false
@@ -643,40 +642,108 @@ local function collectEggGemDrops()
     end
 end
 
-local function breakOneEgg(egg)
-    local pos, base = getOffsetPos(egg)
-    if not pos then local b = getBasePos(egg) if b then pos = Vector3.new(b.X, 3.5, b.Z + 3) base = Vector3.new(b.X, 3.5, b.Z) end end
-    if not pos then return end
-    pcall(function()
-        walkDirect(pos, base, false)
-        equipPickaxe()
-        while diamondOn and egg.Parent do
-            -- Kalau gem muncul pas lagi break, stop break, langsung collect
-            if hasGemDrops() then break end
-            local h = getEggHealth(egg)
-            if h ~= nil and h <= 0 then break end
-            local t = getEggTimeLeft(egg)
-            if t ~= nil and t <= 0 then break end
-            task.wait(0.15)
-        end
-    end)
-end
-
 local function diamondFarmLoop()
     while diamondOn do
-        -- 1. Prioritas: kalau ada child gem, tween ke situ sampe habis
         if hasGemDrops() then
             collectEggGemDrops()
         else
-            -- 2. Baru break lagi
             if not diamondZone then task.wait(0.5) continue end
             local eggs = getEggsInZone(diamondZone)
             if #eggs == 0 then task.wait(1) continue end
-            -- Break 1 egg aja, abis itu loop balik cek gem lagi
-            breakOneEgg(eggs[1])
+            for _, egg in ipairs(eggs) do
+                if not diamondOn then break end
+                if hasGemDrops() then break end
+                local pos, base = getOffsetPos(egg)
+                if not pos then continue end
+                pcall(function()
+                    walkDirect(pos, base, false)
+                    equipPickaxe()
+                    while diamondOn and egg.Parent do
+                        if hasGemDrops() then break end
+                        local h = getEggHealth(egg)
+                        if h ~= nil and h <= 0 then break end
+                        local t = getEggTimeLeft(egg)
+                        if t ~= nil and t <= 0 then break end
+                        task.wait(0.15)
+                    end
+                end)
+            end
         end
         task.wait(0.2)
     end
+end
+
+-- ================= ANTI RAGDOLL AUTO DETECT =================
+local autoRagdollOn = false
+local ragdollWatchConn = nil
+local lastY = 0
+local lastSafeCF = nil
+local protecting = false
+
+local function stopAutoRagdoll()
+    if ragdollWatchConn then pcall(function() ragdollWatchConn:Disconnect() end) ragdollWatchConn = nil end
+    protecting = false
+    lastSafeCF = nil
+    local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+    if hum then pcall(function()
+        hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+        hum.PlatformStand = false
+    end) end
+end
+
+local function startAutoRagdoll()
+    stopAutoRagdoll()
+    local char = plr.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then lastY = hrp.Position.Y lastSafeCF = hrp.CFrame end
+    ragdollWatchConn = RunService.Heartbeat:Connect(function()
+        if not autoRagdollOn then return end
+        local c = plr.Character
+        local hum = c and c:FindFirstChildOfClass("Humanoid")
+        local r = c and c:FindFirstChild("HumanoidRootPart")
+        if not hum or not r then return end
+        local curY = r.Position.Y
+        local deltaY = curY - lastY
+        local velY = r.AssemblyLinearVelocity.Y
+        if not protecting and hum.FloorMaterial ~= Enum.Material.Air and velY < 5 and math.abs(deltaY) < 0.5 then
+            lastSafeCF = r.CFrame
+            lastY = curY
+            return
+        end
+        if not protecting and deltaY >= 2 then
+            protecting = true
+            if lastSafeCF then r.CFrame = CFrame.new(lastSafeCF.Position + Vector3.new(0, 0.5, 0)) * (lastSafeCF - lastSafeCF.Position)
+            else r.CFrame = CFrame.new(r.Position.X, lastY, r.Position.Z) end
+            r.AssemblyLinearVelocity = Vector3.zero
+            r.AssemblyAngularVelocity = Vector3.zero
+            r.Velocity = Vector3.zero
+            hum.PlatformStand = false
+            hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
+            task.wait()
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+            hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false)
+            task.delay(0.8, function()
+                if hum.Parent then
+                    hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true)
+                    hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+                    hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+                end
+                protecting = false
+                local rr = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+                if rr then lastY = rr.Position.Y lastSafeCF = rr.CFrame end
+            end)
+            return
+        end
+        if protecting and (hum:GetState() == Enum.HumanoidStateType.Ragdoll or hum:GetState() == Enum.HumanoidStateType.FallingDown or hum.PlatformStand) then
+            hum.PlatformStand = false
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+        end
+        if not protecting and deltaY < 2 then lastY = curY end
+    end)
 end
 
 -- ================= MAIN - ACCORDION =================
@@ -802,52 +869,10 @@ task.spawn(function() while task.wait(2) do pcall(function() if playerDropdown t
 
 -- ================= MISC - ACCORDION =================
 local accGuard = TabMisc:Accordion({ Title = "Guard", Icon = "eye", Column = 1 })
-local noRagdollOn = false local ragdollConns = {} local lastYPos = 0 local lastSafeCF = nil
-local function disableNoRagdoll()
-    for _, c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end
-    ragdollConns = {} lastSafeCF = nil
-    local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
-    if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, true) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true) hum:SetStateEnabled(Enum.HumanoidStateType.Physics, true) hum.BreakJointsOnDeath = true hum.PlatformStand = false end) end
-end
-local function enableNoRagdoll()
-    for _, c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end
-    ragdollConns = {}
-    local char = plr.Character local hum = char and char:FindFirstChildOfClass("Humanoid") local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then lastYPos = hrp.Position.Y lastSafeCF = hrp.CFrame end
-    if hum then pcall(function() hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false) hum:SetStateEnabled(Enum.HumanoidStateType.Physics, false) hum.BreakJointsOnDeath = false hum.PlatformStand = false end) end
-    table.insert(ragdollConns, RunService.Heartbeat:Connect(function()
-        local c = plr.Character local h = c and c:FindFirstChildOfClass("Humanoid") local r = c and c:FindFirstChild("HumanoidRootPart")
-        if not h or not r then return end
-        local curY = r.Position.Y local velY = r.AssemblyLinearVelocity.Y local deltaY = curY - lastYPos
-        if h.FloorMaterial ~= Enum.Material.Air and velY < 5 and math.abs(deltaY) < 0.2 then lastSafeCF = r.CFrame end
-        if deltaY > 0.25 or velY > 12 or r.AssemblyLinearVelocity.Magnitude > 40 then
-            if lastSafeCF then r.CFrame = CFrame.new(lastSafeCF.Position + Vector3.new(0, 0.5, 0)) * (lastSafeCF - lastSafeCF.Position) else r.CFrame = CFrame.new(r.Position.X, lastYPos, r.Position.Z) end
-            r.AssemblyLinearVelocity = Vector3.zero r.AssemblyAngularVelocity = Vector3.zero r.Velocity = Vector3.zero
-            h.PlatformStand = false h:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) task.wait() h:ChangeState(Enum.HumanoidStateType.Running)
-            h:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false) h:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-        end
-        if h:GetState() == Enum.HumanoidStateType.Ragdoll or h:GetState() == Enum.HumanoidStateType.FallingDown or h.PlatformStand then h.PlatformStand = false h:ChangeState(Enum.HumanoidStateType.Running) end
-        lastYPos = curY
-    end))
-    table.insert(ragdollConns, RunService.Stepped:Connect(function()
-        local c = plr.Character local r = c and c:FindFirstChild("HumanoidRootPart")
-        if not r then return end
-        if r.AssemblyLinearVelocity.Y > 15 then r.AssemblyLinearVelocity = Vector3.new(r.AssemblyLinearVelocity.X * 0.2, 0, r.AssemblyLinearVelocity.Z * 0.2) end
-    end))
-    task.spawn(function()
-        while noRagdollOn do
-            local c = plr.Character local h = c and c:FindFirstChildOfClass("Humanoid") local r = c and c:FindFirstChild("HumanoidRootPart")
-            if h and r then
-                if h:GetState() == Enum.HumanoidStateType.Ragdoll or h:GetState() == Enum.HumanoidStateType.FallingDown or h.PlatformStand then
-                    h.PlatformStand = false h:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
-                    r.AssemblyLinearVelocity = Vector3.zero r.AssemblyAngularVelocity = Vector3.zero task.wait() h:ChangeState(Enum.HumanoidStateType.Running)
-                end
-            end
-            task.wait(0.01)
-        end
-    end)
-end
-accGuard:Toggle({ Title = "Anti Ragdoll", Flag = "AntiRagdoll", Default = false, Callback = function(v) noRagdollOn = v if v then enableNoRagdoll() else disableNoRagdoll() end end })
+accGuard:Toggle({ Title = "Auto Anti Ragdoll", Flag = "AutoAntiRagdoll", Default = false, Desc = "Apply cuma pas Y +2, mau mental", Callback = function(v)
+    autoRagdollOn = v
+    if v then startAutoRagdoll() else stopAutoRagdoll() end
+end })
 
 local accGamepass = TabMisc:Accordion({ Title = "Gamepass", Icon = "star", Column = 2 })
 local fastBreakOn = false local fastBreakConn = nil
@@ -1012,13 +1037,12 @@ accDiamond:Toggle({ Title = "Farm Diamond", Flag = "FarmDiamond", Default = fals
     end
 end })
 local accDiamondInfo = TabDiamond:Accordion({ Title = "Info", Icon = "info", Column = 2 })
-accDiamondInfo:Paragraph({ Title = "Cara kerja", Desc = "1. Cek EggGemDrops. Kalau ada child, tween ke situ sampe habis.\n2. Kalau udah habis, break 1 egg di zone.\n3. Balik ke langkah 1, loop terus." })
+accDiamondInfo:Paragraph({ Title = "Cara kerja", Desc = "1. Cek EggGemDrops. Kalau ada child, tween ke situ sampe habis.\n2. Kalau udah habis, break 1 egg sampe health 0, lanjut egg selanjutnya.\n3. Kalau gem muncul pas break, stop break, ke gem dulu." })
 accDiamondInfo:Label("Matikan Break Egg di Main kalau pakai ini biar tidak rebutan jalan.")
 
--- ================= PANEL BAWAAN LIB - ADA CARD + $ TERTINGGI + STEAL =================
+-- ================= PANEL - CARD + $ TERTINGGI + STEAL =================
 local trackerPanel = Window:Panel({ Title = "Animal Tracker", Subtitle = "Top animals • Steal", Open = false })
 
--- Card 1: Kontrol Tracker
 local panelControl = trackerPanel:Accordion({ Title = "Tracker", Icon = "eye" })
 panelControl:Dropdown({ Title = "Mode", Flag = "TrackerMode", Options = {"Blatant","Legit"}, Default = "Blatant", Callback = function(val) trackerMode = unwrap(val) or "Blatant" end })
 local panelTotal = panelControl:Info({ Title = "Total Animals", Value = "0" })
@@ -1029,7 +1053,6 @@ panelControl:Button({ Title = "Steal Best", Desc = "Steal animal $ tertinggi", C
     task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(best) else legitStealTracker(best) end end) end)
 end })
 
--- Card 2: TOP 1 - $ Tertinggi
 local card1 = trackerPanel:Accordion({ Title = "TOP 1 • $ Tertinggi", Icon = "star" })
 local top1Name = card1:Info({ Title = "Animal", Value = "-" })
 local top1Cash = card1:Info({ Title = "$ /s", Value = "-" })
@@ -1041,7 +1064,6 @@ card1:Button({ Title = "STEAL TOP 1", Callback = function()
     task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
 end })
 
--- Card 3: TOP 2
 local card2 = trackerPanel:Accordion({ Title = "TOP 2", Icon = "star" })
 local top2Name = card2:Info({ Title = "Animal", Value = "-" })
 local top2Cash = card2:Info({ Title = "$ /s", Value = "-" })
@@ -1053,7 +1075,6 @@ card2:Button({ Title = "STEAL TOP 2", Callback = function()
     task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
 end })
 
--- Card 4: TOP 3
 local card3 = trackerPanel:Accordion({ Title = "TOP 3", Icon = "star" })
 local top3Name = card3:Info({ Title = "Animal", Value = "-" })
 local top3Cash = card3:Info({ Title = "$ /s", Value = "-" })
@@ -1065,7 +1086,6 @@ card3:Button({ Title = "STEAL TOP 3", Callback = function()
     task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
 end })
 
--- Refresh panel tiap 0.6s: update card + $ tertinggi
 task.spawn(function()
     while task.wait(0.6) do
         pcall(function()
@@ -1104,7 +1124,7 @@ plr.CharacterAdded:Connect(function(char)
         if walkSliderRef then walkSliderRef:Set(realSpeed) end
     end
     task.wait(0.5)
-    if noRagdollOn then enableNoRagdoll() end
+    if autoRagdollOn then startAutoRagdoll() end
     if fastBreakOn then setFastBreakAttribute(true) end
     if clearOnRespawn then clearAllEsp() clearAllEggEsp() end
     if espEnabled then task.wait(0.5) refreshAllEsp() end
