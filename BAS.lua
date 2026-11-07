@@ -116,7 +116,7 @@ local function parseFilterInput(text)
     return parseCash(text)
 end
 
--- Helper lib baru: Dropdown single return string, lama return table
+-- Lib baru: Dropdown single return string, bukan table
 local function unwrap(v)
     if type(v) == "table" then return v[1] end
     return v
@@ -126,6 +126,7 @@ local defendMode = "None" local attackEnabled = false local minCashFilter = 0 lo
 local selectedFollowPlayer = nil local followEnabled = false local espEnabled = false
 local selectedEspRarity = {} local espCache = {} local selectedTeleportZone = nil local pendingTeleportZone = nil
 local eggEspEnabled = false local selectedEggZones = {} local selectedEggSizes = {} local eggEspCache = {}
+local trackerMode = "Blatant"
 
 local function getWalkSpeed() return sliderSpeed end
 do local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid") if hum then sliderSpeed = hum.WalkSpeed end end
@@ -345,6 +346,12 @@ end
 local function VoraNotify(t, c) Window:Notify({ Title = t, Content = c, Duration = 2 }) end
 local stealMode = "Normal"
 
+local function showStealNotif(model)
+    if not model or not model.Parent then return end
+    local rarity = model:GetAttribute("Rarity") or "Unknown"
+    VoraNotify(model.Name, rarity .. " - " .. getCashPerSecond(model))
+end
+
 local function stealMethod(targetModel)
     if not targetModel or not targetModel.Parent then return end
     showStealNotif(targetModel)
@@ -361,7 +368,7 @@ local function stealMethod(targetModel)
     else local ok = walkToSafeBaseFallback(targetModel) if not ok then return end end
 end
 
--- ESP Animal
+-- ESP Animal (logic lama, tidak diubah)
 local function removeAnimalEsp(model)
     local data = espCache[model]
     if data then pcall(function() if data.hl then data.hl:Destroy() end end) pcall(function() if data.bb then data.bb:Destroy() end end) espCache[model] = nil end
@@ -401,7 +408,7 @@ local function refreshAllEsp()
     for m, _ in pairs(espCache) do if not m.Parent then removeAnimalEsp(m) end end
 end
 
--- Egg helpers (dipake ESP + Break Egg + Diamond)
+-- Egg helpers
 local function getEggSize(model)
     for _, a in ipairs({"Size","EggSize","Scale","WeightKg","Weight","SizeMultiplier"}) do local v = model:GetAttribute(a) if typeof(v) == "number" then return v end end
     for _, d in ipairs(model:GetDescendants()) do if d:IsA("NumberValue") and d.Name:lower():find("size") then return d.Value end end
@@ -482,42 +489,6 @@ if #zoneNames == 0 then zoneNames = {"Zone1"} end
 local defendModes = {"None","ZigZag","Random","Circle","Juke"}
 local selected = {} local selectedZones = {} local selectedEggZone = nil
 
--- ================= MAIN =================
-TabMain:CreateSection({ Name = "Base" })
-local baseOn = false local baseConn = nil
-TabMain:CreateToggle({ Name = "Auto Base", Default = false, Callback = function(v)
-    baseOn = v
-    if baseOn then
-        baseConn = ProximityPromptService.PromptTriggered:Connect(function(prompt, p)
-            if p == plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end
-        end)
-    else if baseConn then baseConn:Disconnect() end end
-end })
-
-TabMain:CreateSection({ Name = "Movement" })
-local walkSliderRef = nil
-walkSliderRef = TabMain:CreateSlider({ Name = "Speed", Min = SLIDER_MIN, Max = SLIDER_MAX, Default = getRealHumanoidSpeed(), Callback = function(v)
-    sliderSpeed = v
-    local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = v hum:SetAttribute("BaseSpeed", v) end
-end })
-
-TabMain:CreateSection({ Name = "Steal" })
-TabMain:CreateMultiDropdown({ Name = "Rarity", Items = rarityNames, Default = {}, Callback = function(val)
-    selected = {}
-    if type(val) == "table" then for _, n in ipairs(val) do selected[n] = true end end
-end })
-TabMain:CreateMultiDropdown({ Name = "Zone", Items = zoneNames, Default = {}, Callback = function(val)
-    selectedZones = {}
-    if type(val) == "table" then for _, n in ipairs(val) do selectedZones[n] = true end end
-end })
-TabMain:CreateDropdown({ Name = "Defend", Items = defendModes, Default = "None", Callback = function(val)
-    defendMode = unwrap(val) or "None"
-end })
-TabMain:CreateInput({ Name = "Min $", Placeholder = "$ 0", Default = "", Callback = function(text)
-    minCashFilter = parseFilterInput(text)
-end })
-
 local function getStealTargets()
     local folder = workspace:FindFirstChild("AnimalPickups")
     if not folder or next(selected) == nil then return {} end
@@ -533,34 +504,6 @@ local function getStealTargets()
     return out
 end
 
-local function showStealNotif(model)
-    if not model or not model.Parent then return end
-    local rarity = model:GetAttribute("Rarity") or "Unknown"
-    VoraNotify(model.Name, rarity .. " - " .. getCashPerSecond(model))
-end
-
-local stealOn = false
-TabMain:CreateToggle({ Name = "Auto Steal", Default = false, Callback = function(v)
-    stealOn = v
-    if stealOn then
-        if next(selected) == nil then VoraNotify("Error", "Rarity empty") return end
-        walkToSafeBase()
-        task.spawn(function()
-            while stealOn do
-                local list = getStealTargets()
-                local found = #list > 0
-                for _, m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end
-                if not found then task.wait(0.8) end
-            end
-        end)
-    end
-end })
-TabMain:CreateToggle({ Name = "Attack Carrier", Default = false, Callback = function(v) attackEnabled = v end })
-
-TabMain:CreateSection({ Name = "Egg" })
-TabMain:CreateDropdown({ Name = "Egg Zone", Items = zoneNames, Default = nil, Callback = function(val) selectedEggZone = unwrap(val) end })
-TabMain:CreateToggle({ Name = "Big Egg", Default = true, Callback = function(v) bigEggPriority = v end })
-
 local function getEggHealth(eggModel)
     if eggModel:GetAttribute("Health") then return eggModel:GetAttribute("Health") end
     for _, d in ipairs(eggModel:GetDescendants()) do local h = d:GetAttribute("Health") if h ~= nil then return h end end
@@ -575,8 +518,221 @@ local function equipPickaxe()
     return char:FindFirstChildOfClass("Tool")
 end
 
+-- ================= TRACKER HELPERS (buat Panel) =================
+local function getPromptAnchorPosT(pr)
+    local p = pr.Parent
+    if p:IsA("BasePart") then return p.Position end
+    if p:IsA("Model") then if p.PrimaryPart then return p.PrimaryPart.Position end local ok, cf = pcall(function() return p:GetPivot() end) if ok then return Vector3.new(cf.X, cf.Y, cf.Z) end for _, b in ipairs(p:GetDescendants()) do if b:IsA("BasePart") then return b.Position end end end
+    local bp = p:FindFirstChildWhichIsA("BasePart", true)
+    if bp then return bp.Position end
+    return nil
+end
+local function findPromptNearT(m, md)
+    local bp = getBasePos(m)
+    if not bp then return nil end
+    for _, v in ipairs(m:GetDescendants()) do if v:IsA("ProximityPrompt") then return v end end
+    local cl = nil local mn = md or 12
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and v.Name:lower():find("steal") then
+            local ap = getPromptAnchorPosT(v)
+            if ap then local d = (Vector3.new(ap.X, 0, ap.Z) - Vector3.new(bp.X, 0, bp.Z)).Magnitude if d < mn then mn = d cl = v end end
+        end
+    end
+    return cl
+end
+local function fireZeroT(p)
+    if not p then return end
+    pcall(function() p.HoldDuration = 0 p.MaxActivationDistance = 15 p.RequiresLineOfSight = false end)
+    if fireproximityprompt then pcall(function() fireproximityprompt(p, 0) end) else pcall(function() p:InputHoldBegin() p:InputHoldEnd() end) end
+end
+local function instantSteal(m)
+    if not m or not m.Parent then return end
+    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local st = tick()
+    while tick() - st < 0.4 do
+        if not m.Parent then break end
+        local pr = findPromptNearT(m, 12)
+        if pr then
+            local an = getPromptAnchorPosT(pr)
+            local bs = getBasePos(m)
+            if an and bs then if (Vector3.new(an.X, 0, an.Z) - Vector3.new(bs.X, 0, bs.Z)).Magnitude <= 12 then hrp.CFrame = CFrame.new(an + Vector3.new(0, 0.5, 0)) fireZeroT(pr) touchSteal(m) end end
+        end
+        if isDropVisible() then break end
+        task.wait(0.01)
+    end
+    hrp.CFrame = SAFE_BASE_CF task.wait(0.05) hrp.CFrame = SAFE_BASE_CF
+end
+local function legitStealTracker(m)
+    if not m or not m.Parent then return end
+    local tries = 0
+    while tries < 8 and m.Parent do
+        if isDropVisible() then if isCarryingTarget(m) then break end fireDropNow() task.wait(0.35) tries += 1 continue end
+        local p, b = getOffsetPos(m)
+        if not p then local bp = getBasePos(m) if bp then p = Vector3.new(bp.X, 3.5, bp.Z + 3) b = Vector3.new(bp.X, 3.5, bp.Z) end end
+        if p then walkDirect(p, b, false) end
+        touchSteal(m) fireSteal(m) pressE() task.wait(0.25) tries += 1
+    end
+    if isCarryingTarget(m) then walkToSafeBaseFallback(m) end
+end
+local function getSortedAnimals()
+    local folder = workspace:FindFirstChild("AnimalPickups")
+    if not folder then return {} end
+    local list = {}
+    for _, m in ipairs(folder:GetChildren()) do
+        if m:IsA("Model") then
+            local txt = getCashPerSecond(m)
+            local cv = parseCash(txt)
+            if cv == 0 then local at = m:GetAttribute("CashPerSecond") or m:GetAttribute("CPS") if typeof(at) == "number" then cv = at txt = "$" .. tostring(at) .. "/s" elseif typeof(at) == "string" then cv = parseCash(at) txt = at end end
+            table.insert(list, { model = m, cash = cv, txt = txt })
+        end
+    end
+    table.sort(list, function(a, b) return a.cash > b.cash end)
+    return list
+end
+
+-- ================= DIAMOND LOGIC BARU: GEM DULU SAMPE HABIS, BARU BREAK LAGI =================
+local diamondZone = nil
+local diamondFarmSpeed = 60
+local diamondOn = false
+local diamondTween = nil
+
+local function hasGemDrops()
+    local d = workspace:FindFirstChild("EggGemDrops")
+    return d ~= nil and #d:GetChildren() > 0
+end
+
+local function getEggTimeLeft(egg)
+    for _, name in ipairs({"TimeLeft","Time","Remaining","RemainingTime","Timer","HatchTime","HatchIn","Duration","Countdown","TimeRemaining"}) do
+        local v = egg:GetAttribute(name)
+        if typeof(v) == "number" then return v end
+    end
+    for _, d in ipairs(egg:GetDescendants()) do
+        if (d:IsA("NumberValue") or d:IsA("IntValue")) and (d.Name:lower():find("time") or d.Name:lower():find("timer") or d.Name:lower():find("left") or d.Name:lower():find("remain")) then return d.Value end
+    end
+    return nil
+end
+
+local function tweenTo(pos, speed)
+    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp or not pos then return end
+    if diamondTween then pcall(function() diamondTween:Cancel() end) end
+    local dist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
+    local dur = math.max(dist / math.max(speed, 1), 0.15)
+    diamondTween = TweenService:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), { CFrame = CFrame.new(Vector3.new(pos.X, pos.Y, pos.Z)) })
+    diamondTween:Play()
+    diamondTween.Completed:Wait()
+end
+
+local function collectEggGemDrops()
+    local drops = workspace:FindFirstChild("EggGemDrops")
+    if not drops then return end
+    while diamondOn and drops.Parent and #drops:GetChildren() > 0 do
+        for _, drop in ipairs(drops:GetChildren()) do
+            if not diamondOn then return end
+            if not drop.Parent then continue end
+            local pos = getBasePos(drop)
+            if not pos then continue end
+            pcall(function() tweenTo(Vector3.new(pos.X, pos.Y + 1, pos.Z), diamondFarmSpeed) end)
+            task.wait(0.1)
+            local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+            local part = drop:IsA("BasePart") and drop or (drop:IsA("Model") and drop:FindFirstChildWhichIsA("BasePart") or nil)
+            if hrp and part then pcall(function() firetouchinterest(hrp, part, 0) task.wait(0.05) firetouchinterest(hrp, part, 1) end) end
+        end
+        task.wait(0.1)
+    end
+end
+
+local function breakOneEgg(egg)
+    local pos, base = getOffsetPos(egg)
+    if not pos then local b = getBasePos(egg) if b then pos = Vector3.new(b.X, 3.5, b.Z + 3) base = Vector3.new(b.X, 3.5, b.Z) end end
+    if not pos then return end
+    pcall(function()
+        walkDirect(pos, base, false)
+        equipPickaxe()
+        while diamondOn and egg.Parent do
+            -- Kalau gem muncul pas lagi break, stop break, langsung collect
+            if hasGemDrops() then break end
+            local h = getEggHealth(egg)
+            if h ~= nil and h <= 0 then break end
+            local t = getEggTimeLeft(egg)
+            if t ~= nil and t <= 0 then break end
+            task.wait(0.15)
+        end
+    end)
+end
+
+local function diamondFarmLoop()
+    while diamondOn do
+        -- 1. Prioritas: kalau ada child gem, tween ke situ sampe habis
+        if hasGemDrops() then
+            collectEggGemDrops()
+        else
+            -- 2. Baru break lagi
+            if not diamondZone then task.wait(0.5) continue end
+            local eggs = getEggsInZone(diamondZone)
+            if #eggs == 0 then task.wait(1) continue end
+            -- Break 1 egg aja, abis itu loop balik cek gem lagi
+            breakOneEgg(eggs[1])
+        end
+        task.wait(0.2)
+    end
+end
+
+-- ================= MAIN - ACCORDION =================
+local accBase = TabMain:Accordion({ Title = "Base", Icon = "home", Column = 1 })
+local baseOn = false local baseConn = nil
+accBase:Toggle({ Title = "Auto Base", Flag = "AutoBase", Default = false, Callback = function(v)
+    baseOn = v
+    if baseOn then
+        baseConn = ProximityPromptService.PromptTriggered:Connect(function(prompt, p)
+            if p == plr and prompt.Name:lower():find("steal") then task.wait(0.2) walkToSafeBase() end
+        end)
+    else if baseConn then baseConn:Disconnect() end end
+end })
+
+local accMove = TabMain:Accordion({ Title = "Movement", Icon = "gauge", Column = 1 })
+local walkSliderRef = nil
+walkSliderRef = accMove:Slider({ Title = "Speed", Flag = "Speed", Min = SLIDER_MIN, Max = SLIDER_MAX, Default = getRealHumanoidSpeed(), Suffix = " stud/s", Callback = function(v)
+    sliderSpeed = v
+    local hum = plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = v hum:SetAttribute("BaseSpeed", v) end
+end })
+
+local accSteal = TabMain:Accordion({ Title = "Steal", Icon = "target", Column = 1 })
+accSteal:MultiDropdown({ Title = "Rarity", Flag = "StealRarity", Options = rarityNames, Default = {}, Callback = function(val)
+    selected = {}
+    if type(val) == "table" then for _, n in ipairs(val) do selected[n] = true end end
+end })
+accSteal:MultiDropdown({ Title = "Zone", Flag = "StealZone", Options = zoneNames, Default = {}, Callback = function(val)
+    selectedZones = {}
+    if type(val) == "table" then for _, n in ipairs(val) do selectedZones[n] = true end end
+end })
+accSteal:Dropdown({ Title = "Defend", Flag = "Defend", Options = defendModes, Default = "None", Callback = function(val) defendMode = unwrap(val) or "None" end })
+accSteal:Textbox({ Title = "Min $", Flag = "MinCash", Placeholder = "$ 0", Default = "", Live = true, Callback = function(text) minCashFilter = parseFilterInput(text) end })
+local stealOn = false
+accSteal:Toggle({ Title = "Auto Steal", Flag = "AutoSteal", Default = false, Callback = function(v)
+    stealOn = v
+    if stealOn then
+        if next(selected) == nil then VoraNotify("Error", "Rarity empty") return end
+        walkToSafeBase()
+        task.spawn(function()
+            while stealOn do
+                local list = getStealTargets()
+                local found = #list > 0
+                for _, m in ipairs(list) do if not stealOn then break end pcall(function() stealMethod(m) end) task.wait(0.5) end
+                if not found then task.wait(0.8) end
+            end
+        end)
+    end
+end })
+accSteal:Toggle({ Title = "Attack Carrier", Flag = "AttackCarrier", Default = false, Callback = function(v) attackEnabled = v end })
+
+local accEgg = TabMain:Accordion({ Title = "Egg", Icon = "box", Column = 2 })
+accEgg:Dropdown({ Title = "Egg Zone", Flag = "EggZone", Options = zoneNames, Default = nil, Callback = function(val) selectedEggZone = unwrap(val) end })
+accEgg:Toggle({ Title = "Big Egg", Flag = "BigEgg", Default = true, Callback = function(v) bigEggPriority = v end })
 local breakOn = false
-TabMain:CreateToggle({ Name = "Break Egg", Default = false, Callback = function(v)
+accEgg:Toggle({ Title = "Break Egg", Flag = "BreakEgg", Default = false, Callback = function(v)
     breakOn = v
     if breakOn then
         if not selectedEggZone then VoraNotify("Error", "Zone empty") breakOn = false return end
@@ -613,18 +769,18 @@ TabMain:CreateToggle({ Name = "Break Egg", Default = false, Callback = function(
     end
 end })
 
-TabMain:CreateSection({ Name = "Follow" })
+local accFollow = TabMain:Accordion({ Title = "Follow", Icon = "user", Column = 2 })
 local function getPlayerList()
     local l = {}
     for _, p in ipairs(Players:GetPlayers()) do if p ~= plr then table.insert(l, p.Name) end end
     if #l == 0 then l = {"No Player"} end
     return l
 end
-local playerDropdown = TabMain:CreateDropdown({ Name = "Player List", Items = getPlayerList(), Default = "No Player", Callback = function(val)
+local playerDropdown = accFollow:Dropdown({ Title = "Player List", Flag = "FollowPlayerName", Options = getPlayerList(), Default = "No Player", Callback = function(val)
     local name = unwrap(val)
     if name and name ~= "No Player" then selectedFollowPlayer = name end
 end })
-TabMain:CreateToggle({ Name = "Follow Player", Default = false, Callback = function(v)
+accFollow:Toggle({ Title = "Follow Player", Flag = "FollowPlayer", Default = false, Callback = function(v)
     followEnabled = v
     if followEnabled then
         if not selectedFollowPlayer or selectedFollowPlayer == "No Player" then VoraNotify("Error", "Player empty") followEnabled = false return end
@@ -644,8 +800,8 @@ TabMain:CreateToggle({ Name = "Follow Player", Default = false, Callback = funct
 end })
 task.spawn(function() while task.wait(2) do pcall(function() if playerDropdown then playerDropdown:Refresh(getPlayerList()) end end) end end)
 
--- ================= MISC =================
-TabMisc:CreateSection({ Name = "Guard" })
+-- ================= MISC - ACCORDION =================
+local accGuard = TabMisc:Accordion({ Title = "Guard", Icon = "eye", Column = 1 })
 local noRagdollOn = false local ragdollConns = {} local lastYPos = 0 local lastSafeCF = nil
 local function disableNoRagdoll()
     for _, c in ipairs(ragdollConns) do pcall(function() c:Disconnect() end) end
@@ -691,15 +847,15 @@ local function enableNoRagdoll()
         end
     end)
 end
-TabMisc:CreateToggle({ Name = "Anti Ragdoll", Default = false, Callback = function(v) noRagdollOn = v if v then enableNoRagdoll() else disableNoRagdoll() end end })
+accGuard:Toggle({ Title = "Anti Ragdoll", Flag = "AntiRagdoll", Default = false, Callback = function(v) noRagdollOn = v if v then enableNoRagdoll() else disableNoRagdoll() end end })
 
-TabMisc:CreateSection({ Name = "Gamepass" })
+local accGamepass = TabMisc:Accordion({ Title = "Gamepass", Icon = "star", Column = 2 })
 local fastBreakOn = false local fastBreakConn = nil
 local function setFastBreakAttribute(state)
     pcall(function() plr:SetAttribute("FastSwingOwned", state) end)
     pcall(function() if plr.Character then plr.Character:SetAttribute("FastSwingOwned", state) end end)
 end
-TabMisc:CreateToggle({ Name = "Fast Break", Default = false, Callback = function(v)
+accGamepass:Toggle({ Title = "Fast Break", Flag = "FastBreak", Default = false, Callback = function(v)
     fastBreakOn = v
     if fastBreakOn then
         setFastBreakAttribute(true)
@@ -708,15 +864,15 @@ TabMisc:CreateToggle({ Name = "Fast Break", Default = false, Callback = function
     else if fastBreakConn then fastBreakConn:Disconnect() fastBreakConn = nil end setFastBreakAttribute(false) end
 end })
 
--- ================= ESP =================
-TabEsp:CreateSection({ Name = "Esp" })
-TabEsp:CreateMultiDropdown({ Name = "Rarity", Items = rarityNames, Default = {}, Callback = function(val)
+-- ================= ESP - ACCORDION =================
+local accEsp = TabEsp:Accordion({ Title = "Esp", Icon = "eye", Column = 1 })
+accEsp:MultiDropdown({ Title = "Rarity", Flag = "EspRarity", Options = rarityNames, Default = {}, Callback = function(val)
     selectedEspRarity = {}
     if type(val) == "table" then for _, n in ipairs(val) do selectedEspRarity[n] = true end elseif val then selectedEspRarity[val] = true end
     if espEnabled then refreshAllEsp() end
 end })
 local clearOnRespawn = true
-TabEsp:CreateToggle({ Name = "Esp", Default = false, Callback = function(v)
+accEsp:Toggle({ Title = "Esp", Flag = "Esp", Default = false, Callback = function(v)
     espEnabled = v
     if espEnabled then
         refreshAllEsp()
@@ -728,36 +884,37 @@ TabEsp:CreateToggle({ Name = "Esp", Default = false, Callback = function(v)
         end
     else clearAllEsp() end
 end })
-TabEsp:CreateToggle({ Name = "Clear On Death", Default = true, Callback = function(v) clearOnRespawn = v end })
-TabEsp:CreateSection({ Name = "Esp Egg" })
-TabEsp:CreateMultiDropdown({ Name = "Zone", Items = zoneNames, Default = {}, Callback = function(val)
+accEsp:Toggle({ Title = "Clear On Death", Flag = "ClearOnDeath", Default = true, Callback = function(v) clearOnRespawn = v end })
+
+local accEspEgg = TabEsp:Accordion({ Title = "Esp Egg", Icon = "box", Column = 2 })
+accEspEgg:MultiDropdown({ Title = "Zone", Flag = "EggEspZone", Options = zoneNames, Default = {}, Callback = function(val)
     selectedEggZones = {}
     if type(val) == "table" then for _, n in ipairs(val) do selectedEggZones[n] = true end end
     if eggEspEnabled then refreshEggEsp() end
 end })
-TabEsp:CreateMultiDropdown({ Name = "Filter", Items = {"Small","Standar","Big","Titan"}, Default = {}, Callback = function(val)
+accEspEgg:MultiDropdown({ Title = "Filter", Flag = "EggEspFilter", Options = {"Small","Standar","Big","Titan"}, Default = {}, Callback = function(val)
     selectedEggSizes = {}
     if type(val) == "table" then for _, n in ipairs(val) do selectedEggSizes[n] = true end end
     if eggEspEnabled then refreshEggEsp() end
 end })
-TabEsp:CreateToggle({ Name = "Egg Esp", Default = false, Callback = function(v)
+accEspEgg:Toggle({ Title = "Egg Esp", Flag = "EggEsp", Default = false, Callback = function(v)
     eggEspEnabled = v
     if eggEspEnabled then refreshEggEsp() task.spawn(function() while eggEspEnabled do refreshEggEsp() task.wait(1.5) end end) else clearAllEggEsp() end
 end })
 
--- ================= PLOT =================
-TabPlot:CreateSection({ Name = "Plot" })
-TabPlot:CreateToggle({ Name = "Equip Best", Default = false, Callback = function(v)
+-- ================= PLOT - ACCORDION =================
+local accPlot = TabPlot:Accordion({ Title = "Plot", Icon = "box", Column = 1 })
+accPlot:Toggle({ Title = "Equip Best", Flag = "EquipBest", Default = false, Callback = function(v)
     if v then task.spawn(function() while v do pcall(function() game.ReplicatedStorage.PetsInventoryRemote:FireServer("EquipBest", nil) end) task.wait(1.5) end end) end
 end })
-TabPlot:CreateSection({ Name = "Index" })
-TabPlot:CreateToggle({ Name = "Claim Index", Default = false, Callback = function(v)
+local accIndex = TabPlot:Accordion({ Title = "Index", Icon = "list", Column = 2 })
+accIndex:Toggle({ Title = "Claim Index", Flag = "ClaimIndex", Default = false, Callback = function(v)
     if v then task.spawn(function() while v do pcall(function() game.ReplicatedStorage.IndexRemote:FireServer("ClaimAll", nil) end) task.wait(2) end end) end
 end })
 
--- ================= BLATANT =================
-TabBlatant:CreateSection({ Name = "Steal" })
-TabBlatant:CreateButton({ Name = "Instant Steal", Callback = function()
+-- ================= BLATANT - ACCORDION =================
+local accBlatantSteal = TabBlatant:Accordion({ Title = "Steal", Icon = "zap", Column = 1 })
+accBlatantSteal:Button({ Title = "Instant Steal", Callback = function()
     local folder = workspace:FindFirstChild("AnimalPickups")
     if not folder then return end
     local function getPromptAnchorPos(prompt)
@@ -817,9 +974,9 @@ TabBlatant:CreateButton({ Name = "Instant Steal", Callback = function()
     hrp.CFrame = SAFE_BASE_CF task.wait(0.05) hrp.CFrame = SAFE_BASE_CF
 end })
 
-TabBlatant:CreateSection({ Name = "Teleport" })
-TabBlatant:CreateDropdown({ Name = "Zone", Items = zoneNames, Default = nil, Callback = function(val) selectedTeleportZone = unwrap(val) end })
-TabBlatant:CreateButton({ Name = "Teleport", Callback = function()
+local accTeleport = TabBlatant:Accordion({ Title = "Teleport", Icon = "target", Column = 2 })
+accTeleport:Dropdown({ Title = "Zone", Flag = "TeleportZone", Options = zoneNames, Default = nil, Callback = function(val) selectedTeleportZone = unwrap(val) end })
+accTeleport:Button({ Title = "Teleport", Callback = function()
     if not selectedTeleportZone then VoraNotify("Error", "Zone empty") return end
     pendingTeleportZone = selectedTeleportZone
     VoraNotify("Teleport", "Reset to " .. selectedTeleportZone)
@@ -827,124 +984,25 @@ TabBlatant:CreateButton({ Name = "Teleport", Callback = function()
     if char then local hum = char:FindFirstChildOfClass("Humanoid") if hum then hum.Health = 0 else char:BreakJoints() end end
 end })
 
--- ================= UPGRADE =================
-TabUpgrade:CreateSection({ Name = "Auto Treadmill" })
+-- ================= UPGRADE - ACCORDION =================
+local accTreadmill = TabUpgrade:Accordion({ Title = "Auto Treadmill", Icon = "gauge", Column = 1 })
 local treadmillOn = false
-TabUpgrade:CreateToggle({ Name = "Auto Upgrade", Default = false, Callback = function(v)
+accTreadmill:Toggle({ Title = "Auto Upgrade", Flag = "AutoTreadmill", Default = false, Callback = function(v)
     treadmillOn = v
     if treadmillOn then task.spawn(function() while treadmillOn do pcall(function() game.ReplicatedStorage.UpgradeTreadmillRequest:FireServer() end) task.wait(1) end end) end
 end })
-TabUpgrade:CreateSection({ Name = "Auto Plot" })
+local accPlotUp = TabUpgrade:Accordion({ Title = "Auto Plot", Icon = "box", Column = 2 })
 local plotUpgradeOn = false
-TabUpgrade:CreateToggle({ Name = "Auto Upgrade", Default = false, Callback = function(v)
+accPlotUp:Toggle({ Title = "Auto Upgrade", Flag = "AutoPlotUpgrade", Default = false, Callback = function(v)
     plotUpgradeOn = v
     if plotUpgradeOn then task.spawn(function() while plotUpgradeOn do pcall(function() game.ReplicatedStorage.UpgradePlotRequest:FireServer() end) task.wait(1) end end) end
 end })
 
--- ================= DIAMOND / FARM EGG =================
--- Logic: break egg di zone -> tunggu waktu habis -> tween ke EggGemDrops sampai habis -> loop
-local diamondZone = nil
-local diamondFarmSpeed = 60
-local diamondOn = false
-local diamondTween = nil
-
-local function getEggTimeLeft(egg)
-    -- Coba semua nama attribute / value yang biasa dipake game buat timer egg
-    for _, name in ipairs({"TimeLeft","Time","Remaining","RemainingTime","Timer","HatchTime","HatchIn","Duration","Countdown","TimeRemaining"}) do
-        local v = egg:GetAttribute(name)
-        if typeof(v) == "number" then return v end
-    end
-    for _, d in ipairs(egg:GetDescendants()) do
-        if (d:IsA("NumberValue") or d:IsA("IntValue")) and (d.Name:lower():find("time") or d.Name:lower():find("timer") or d.Name:lower():find("left") or d.Name:lower():find("remain")) then
-            return d.Value
-        end
-        if d:IsA("TextLabel") and (d.Name:lower():find("time") or d.Name:lower():find("timer")) then
-            local n = tonumber(tostring(d.Text):match("[%d%.]+"))
-            if n then return n end
-        end
-    end
-    return nil -- nil = game ga expose timer, fallback: anggap habis kalau egg udah ke-break / hilang
-end
-
-local function tweenTo(pos, speed)
-    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp or not pos then return end
-    if diamondTween then pcall(function() diamondTween:Cancel() end) end
-    local dist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude
-    local dur = math.max(dist / math.max(speed, 1), 0.15)
-    diamondTween = TweenService:Create(hrp, TweenInfo.new(dur, Enum.EasingStyle.Linear), { CFrame = CFrame.new(Vector3.new(pos.X, pos.Y, pos.Z)) })
-    diamondTween:Play()
-    diamondTween.Completed:Wait()
-end
-
-local function collectEggGemDrops()
-    local drops = workspace:FindFirstChild("EggGemDrops")
-    if not drops then return end
-    -- Sampai gada child dari parent EggGemDrops
-    while diamondOn and drops.Parent and #drops:GetChildren() > 0 do
-        local gotOne = false
-        for _, drop in ipairs(drops:GetChildren()) do
-            if not diamondOn then break end
-            if not drop.Parent then continue end
-            local pos = getBasePos(drop)
-            if not pos then continue end
-            gotOne = true
-            -- Tween sesuai kecepatan slider ke drop
-            pcall(function() tweenTo(Vector3.new(pos.X, pos.Y + 1, pos.Z), diamondFarmSpeed) end)
-            task.wait(0.15)
-            -- Kalau drop udah keambil, lanjut ke child berikutnya
-            if not drop.Parent then continue end
-            -- Coba sentuh juga biar ke-pickup
-            local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
-            local part = drop:IsA("BasePart") and drop or drop:FindFirstChildWhichIsA("BasePart")
-            if hrp and part then pcall(function() firetouchinterest(hrp, part, 0) task.wait(0.05) firetouchinterest(hrp, part, 1) end) end
-        end
-        if not gotOne then task.wait(0.3) end
-        task.wait(0.1)
-    end
-end
-
-local function diamondFarmLoop()
-    while diamondOn do
-        if not diamondZone then task.wait(0.5) continue end
-        local eggs = getEggsInZone(diamondZone)
-        if #eggs == 0 then
-            -- Ga ada egg, cek dulu siapa tau masih ada drops sisa
-            collectEggGemDrops()
-            task.wait(1)
-            continue
-        end
-        for _, egg in ipairs(eggs) do
-            if not diamondOn then break end
-            -- 1. Break egg sesuai zone, pake logic break egg yang sama
-            local pos, base = getOffsetPos(egg)
-            if not pos then local b = getBasePos(egg) if b then pos = Vector3.new(b.X, 3.5, b.Z + 3) base = Vector3.new(b.X, 3.5, b.Z) end end
-            if not pos then continue end
-            pcall(function()
-                walkDirect(pos, base, false)
-                equipPickaxe()
-                while diamondOn and egg.Parent do
-                    local h = getEggHealth(egg)
-                    if h ~= nil and h <= 0 then break end
-                    -- 2. Kalau waktu sudah habis -> stop break, langsung ke collect
-                    local t = getEggTimeLeft(egg)
-                    if t ~= nil and t <= 0 then break end
-                    task.wait(0.15)
-                end
-            end)
-            if not diamondOn then break end
-            -- 3. Waktu habis / egg ke-break -> tween ke EggGemDrops sampai habis
-            collectEggGemDrops()
-            task.wait(0.2)
-        end
-        task.wait(0.5)
-    end
-end
-
-TabDiamond:CreateSection({ Name = "Farm Egg" })
-TabDiamond:CreateDropdown({ Name = "Zone", Items = zoneNames, Default = nil, Callback = function(val) diamondZone = unwrap(val) end })
-TabDiamond:CreateSlider({ Name = "Farm Egg Speed", Min = 16, Max = 500, Default = 60, Callback = function(v) diamondFarmSpeed = v end })
-TabDiamond:CreateToggle({ Name = "Farm Diamond", Default = false, Callback = function(v)
+-- ================= DIAMOND - ACCORDION =================
+local accDiamond = TabDiamond:Accordion({ Title = "Farm Egg", Icon = "pickaxe", Column = 1 })
+accDiamond:Dropdown({ Title = "Zone", Flag = "DiamondZone", Options = zoneNames, Default = nil, Callback = function(val) diamondZone = unwrap(val) end })
+accDiamond:Slider({ Title = "Farm Egg", Flag = "DiamondFarmSpeed", Min = 16, Max = 500, Default = 60, Suffix = " stud/s", Desc = "Kecepatan tween ke gem", Callback = function(v) diamondFarmSpeed = v end })
+accDiamond:Toggle({ Title = "Farm Diamond", Flag = "FarmDiamond", Default = false, Desc = "Gem dulu sampe habis, baru break lagi", Callback = function(v)
     diamondOn = v
     if diamondOn then
         if not diamondZone then VoraNotify("Error", "Zone empty") diamondOn = false return end
@@ -953,101 +1011,84 @@ TabDiamond:CreateToggle({ Name = "Farm Diamond", Default = false, Callback = fun
         if diamondTween then pcall(function() diamondTween:Cancel() end) diamondTween = nil end
     end
 end })
-TabDiamond:CreateSection({ Name = "Info" })
-TabDiamond:CreateLabel({ Name = "Break egg di zone -> waktu habis -> tween ke EggGemDrops sampai habis -> loop." })
+local accDiamondInfo = TabDiamond:Accordion({ Title = "Info", Icon = "info", Column = 2 })
+accDiamondInfo:Paragraph({ Title = "Cara kerja", Desc = "1. Cek EggGemDrops. Kalau ada child, tween ke situ sampe habis.\n2. Kalau udah habis, break 1 egg di zone.\n3. Balik ke langkah 1, loop terus." })
+accDiamondInfo:Label("Matikan Break Egg di Main kalau pakai ini biar tidak rebutan jalan.")
 
--- ================= PANEL BAWAAN LIB BARU =================
--- Gantiin tracker custom lama. Window:Panel(o) return K yang sama kayak Tab.
-local trackerMode = "Blatant"
-local trackerPanel = Window:Panel({ Title = "Animal Tracker", Subtitle = "Steal tercepat", Open = false })
+-- ================= PANEL BAWAAN LIB - ADA CARD + $ TERTINGGI + STEAL =================
+local trackerPanel = Window:Panel({ Title = "Animal Tracker", Subtitle = "Top animals • Steal", Open = false })
 
-local function getPromptAnchorPosT(pr)
-    local p = pr.Parent
-    if p:IsA("BasePart") then return p.Position end
-    if p:IsA("Model") then if p.PrimaryPart then return p.PrimaryPart.Position end local ok, cf = pcall(function() return p:GetPivot() end) if ok then return Vector3.new(cf.X, cf.Y, cf.Z) end for _, b in ipairs(p:GetDescendants()) do if b:IsA("BasePart") then return b.Position end end end
-    local bp = p:FindFirstChildWhichIsA("BasePart", true)
-    if bp then return bp.Position end
-    return nil
-end
-local function findPromptNearT(m, md)
-    local bp = getBasePos(m)
-    if not bp then return nil end
-    for _, v in ipairs(m:GetDescendants()) do if v:IsA("ProximityPrompt") then return v end end
-    local cl = nil local mn = md or 12
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("ProximityPrompt") and v.Name:lower():find("steal") then
-            local ap = getPromptAnchorPosT(v)
-            if ap then local d = (Vector3.new(ap.X, 0, ap.Z) - Vector3.new(bp.X, 0, bp.Z)).Magnitude if d < mn then mn = d cl = v end end
-        end
-    end
-    return cl
-end
-local function fireZeroT(p)
-    if not p then return end
-    pcall(function() p.HoldDuration = 0 p.MaxActivationDistance = 15 p.RequiresLineOfSight = false end)
-    if fireproximityprompt then pcall(function() fireproximityprompt(p, 0) end) else pcall(function() p:InputHoldBegin() p:InputHoldEnd() end) end
-end
-local function instantSteal(m)
-    if not m or not m.Parent then return end
-    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local st = tick()
-    while tick() - st < 0.4 do
-        if not m.Parent then break end
-        local pr = findPromptNearT(m, 12)
-        if pr then
-            local an = getPromptAnchorPosT(pr)
-            local bs = getBasePos(m)
-            if an and bs then if (Vector3.new(an.X, 0, an.Z) - Vector3.new(bs.X, 0, bs.Z)).Magnitude <= 12 then hrp.CFrame = CFrame.new(an + Vector3.new(0, 0.5, 0)) fireZeroT(pr) touchSteal(m) end end
-        end
-        if isDropVisible() then break end
-        task.wait(0.01)
-    end
-    hrp.CFrame = SAFE_BASE_CF task.wait(0.05) hrp.CFrame = SAFE_BASE_CF
-end
-local function legitStealTracker(m)
-    if not m or not m.Parent then return end
-    local tries = 0
-    while tries < 8 and m.Parent do
-        if isDropVisible() then if isCarryingTarget(m) then break end fireDropNow() task.wait(0.35) tries += 1 continue end
-        local p, b = getOffsetPos(m)
-        if not p then local bp = getBasePos(m) if bp then p = Vector3.new(bp.X, 3.5, bp.Z + 3) b = Vector3.new(bp.X, 3.5, bp.Z) end end
-        if p then walkDirect(p, b, false) end
-        touchSteal(m) fireSteal(m) pressE() task.wait(0.25) tries += 1
-    end
-    if isCarryingTarget(m) then walkToSafeBaseFallback(m) end
-end
-
-local function getBestAnimal()
-    local folder = workspace:FindFirstChild("AnimalPickups")
-    if not folder then return nil end
-    local best, bestCash = nil, -1
-    for _, m in ipairs(folder:GetChildren()) do
-        if m:IsA("Model") then
-            local cv = parseCash(getCashPerSecond(m))
-            if cv == 0 then local at = m:GetAttribute("CashPerSecond") or m:GetAttribute("CPS") if typeof(at) == "number" then cv = at elseif typeof(at) == "string" then cv = parseCash(at) end end
-            if cv > bestCash then bestCash = cv best = m end
-        end
-    end
-    return best, bestCash
-end
-
-trackerPanel:CreateSection({ Name = "Tracker" })
-trackerPanel:CreateDropdown({ Name = "Mode", Items = {"Blatant","Legit"}, Default = "Blatant", Callback = function(val) trackerMode = unwrap(val) or "Blatant" end })
-local trackerLabel = trackerPanel:CreateLabel({ Name = "0 animals" })
-trackerPanel:CreateButton({ Name = "Steal Best", Callback = function()
-    local best = getBestAnimal()
+-- Card 1: Kontrol Tracker
+local panelControl = trackerPanel:Accordion({ Title = "Tracker", Icon = "eye" })
+panelControl:Dropdown({ Title = "Mode", Flag = "TrackerMode", Options = {"Blatant","Legit"}, Default = "Blatant", Callback = function(val) trackerMode = unwrap(val) or "Blatant" end })
+local panelTotal = panelControl:Info({ Title = "Total Animals", Value = "0" })
+panelControl:Button({ Title = "Steal Best", Desc = "Steal animal $ tertinggi", Callback = function()
+    local list = getSortedAnimals()
+    local best = list[1] and list[1].model or nil
     if not best then VoraNotify("Tracker", "No animal") return end
     task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(best) else legitStealTracker(best) end end) end)
 end })
-trackerPanel:CreateButton({ Name = "Open / Close", Callback = function() trackerPanel:Switch() end })
 
+-- Card 2: TOP 1 - $ Tertinggi
+local card1 = trackerPanel:Accordion({ Title = "TOP 1 • $ Tertinggi", Icon = "star" })
+local top1Name = card1:Info({ Title = "Animal", Value = "-" })
+local top1Cash = card1:Info({ Title = "$ /s", Value = "-" })
+local top1Detail = card1:Label("Rarity • Zone • KG")
+card1:Button({ Title = "STEAL TOP 1", Callback = function()
+    local list = getSortedAnimals()
+    local m = list[1] and list[1].model or nil
+    if not m then return end
+    task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
+end })
+
+-- Card 3: TOP 2
+local card2 = trackerPanel:Accordion({ Title = "TOP 2", Icon = "star" })
+local top2Name = card2:Info({ Title = "Animal", Value = "-" })
+local top2Cash = card2:Info({ Title = "$ /s", Value = "-" })
+local top2Detail = card2:Label("Rarity • Zone • KG")
+card2:Button({ Title = "STEAL TOP 2", Callback = function()
+    local list = getSortedAnimals()
+    local m = list[2] and list[2].model or nil
+    if not m then return end
+    task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
+end })
+
+-- Card 4: TOP 3
+local card3 = trackerPanel:Accordion({ Title = "TOP 3", Icon = "star" })
+local top3Name = card3:Info({ Title = "Animal", Value = "-" })
+local top3Cash = card3:Info({ Title = "$ /s", Value = "-" })
+local top3Detail = card3:Label("Rarity • Zone • KG")
+card3:Button({ Title = "STEAL TOP 3", Callback = function()
+    local list = getSortedAnimals()
+    local m = list[3] and list[3].model or nil
+    if not m then return end
+    task.spawn(function() pcall(function() if trackerMode == "Blatant" then instantSteal(m) else legitStealTracker(m) end end) end)
+end })
+
+-- Refresh panel tiap 0.6s: update card + $ tertinggi
 task.spawn(function()
     while task.wait(0.6) do
         pcall(function()
-            local folder = workspace:FindFirstChild("AnimalPickups")
-            local n = folder and #folder:GetChildren() or 0
-            if trackerLabel then trackerLabel:Set(n .. " animals • " .. trackerMode) end
+            local list = getSortedAnimals()
+            if panelTotal then panelTotal:Set(tostring(#list)) end
+            local function setCard(idx, nameInfo, cashInfo, detailLabel)
+                local info = list[idx]
+                if info and info.model and info.model.Parent then
+                    local m = info.model
+                    nameInfo:Set(m.Name)
+                    cashInfo:Set(info.txt)
+                    local rar = m:GetAttribute("Rarity") or "Unknown"
+                    local w = m:GetAttribute("WeightKg") or m:GetAttribute("Weight") or 0
+                    detailLabel:Set(tostring(rar) .. " • " .. getAnimalZone(m) .. " • " .. tostring(w) .. " KG")
+                else
+                    nameInfo:Set("-")
+                    cashInfo:Set("-")
+                    detailLabel:Set("Rarity • Zone • KG")
+                end
+            end
+            setCard(1, top1Name, top1Cash, top1Detail)
+            setCard(2, top2Name, top2Cash, top2Detail)
+            setCard(3, top3Name, top3Cash, top3Detail)
         end)
     end
 end)
