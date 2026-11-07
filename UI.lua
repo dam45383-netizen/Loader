@@ -904,12 +904,28 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         play(s.chipLb, {TextColor3 = on and T.text or T.mid}, 0.2)
         if s.chipIc then s.chipIc.tint(on and T.text or T.mid) end
     end
-    local function paintItem(p, on)
+    local function pillCols()
+        local h, s, v = T.accent:ToHSV()
+        return Color3.fromHSV((h - 0.06) % 1, math.clamp(s * 1.25, 0, 1), math.min(v * 0.92, 0.72)),
+            Color3.fromHSV((h + 0.06) % 1, math.clamp(s * 1.15, 0, 1), math.min(v * 0.75, 0.6))
+    end
+    local function paintItem(p, on, instant)
         p.on = on
-        play(p.item, {BackgroundColor3 = T.accent, BackgroundTransparency = on and 0.8 or 1}, 0.2)
-        play(p.label, {TextColor3 = on and T.text or T.faint}, 0.2)
-        p.icon.tint(on and T.accentL or T.faint)
-        if p.bar then play(p.bar, {Size = UDim2.fromOffset(3, on and 12 or 0)}, 0.22) end
+        local function set(o, props, t)
+            if instant then for k, v in pairs(props) do o[k] = v end else play(o, props, t or 0.22) end
+        end
+        set(p.pill, {BackgroundTransparency = on and 0 or 1})
+        set(p.pillSt, {Transparency = on and 0.5 or 1})
+        set(p.item, {BackgroundTransparency = 1})
+        set(p.label, {TextColor3 = on and T.text or T.faint})
+        p.icon.tint(on and WHITE or T.faint, instant and 0 or 0.22)
+        set(p.bar, {Size = UDim2.fromOffset(3, on and 12 or 0)})
+        set(p.barGlow, {Size = UDim2.fromOffset(7, on and 18 or 0), BackgroundTransparency = on and 0.7 or 1})
+        if p.iconGlow then set(p.iconGlow, {Transparency = on and 0.55 or 1}) end
+        if on and not instant and not NOANIM then -- kilau gradien saat tab dipilih
+            p.pillG.Offset = Vector2.new(-0.3, 0)
+            play(p.pillG, {Offset = Vector2.new(0, 0)}, 0.4)
+        end
     end
     local function paintSettingsBtn(on)
         play(setBtn, {BackgroundColor3 = on and T.accent or T.chip}, 0.2)
@@ -930,24 +946,52 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if not hidden then
             local g = createGroup(gname, nil)
             p.group = g
-            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.accent, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
-            corner(p.item, 7)
-            p.icon = mkIcon(p.item, icon or "dot", 12, T.faint, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
-            p.label = text(p.item, {Text = name, Position = UDim2.fromOffset(28, 0), Size = UDim2.new(1, -46, 1, 0), W = 2, TextSize = 11, TextColor3 = T.faint})
-            p.bar = skin(new("Frame", {Name = "Indicator", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(3, 0), BorderSizePixel = 0}, p.item), "BackgroundColor3", "accent")
+            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.el, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
+            corner(p.item, 8)
+            -- pil aktif (gradien horizontal), hanya tampil saat tab dipilih
+            p.pill = new("Frame", {Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
+            corner(p.pill, 8)
+            p.pillG = new("UIGradient", {Rotation = 0}, p.pill)
+            p.pillSt = skin(stroke(p.pill, T.accentL, 1, 1), "Color", "accentL")
+            p.icon = mkIcon(p.item, icon or "dot", 12, T.faint, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
+            if p.icon.inst:IsA("TextLabel") then -- ikon teks: outline lembut supaya terlihat bercahaya saat aktif
+                p.iconGlow = skin(new("UIStroke", {Thickness = 1.5, Transparency = 1}, p.icon.inst), "Color", "accentL")
+            end
+            p.label = text(p.item, {Text = name, Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -48, 1, 0), W = 2, TextSize = 11, TextColor3 = T.faint})
+            -- garis glow di tepi kiri pil
+            p.barGlow = new("Frame", {Name = "IndicatorGlow", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
+            corner(p.barGlow, "full")
+            p.bar = new("Frame", {Name = "Indicator", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(3, 0), BorderSizePixel = 0}, p.item)
             corner(p.bar, "full")
             p.star = text(p.item, {Text = "★", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -7, 0.5, 0), Size = UDim2.fromOffset(12, 12), TextXAlignment = XC, TextSize = 9, TextTruncate = NOTRUNC, Visible = favs[key] == true})
             skin(p.star, "TextColor3", "accentL")
+            local function paintPill()
+                local l, r = pillCols()
+                p.pillG.Color = ColorSequence.new(l, r)
+                local bc = T.accentL:Lerp(WHITE, 0.55)
+                p.bar.BackgroundColor3, p.barGlow.BackgroundColor3 = bc, bc
+            end
+            paintPill()
+            themeFns[#themeFns + 1] = function() -- jalan SETELAH callback tema bawaan, jadi warna di sini yang menang
+                p.item.BackgroundColor3 = T.el
+                paintPill()
+                paintItem(p, p.on, true)
+            end
             g.pages[#g.pages + 1] = p
             relayoutGroup(g)
             p.item.MouseEnter:Connect(function()
                 if not p.on then
-                    play(p.item, {BackgroundColor3 = T.el, BackgroundTransparency = 0}, 0.15)
+                    play(p.item, {BackgroundTransparency = 0.35}, 0.15)
                     play(p.label, {TextColor3 = T.mid}, 0.15)
+                    p.icon.tint(T.mid, 0.15)
                 end
             end)
             p.item.MouseLeave:Connect(function()
-                if not p.on then play(p.item, {BackgroundTransparency = 1}, 0.15) play(p.label, {TextColor3 = T.faint}, 0.15) end
+                if not p.on then
+                    play(p.item, {BackgroundTransparency = 1}, 0.15)
+                    play(p.label, {TextColor3 = T.faint}, 0.15)
+                    p.icon.tint(T.faint, 0.15)
+                end
             end)
             p.item.MouseButton1Click:Connect(function()
                 if ctxWin.d then ctxWin.d.close() end
