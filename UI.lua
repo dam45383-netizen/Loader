@@ -1,5 +1,3 @@
--- NEMESIS-style UI library (restyle dari SORU HUB). API lama tetap jalan: CreateWindow / Tab / Toggle / Slider / dst.
--- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
 local SORU = {Version = "1.2"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
