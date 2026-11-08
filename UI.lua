@@ -2,7 +2,7 @@
 -- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
 -- Dashboard OTOMATIS: grup "Loaded" > tab "Dashboard" langsung ada begitu CreateWindow jalan (tidak perlu dipanggil). Akses isinya lewat Window.Dashboard.
 --   Opsi: AutoDashboard = false (matikan), DashboardGroup = "Nama Grup" (ganti nama grup, default "Loaded").
-local SORU = {Version = "1.2"}
+local SORU = {Version = "1.2.1"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
 
@@ -717,32 +717,56 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     -- PILL DI ATAS (launcher): logo + nama + FPS live. Tap = buka/tutup window, tarik = pindah posisi.
     ------------------------------------------------------------------
     local launchPos = nil -- (x tengah, y atas) dalam koordinat virtual
-    local launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X,
-        BackgroundColor3 = Color3.fromRGB(16, 13, 22), BackgroundTransparency = 0.08, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
+        local launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(0, 22), AutomaticSize = Enum.AutomaticSize.X,
+        BackgroundColor3 = WHITE, BackgroundTransparency = 0.04, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
     corner(launcher, "full")
-    skin(stroke(launcher, T.accent, 1, 0.5), "Color", "accent")
+    -- latar gradien gelap dengan semburat warna tema
+    local bgG = new("UIGradient", {Rotation = 90}, launcher)
+    -- border gradien yang berputar pelan (cahaya jalan)
+    local edge = stroke(launcher, WHITE, 1.2, 0)
+    local edgeG = new("UIGradient", {Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 0.05)})}, edge)
+    local function paintLauncher()
+        bgG.Color = ColorSequence.new(T.bg:Lerp(T.accent, 0.22), T.side:Lerp(T.accent, 0.06))
+        edgeG.Color = ColorSequence.new(T.accentL, T.accent2)
+    end
+    paintLauncher()
+    themeFns[#themeFns + 1] = paintLauncher
+    bind(RunService.Heartbeat, function()
+        if NOANIM or not launcher.Visible then return end
+        edgeG.Rotation = (os.clock() * 70) % 360
+    end)
+    launcher.MouseEnter:Connect(function() play(edge, {Thickness = 1.8}, 0.2) end)
+    launcher.MouseLeave:Connect(function() play(edge, {Thickness = 1.2}, 0.2) end)
+
     new("UIPadding", {PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 13)}, launcher)
     new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 7)}, launcher)
     logoImg(launcher, {Name = "Mark", Size = UDim2.fromOffset(14, 14), LayoutOrder = 1, ScaleType = Enum.ScaleType.Fit, ZIndex = 91})
     local pillName = text(launcher, {Name = "Name", Text = LOGONAME, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 14), W = 4, TextSize = 9, TextTruncate = NOTRUNC, LayoutOrder = 2, ZIndex = 91})
     skin(pillName, "TextColor3", "accentL")
-    new("Frame", {Name = "Gap", Size = UDim2.fromOffset(9, 1), BackgroundTransparency = 1, LayoutOrder = 3}, launcher)
+    new("Frame", {Name = "Divider", Size = UDim2.fromOffset(1, 10), BackgroundColor3 = WHITE, BackgroundTransparency = 0.82, BorderSizePixel = 0, LayoutOrder = 3, ZIndex = 91}, launcher)
+
+    -- bar sinyal: jumlah bar menyala + warna mengikuti FPS (hijau / kuning / merah)
     local bars = new("Frame", {Name = "Bars", Size = UDim2.fromOffset(14, 12), BackgroundTransparency = 1, LayoutOrder = 4, ZIndex = 91}, launcher)
-    for i, h in ipairs({12, 12, 12, 5}) do
-        local b = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, (i - 1) * 4, 0.5, 0), Size = UDim2.fromOffset(2, h), BorderSizePixel = 0, ZIndex = 92}, bars)
-        skin(b, "BackgroundColor3", "accent")
-        corner(b, "full")
+    local sig = {}
+    for i, h in ipairs({4, 6, 9, 12}) do
+        sig[i] = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, (i - 1) * 4, 1, 0), Size = UDim2.fromOffset(2, h), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 92}, bars)
+        corner(sig[i], "full")
     end
     local fpsL = text(launcher, {Name = "FPS", Text = "--", Size = UDim2.fromOffset(24, 14), W = 4, TextSize = 9, TextTruncate = NOTRUNC, LayoutOrder = 5, ZIndex = 91})
-    skin(fpsL, "TextColor3", "accentL")
     do
         local frames, acc = 0, 0
         bind(RunService.Heartbeat, function(dt)
             frames = frames + 1
             acc = acc + dt
             if acc < 0.5 then return end
-            fpsL.Text = tostring(math.floor(frames / acc + 0.5))
+            local fps = math.floor(frames / acc + 0.5)
             frames, acc = 0, 0
+            fpsL.Text = tostring(fps)
+            local lit, col = 1, T.bad
+            if fps >= 50 then lit, col = 4, T.ok elseif fps >= 35 then lit, col = 3, T.ok elseif fps >= 20 then lit, col = 2, T.warn end
+            fpsL.TextColor3 = col
+            for i, b in ipairs(sig) do b.BackgroundColor3 = (i <= lit) and col or T.off end
         end)
     end
     layoutLauncher = function()
