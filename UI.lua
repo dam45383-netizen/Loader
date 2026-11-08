@@ -28,7 +28,9 @@ local function fetchImage(url, fname)
     end
     return ""
 end
-local LOGO, LOGOCHAR, LOGONAME = "", "N", "NEMESIS"
+local LOGO, LOGOCHAR, LOGONAME = "", "S", "SoruHub"
+-- CHAT: isi URL Firebase Realtime Database di sini (atau lewat CreateWindow({ChatUrl = "..."})). Contoh: "https://nama-project-default-rtdb.firebaseio.com"
+local CHAT_URL = "https://chatting-soru-hub-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 ----------------------------------------------------------------------
 -- THEME: palet gelap ala Nemesis (hampir hitam + ungu). Aksen bisa diganti lewat UI Settings (45 preset)
@@ -156,7 +158,7 @@ SORU.Icons = {settings = "rbxassetid://70386228443175", chevron = "rbxassetid://
 local GLYPH = {
     grid = "▦", home = "⌂", sprout = "✿", sliders = "☰", pickaxe = "⚒", hammer = "⚒", zap = "ϟ", wrench = "✎", save = "▣", eraser = "▱",
     box = "◧", layers = "≋", wheat = "✾", gauge = "◔", activity = "∿", target = "◎", star = "☆", starfill = "★", sort = "⇅", crosshair = "⌖",
-    user = "☺", info = "ⓘ", palette = "◐", dot = "•", close = "✕", check = "✓", settings = "⚙", folder = "▤", list = "≡", play = "▶", eye = "◉",
+    user = "☺", send = "➤", smile = "☺", info = "ⓘ", palette = "◐", dot = "•", close = "✕", check = "✓", settings = "⚙", folder = "▤", list = "≡", play = "▶", eye = "◉",
 }
 local function mkIcon(parent, name, size, color, props)
     local ic = {}
@@ -2266,17 +2268,18 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local hd = new("Frame", {Size = UDim2.new(1, 0, 0, 26), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = 1}, cm)
             chip(hd, "user", 0, 2)
             lb(hd, "Community", 30, 0, 100, 26, {W = 3, TextSize = 12})
-            local tg = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(170, 24), BackgroundColor3 = T.field, BorderSizePixel = 0}, hd)
+            local tg = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(1, 0.5), Size = UDim2.fromOffset(250, 24), BackgroundColor3 = T.field, BorderSizePixel = 0}, hd)
             corner(tg, 8)
             local function listF(o, vis) -- wadah daftar yang tingginya mengikuti isi
                 local f = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = o, Visible = vis}, cm)
                 new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, f)
                 return f
             end
-            local views, tabs = {lb = listF(2, true), log = listF(3, false)}, {}
+            local views, tabs = {lb = listF(2, true), log = listF(3, false), chat = listF(4, false)}, {}
+            local onShow = {}
             local showView
-            local function mkTab(k, txt, x)
-                local b = new("TextButton", {Position = UDim2.fromOffset(x, 2), Size = UDim2.fromOffset(82, 20), BackgroundTransparency = 1, AutoButtonColor = false, Text = "", BorderSizePixel = 0}, tg)
+            local function mkTab(k, txt, x, w)
+                local b = new("TextButton", {Position = UDim2.fromOffset(x, 2), Size = UDim2.fromOffset(w or 82, 20), BackgroundTransparency = 1, AutoButtonColor = false, Text = "", BorderSizePixel = 0}, tg)
                 skin(b, "BackgroundColor3", "accent")
                 corner(b, 6)
                 local st = skin(stroke(b, T.accent, 1, 1), "Color", "accent")
@@ -2284,8 +2287,9 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                 tabs[k] = {b, l, st}
                 b.MouseButton1Click:Connect(function() showView(k) end)
             end
-            mkTab("lb", "Leaderboard", 2)
-            mkTab("log", "Changelogs", 86)
+            mkTab("lb", "Papan Peringkat", 2, 90)
+            mkTab("log", "Changelogs", 94, 76)
+            mkTab("chat", "Chatting", 172, 76)
             showView = function(k)
                 for key, t in pairs(tabs) do
                     local on = key == k
@@ -2294,6 +2298,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     play(t[3], {Transparency = on and 0.45 or 1}, 0.15)
                     views[key].Visible = on
                 end
+                if onShow[k] then task.spawn(onShow[k]) end
             end
 
             -- toolbar: search + pager
@@ -2402,6 +2407,203 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             end
             function Window:SetLeaderboard(list) lbData = (type(list) == "table") and list or {} refreshLB() end
             function Window:SetChangelogs(list) logs = (type(list) == "table") and list or {} refreshLog() end
+
+            ---------------- CHAT (Firebase Realtime Database, tanpa batas karakter) ----------------
+            -- Setup 1x: console.firebase.google.com > buat project > Build > Realtime Database > Create > Rules jadi
+            --   { "rules": { ".read": true, ".write": true } }  lalu Publish. Copy URL database ke CHAT_URL / C.ChatUrl. Selesai.
+            do
+                local NAME = LP.DisplayName -- hanya display name. Mau username? ganti jadi LP.Name
+                local base = (tostring(C.ChatUrl or CHAT_URL or ""):gsub("/+$", ""))
+                local httpReq = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+                local cv = views.chat
+                local msgCol = Color3.fromRGB(214, 214, 224)
+
+                new("Frame", {Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.4, BorderSizePixel = 0, LayoutOrder = 1}, cv)
+                local ch = new("Frame", {Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = 2}, cv)
+                lb(ch, "Global chat", 6, 0, 120, 14, {W = 2, TextSize = 9, TextColor3 = T.faint})
+                local onl = text(ch, {Text = "0 online", Size = UDim2.new(1, -6, 1, 0), TextXAlignment = XR, W = 2, TextSize = 9, TextColor3 = T.faint, TextTruncate = NOTRUNC})
+
+                local area = new("Frame", {Size = UDim2.new(1, 0, 0, 250), BackgroundColor3 = T.field, BackgroundTransparency = 0.55, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = 3}, cv)
+                corner(area, 8)
+                local scr = new("ScrollingFrame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, CanvasSize = UDim2.new(),
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y}, area)
+                skin(scr, "ScrollBarImageColor3", "accent")
+                new("UIListLayout", {Padding = UDim.new(0, 1), SortOrder = Enum.SortOrder.LayoutOrder}, scr)
+                new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4)}, scr)
+                local note = text(area, {Text = "", Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -24, 1, 0), TextXAlignment = XC, TextWrapped = true, W = 1, TextSize = 10,
+                    TextColor3 = T.faint, TextTruncate = NOTRUNC})
+
+                -- input
+                local tray = new("Frame", {Size = UDim2.new(1, 0, 0, 28), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, LayoutOrder = 4}, cv)
+                new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center}, tray)
+                local ibar = new("Frame", {Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = T.field, BorderSizePixel = 0, LayoutOrder = 5}, cv)
+                corner(ibar, 8)
+                local emo = new("TextButton", {Position = UDim2.fromOffset(6, 5), Size = UDim2.fromOffset(26, 26), BackgroundTransparency = 1, AutoButtonColor = false, Text = "", BorderSizePixel = 0}, ibar)
+                mkIcon(emo, "smile", 16, T.mid, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+                local box = new("TextBox", {Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -86, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = "Message the community...",
+                    PlaceholderColor3 = T.faint, TextColor3 = T.text, FontFace = FONT[1], TextSize = 11, TextXAlignment = XL, ClearTextOnFocus = false, ClipsDescendants = true}, ibar)
+                local sendB = new("TextButton", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -5, 0.5, 0), Size = UDim2.fromOffset(30, 26), AutoButtonColor = false, Text = "", BorderSizePixel = 0}, ibar)
+                skin(sendB, "BackgroundColor3", "accent")
+                corner(sendB, 8)
+                mkIcon(sendB, "send", 13, WHITE, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+                for i, e in ipairs({"😀", "😂", "😍", "😎", "😭", "😡", "👍", "🔥", "❤️", "🙏"}) do
+                    local b = new("TextButton", {Size = UDim2.fromOffset(26, 26), BackgroundColor3 = T.field, AutoButtonColor = false, Text = e, FontFace = FONT[2], TextSize = 14, BorderSizePixel = 0, LayoutOrder = i}, tray)
+                    corner(b, 7)
+                    b.MouseButton1Click:Connect(function() box.Text = box.Text .. e end)
+                end
+                emo.MouseButton1Click:Connect(function() tray.Visible = not tray.Visible end)
+
+                -- http ke Firebase (REST): hasilnya true, data  / nil kalau gagal
+                local function fb(method, path, body)
+                    if base == "" or not httpReq then return nil end
+                    local ok, res = pcall(httpReq, {Url = base .. "/" .. path, Method = method, Headers = {["Content-Type"] = "application/json"}, Body = body ~= nil and Http:JSONEncode(body) or nil})
+                    if not ok or type(res) ~= "table" then return nil end
+                    local sc = tonumber(res.StatusCode) or 0
+                    if sc < 200 or sc >= 300 then return nil end
+                    local ok2, d = pcall(function() return Http:JSONDecode(res.Body) end)
+                    return true, ok2 and d or nil
+                end
+
+                -- render pesan
+                local msgs, seen, lastKey, busy, seq, onlineN = {}, {}, nil, false, 0, 0
+                local function clock(ms) return os.date("%H:%M", math.floor((tonumber(ms) or 0) / 1000)) end
+                local function chunks(s, n) -- potong teks super panjang jadi beberapa label (aman buat batas render Roblox), tidak ada pesan yang dipotong/dibuang
+                    local out, i = {}, 1
+                    while i <= #s do
+                        local j = i + n
+                        if j <= #s then while j > i and (s:byte(j) or 0) >= 0x80 and (s:byte(j) or 0) < 0xC0 do j = j - 1 end end
+                        out[#out + 1] = s:sub(i, j - 1)
+                        i = j
+                    end
+                    if #out == 0 then out[1] = "" end
+                    return out
+                end
+                local function addRow(m, prev)
+                    local me = m.u == LP.UserId
+                    local cont = prev ~= nil and prev.u == m.u and (m.t - prev.t) < 300000
+                    local row = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.accent, BackgroundTransparency = me and 0.9 or 1, BorderSizePixel = 0, LayoutOrder = m.i}, scr)
+                    if not cont then
+                        local a = new("ImageLabel", {Position = UDim2.fromOffset(8, 7), Size = UDim2.fromOffset(30, 30), BackgroundColor3 = T.outline, BorderSizePixel = 0,
+                            Image = ("rbxthumb://type=AvatarHeadShot&id=%d&w=60&h=60"):format(m.u)}, row)
+                        corner(a, "full")
+                    end
+                    local body = new("Frame", {Position = UDim2.fromOffset(48, 0), Size = UDim2.new(1, -58, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, row)
+                    new("UIPadding", {PaddingTop = UDim.new(0, cont and 1 or 6), PaddingBottom = UDim.new(0, cont and 3 or 6)}, body)
+                    new("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder}, body)
+                    if not cont then
+                        local top = new("Frame", {Size = UDim2.new(1, 0, 0, 14), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = 0}, body)
+                        text(top, {Text = m.n, Size = UDim2.new(1, -44, 1, 0), W = 3, TextSize = 11, TextColor3 = me and T.accentL or T.text})
+                        text(top, {Text = clock(m.t), Size = UDim2.fromScale(1, 1), TextXAlignment = XR, W = 1, TextSize = 9, TextColor3 = T.faint, TextTruncate = NOTRUNC})
+                    end
+                    for i, part in ipairs(chunks(m.m, 4000)) do
+                        text(body, {Text = part, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top,
+                            W = 1, TextSize = 11, TextColor3 = msgCol, TextTruncate = NOTRUNC, LayoutOrder = i})
+                    end
+                end
+                local function toBottom()
+                    task.wait() task.wait()
+                    scr.CanvasPosition = Vector2.new(0, math.max(0, scr.AbsoluteCanvasSize.Y - scr.AbsoluteWindowSize.Y))
+                end
+                local function rebuild()
+                    local y = scr.CanvasPosition
+                    for _, c in ipairs(scr:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
+                    local old = msgs
+                    msgs = {}
+                    for _, m in ipairs(old) do addRow(m, msgs[#msgs]) msgs[#msgs + 1] = m end
+                    task.defer(function() scr.CanvasPosition = y end)
+                end
+                local function refreshNote()
+                    if base == "" then note.Text = "Chat belum aktif.\nIsi CHAT_URL / C.ChatUrl dengan URL Firebase Realtime Database kamu."
+                    elseif not httpReq then note.Text = "Executor kamu tidak support request()."
+                    elseif #msgs == 0 then note.Text = "Belum ada pesan. Jadi yang pertama!"
+                    end
+                    note.Visible = #msgs == 0
+                end
+                local function push(list) -- list sudah urut dari lama ke baru
+                    local near = scr.CanvasPosition.Y + scr.AbsoluteWindowSize.Y >= scr.AbsoluteCanvasSize.Y - 30
+                    for _, m in ipairs(list) do
+                        seq = seq + 1
+                        m.i = seq
+                        addRow(m, msgs[#msgs])
+                        msgs[#msgs + 1] = m
+                    end
+                    if #msgs > 300 then msgs = table.move(msgs, #msgs - 149, #msgs, 1, {}) rebuild() end
+                    refreshNote()
+                    if near then task.spawn(toBottom) end
+                end
+                local function setStatus(ok)
+                    onl.TextColor3 = ok and T.faint or T.bad
+                    onl.Text = ok and (onlineN .. " online") or "offline"
+                end
+
+                -- ambil pesan baru (cuma yang setelah key terakhir, jadi hemat kuota)
+                local function poll()
+                    if busy or base == "" or not httpReq then return end
+                    busy = true
+                    local path = lastKey and ('chat.json?orderBy=%22%24key%22&startAt=%22' .. Http:UrlEncode(lastKey) .. '%22') or 'chat.json?orderBy=%22%24key%22&limitToLast=50'
+                    local ok, data = fb("GET", path)
+                    busy = false
+                    setStatus(ok)
+                    if not ok then return end
+                    local list = {}
+                    if type(data) == "table" then
+                        for k, v in pairs(data) do
+                            if not seen[k] and type(v) == "table" and v.m ~= nil then
+                                list[#list + 1] = {k = k, u = tonumber(v.u) or 0, n = tostring(v.n or "?"), m = tostring(v.m), t = tonumber(v.t) or 0}
+                            end
+                            seen[k] = true
+                            if not lastKey or k > lastKey then lastKey = k end
+                        end
+                    end
+                    table.sort(list, function(a, b) if a.t ~= b.t then return a.t < b.t end return a.k < b.k end)
+                    if #list > 0 then push(list) else refreshNote() end
+                end
+
+                -- online counter: tiap pemain nulis "denyut" tiap 20 dtk, yang denyutnya < 50 dtk lalu dihitung online
+                local function beat() fb("PUT", "presence/" .. LP.UserId .. ".json", {t = os.time()}) end
+                local function countOn()
+                    local ok, d = fb("GET", "presence.json")
+                    if not (ok and type(d) == "table") then return end
+                    local n, now = 0, os.time()
+                    for _, v in pairs(d) do if type(v) == "table" and now - (tonumber(v.t) or 0) < 50 then n = n + 1 end end
+                    onlineN = math.max(n, 1)
+                    setStatus(true)
+                end
+
+                local function send()
+                    local msg = box.Text
+                    if not msg:find("%S") or base == "" or not httpReq then return end
+                    box.Text = ""
+                    task.spawn(function()
+                        local ok = fb("POST", "chat.json", {u = LP.UserId, n = NAME, m = msg, t = {[".sv"] = "timestamp"}})
+                        if ok then poll() else
+                            setStatus(false)
+                            if box.Text == "" then box.Text = msg end
+                        end
+                    end)
+                end
+                sendB.MouseButton1Click:Connect(send)
+                box.FocusLost:Connect(function(enter) if enter then send() task.defer(function() box:CaptureFocus() end) end end)
+
+                onShow.chat = function() task.spawn(countOn) poll() toBottom() end
+                themeFns[#themeFns + 1] = rebuild
+                refreshNote()
+                if base ~= "" and httpReq then
+                    task.spawn(function()
+                        local n = 0
+                        while gui.Parent do
+                            if n % 20 == 0 then task.spawn(beat) end
+                            if p.frame.Visible and cv.Visible then
+                                if n % 2 == 0 then task.spawn(poll) end
+                                if n % 10 == 0 then task.spawn(countOn) end
+                            end
+                            n = n + 1
+                            task.wait(1)
+                        end
+                        fb("DELETE", "presence/" .. LP.UserId .. ".json")
+                    end)
+                end
+            end
 
             ---------------- isi awal + pembaruan berkala ----------------
             local function paintFill() fillG.Color = ColorSequence.new(T.accent2, T.accentL) end
