@@ -1005,7 +1005,48 @@ local SORU_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs
 local CURRENT_KEY = "apantat"
 local SAVE_FILE = "SORU_HUB/soru.key"
 
+-- =====================================================
+-- DAFTAR GAME: [PlaceId] = "URL RAW LENGKAP"
+-- Nambah game baru cukup 1 baris di sini, yang lain gak usah diubah
+-- =====================================================
+local VBL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua"
+
+local GAMES = {
+    [114326934417838] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/main/BAS.lua",
+    [129827112113663] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua",
+    [126244816328678] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/DIG",
+    [113742027864370] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Cut%20A%20Rock",
+    [120219252362013] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Throw%20Food%20For%20Animal",
+    [95168737547508]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Steal%20A%20Pet%20And%20Ride%20It",
+    [100655715596680] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Train%20For%20A%20Egg",
+    [79039639963203]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Money%20Per%20Click",
+    [110730550789828] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Chop%20Tree%20For%20Treasure",
+    [74023858073178]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Bike%20For%20Egg",
+    [119672433229947] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish",
+    [73956553001240]  = VBL,
+    [134314141048307] = VBL,
+    [96802054849934]  = VBL,
+    [74193805629461]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Mine%20per%20click.lua",
+    [85738654635245]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg",
+    [111543903102439] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin",
+    [119271610514030] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Break%20egg%20for%20brainrot",
+    [72858262610964]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/tap%20Simulator%20reborn",
+    [132945794147519] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/rodeo%20for%20animal",
+    [76943966208523]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua",
+    [109419302424115] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Swing%20For%20Egg",
+}
+
 local function trim(s) return (tostring(s or ""):match("^%s*(.-)%s*$")) end
+
+local function loadRaw(url)
+    local s, res = pcall(function() return game:HttpGet(url) end)
+    if s and res and res ~= "" then
+        local ok2, err = pcall(function() loadstring(res)() end)
+        if not ok2 then warn("[SORU] error " .. url .. " : " .. tostring(err)) end
+    else
+        warn("[SORU] gagal ambil " .. url)
+    end
+end
 
 local function loadHub()
     local ok, SORU = pcall(function()
@@ -1013,12 +1054,10 @@ local function loadHub()
     end)
     if not ok or not SORU then warn("[SORU] gagal load UI.lua") return end
 
-    -- FIX attempt nil: masukin PlaceId sekarang ke Supported biar gak jadi dummy
-    local supported = {
-        129827112113663,126244816328678,113742027864370,120219252362013,95168737547508,100655715596680,79039639963203,74023858073178,119672433229947,114326934417838,73956553001240,134314141048307,
-        74193805629461,85738654635245,111543903102439,96802054849934,76943966208523,
-        119271610514030,72858262610964,110730550789828,132945794147519,109419302424115
-    }
+    -- supported otomatis diambil dari tabel GAMES
+    -- + PlaceId/GameId sekarang biar gak jadi dummy (fix attempt nil)
+    local supported = {}
+    for id in pairs(GAMES) do table.insert(supported, id) end
     table.insert(supported, game.PlaceId)
     table.insert(supported, game.GameId)
 
@@ -1032,61 +1071,9 @@ local function loadHub()
     getgenv().SORU_Window = Window
     getgenv().SORU = SORU
 
-    local placeId = game.PlaceId
-    local universeId = game.GameId
-    local function loadRaw(url)
-        local s,res = pcall(function() return game:HttpGet(url) end)
-        if s and res and res ~= "" then
-            local ok2,err = pcall(function() loadstring(res)() end)
-            if not ok2 then warn("[SORU] error "..url.." : "..tostring(err)) end
-        end
-    end
-
-    if placeId == 114326934417838 or universeId == 114326934417838 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/BAS.lua")
-    elseif placeId == 129827112113663 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua")
-    elseif placeId == 126244816328678 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/DIG")
-    elseif placeId == 113742027864370 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Cut%20A%20Rock")
-    elseif placeId == 120219252362013 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Throw%20Food%20For%20Animal")
-    elseif placeId == 95168737547508 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Steal%20A%20Pet%20And%20Ride%20It")
-    elseif placeId == 100655715596680 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Train%20For%20A%20Egg")
-    elseif placeId == 79039639963203 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Money%20Per%20Click")
-    elseif placeId == 110730550789828 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Chop%20Tree%20For%20Treasure")
-    elseif placeId == 74023858073178 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Bike%20For%20Egg")
-    elseif placeId == 119672433229947 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Ride%20a%20Fish")
-    elseif placeId == 73956553001240 or universeId == 73956553001240 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua")
-    elseif placeId == 134314141048307 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua")
-    elseif placeId == 96802054849934 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/VBL.lua")
-    elseif placeId == 74193805629461 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Mine%20per%20click.lua") 
-    elseif placeId == 85738654635245 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg") 
-    elseif placeId == 111543903102439 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin") 
-    elseif placeId == 119271610514030 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Break%20egg%20for%20brainrot")
-    elseif placeId == 72858262610964 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/tap%20Simulator%20reborn") 
-    elseif placeId == 132945794147519 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/rodeo%20for%20animal") 
-    elseif placeId == 76943966208523 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Clone%20To%20Steal%20Egg.lua")
-    elseif placeId == 109419302424115 then
-        loadRaw("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Swing%20For%20Egg")
-    end
+    -- cek PlaceId dulu, kalo gak ada baru cek GameId (universe)
+    local url = GAMES[game.PlaceId] or GAMES[game.GameId]
+    if url then loadRaw(url) end
 end
 
 -- CEK SAVE MANUAL (biar bisa ganti key = suruh input lagi)
