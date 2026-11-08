@@ -2419,6 +2419,23 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if cur == nil or dash then go(p.key) end
         return p.K
     end
+    function Window:Group(c)
+        if type(c) ~= "table" then c = {Title = tostring(c)} end
+        local gname = tostring(c.Title or c.Name or "Menu")
+        createGroup(gname, c.Icon)
+        local G = {}
+        function G:Tab(tc) return addTab(gname, tc) end
+        G.CreateTab = function(self, tc) tc = tc or {} return addTab(gname, {Title = tc.Name or tc.Title, Icon = tc.Icon, Subtitle = tc.Subtitle, Columns = tc.Columns}) end
+        return G
+    end
+    -- gaya lama (tanpa grup): halaman masuk ke grup "Menu" (atau c.Group)
+    function Window:Tab(c)
+        c = (type(c) == "table") and c or {Title = tostring(c)}
+        local gname = tostring(c.Group or "Menu")
+        if not groups[gname] then createGroup(gname, c.GroupIcon or ((gname == "Menu") and "grid" or nil)) end
+        return addTab(gname, c)
+    end
+    function Window:CreateTab(c) c = c or {} return Window:Tab({Title = c.Name or c.Title, Icon = c.Icon, Group = c.Group, Subtitle = c.Subtitle}) end
 
     -- kontrol window: tombol kosong di video, jadi tutup lewat pill / tombol menu
     bind(UIS.InputBegan, function(i, gp)
