@@ -1,5 +1,27 @@
--- Fishing Hub | SORU UI | Single File
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+-- Fishing Hub | SORU UI | Single File | FIXED FULL
+-- Fix: loader pcall, notif nil-safe, balloon loop, file kepotong dilengkapin
+
+local UI = nil
+local okLoad, errLoad = pcall(function()
+    local url = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
+    local code = nil
+    local ok1, res1 = pcall(function() return game:HttpGet(url) end)
+    if ok1 and res1 and res1 ~= "" then code = res1 end
+    if not code then
+        local ok2, res2 = pcall(function() return game:HttpGetAsync(url) end)
+        if ok2 and res2 and res2 ~= "" then code = res2 end
+    end
+    if not code or code == "" then error("HttpGet kosong / 404 - cek URL di browser") end
+    local func, loadErr = loadstring(code)
+    if not func then error("loadstring gagal: "..tostring(loadErr)) end
+    UI = func()
+    if not UI then error("UI.lua return nil") end
+end)
+if not okLoad or not UI then
+    warn("GAGAL LOAD UI: "..tostring(errLoad))
+    return
+end
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -123,7 +145,7 @@ local function getRarityAndPrice(fishData)
     if info then
         if not rarity then rarity = info.Rarity or info.rarity end
         if info.Price then
-            if weight and info.WeightPool and info.WeightPool[2] and info.WeightPool[2] > 0 then
+            if weight and weight > 0 and info.WeightPool and info.WeightPool[2] and info.WeightPool[2] > 0 then
                 price = math.ceil(weight / (info.WeightPool[2] / 10) * info.Price)
             else
                 price = info.Price
@@ -142,12 +164,10 @@ local function getRarityAndPrice(fishData)
     return tostring(rarity), math.max(0, math.floor(price or 0))
 end
 
--- ============ NOTIF: COPY PASTE LIB + ZIndex 99999 ============
+-- ============ NOTIF ============
 local currentNotification = nil
 local notificationTask = nil
-local function setZ(obj)
-    pcall(function() obj.ZIndex = 99999 end)
-end
+local function setZ(obj) pcall(function() obj.ZIndex = 99999 end) end
 local function createFishNotification(fishName, mutation, fishWeight, estimatedPrice, rarity)
     local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
     if not playerGui then return end
@@ -164,7 +184,7 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
     end
     if currentNotification and currentNotification.Parent then
         local display = currentNotification:GetAttribute("DisplayID")
-        local newID = fishName .. mutation
+        local newID = fishName .. tostring(mutation)
         if display == newID then
             if notificationTask then task.cancel(notificationTask) end
             currentNotification.Size = UDim2.new(0, 270, 0, 85)
@@ -190,7 +210,7 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
     frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 0
     frame.Parent = screenGui
-    frame:SetAttribute("DisplayID", fishName .. mutation)
+    frame:SetAttribute("DisplayID", fishName .. tostring(mutation))
     frame.ZIndex = 99999
     currentNotification = frame
     local corner = Instance.new("UICorner") corner.CornerRadius = UDim.new(0, 12) corner.Parent = frame setZ(corner)
@@ -209,7 +229,7 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
         local rarityColours = { ["Common"] = Color3.fromRGB(100,100,100), ["Uncommon"] = Color3.fromRGB(0,200,0), ["Unusual"] = Color3.fromRGB(0,150,255), ["Rare"] = Color3.fromRGB(150,0,255), ["Legendary"] = Color3.fromRGB(255,150,0), ["Mythical"] = Color3.fromRGB(255,0,100), ["Exotic"] = Color3.fromRGB(255,255,0), ["Secret"] = Color3.fromRGB(255,0,255), ["Divine Secret"] = Color3.fromRGB(255,0,255) }
         rarityBadge.BackgroundColor3 = rarityColours[rarity] or Color3.fromRGB(100,100,100) rarityBadge.BorderSizePixel = 0 rarityBadge.Parent = frame rarityBadge.ZIndex = 99999
         local rc = Instance.new("UICorner") rc.CornerRadius = UDim.new(0, 4) rc.Parent = rarityBadge setZ(rc)
-        local rt = Instance.new("TextLabel") rt.Size = UDim2.new(1, 0, 1, 0) rt.BackgroundTransparency = 1 rt.Text = rarity:sub(1, 6):upper() rt.TextColor3 = Color3.fromRGB(255,255,255) rt.TextSize = 9 rt.Font = Enum.Font.GothamBold rt.Parent = rarityBadge rt.ZIndex = 99999
+        local rt = Instance.new("TextLabel") rt.Size = UDim2.new(1, 0, 1, 0) rt.BackgroundTransparency = 1 rt.Text = tostring(rarity):sub(1, 6):upper() rt.TextColor3 = Color3.fromRGB(255,255,255) rt.TextSize = 9 rt.Font = Enum.Font.GothamBold rt.Parent = rarityBadge rt.ZIndex = 99999
     end
     local weightLabel = Instance.new("TextLabel") weightLabel.Text = "⚖️ " .. string.format("%.1f kg", fishWeight or 0) weightLabel.Size = UDim2.new(0.5, -25, 0, 14) weightLabel.Position = UDim2.new(0, 48, 0, 42) weightLabel.BackgroundTransparency = 1 weightLabel.Font = Enum.Font.Gotham weightLabel.TextColor3 = Color3.fromRGB(200,200,200) weightLabel.TextSize = 10 weightLabel.TextXAlignment = Enum.TextXAlignment.Left weightLabel.Parent = frame weightLabel.ZIndex = 99999
     local priceLabel = Instance.new("TextLabel") priceLabel.Text = "💰 " .. tostring(estimatedPrice or 0) .. " C$" priceLabel.Size = UDim2.new(0.5, -25, 0, 14) priceLabel.Position = UDim2.new(0.5, 0, 0, 42) priceLabel.BackgroundTransparency = 1 priceLabel.Font = Enum.Font.GothamBold priceLabel.TextColor3 = Color3.fromRGB(255,215,0) priceLabel.TextSize = 10 priceLabel.TextXAlignment = Enum.TextXAlignment.Left priceLabel.Parent = frame priceLabel.ZIndex = 99999
@@ -217,7 +237,7 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
     local listLayout = Instance.new("UIListLayout") listLayout.FillDirection = Enum.FillDirection.Horizontal listLayout.SortOrder = Enum.SortOrder.LayoutOrder listLayout.Padding = UDim.new(0, 4) listLayout.Parent = badgeContainer setZ(listLayout)
     local mutationsList = {}
     if mutation and mutation ~= "None" then
-        for m in string.gmatch(mutation, "([^,]+)") do local clean = m:match("^%s*(.-)%s*$") if clean and clean ~= "" then table.insert(mutationsList, clean) end end
+        for m in string.gmatch(tostring(mutation), "([^,]+)") do local clean = m:match("^%s*(.-)%s*$") if clean and clean ~= "" then table.insert(mutationsList, clean) end end
     end
     for _, mut in ipairs(mutationsList) do
         local badge = Instance.new("TextLabel") badge.Size = UDim2.new(0, 0, 0, 16) badge.BorderSizePixel = 0 badge.TextSize = 9 badge.Font = Enum.Font.GothamBold badge.AutomaticSize = Enum.AutomaticSize.X badge.ZIndex = 99999
@@ -252,7 +272,6 @@ local function showCatchNotification(fishData)
     if isSparkling then table.insert(parts, "Sparkling") end
     if mutation and mutation ~= "None" and mutation ~= "" then table.insert(parts, mutation) end
     local mutationDisplay = (#parts > 0) and table.concat(parts, ", ") or "None"
-    -- anti spam: 1 notif per ikan, cooldown 0.5s, tanpa task.wait
     local key = fishName .. "|" .. tostring(math.floor((fishWeight or 0)*10)) .. "|" .. mutationDisplay .. "|" .. tostring(rarity)
     local now = tick()
     if key == LastNotifKey and (now - LastNotifTime) < 0.5 then return end
@@ -381,7 +400,6 @@ if ReelController and not _G.shieldReelHooked then
                     elseif C.ReelMode == "Instant" or C.InstantReel then
                         if self.progress ~= nil and self.progress < 100 then self.progress = 100 end
                     end
-                    -- Bar Size
                     local sz = _G.__var.barSize or 1
                     if self.barScale then self.barScale = math.clamp(sz, 0.05, 1) end
                 end)
@@ -391,21 +409,18 @@ if ReelController and not _G.shieldReelHooked then
     end
     if oldFinish then
         ReelController.Finish = function(self, success, ...)
-            -- NOTIF LANGSUNG, TANPA WAIT, CUMA KALAU SUCCESS DAN BELUM DITAMPILIN
             if success == true and _G.CurrentReelFish and not _G.CatchShownForReel then
                 _G.CatchShownForReel = true
                 _G.LocalFishCaught = (_G.LocalFishCaught or 0) + 1
                 _G.LocalCurrentStreak = (_G.LocalCurrentStreak or 0) + 1
                 _G.LastCatchTick = tick()
                 _G.IsReeling = false
-                -- Perfect
                 if C.AutoPerfectCatch and C.PerfectCatchChance and math.random(100) <= C.PerfectCatchChance then
                     pcall(function() self.perfect = true end)
                     _G.LocalPerfectCatches = (_G.LocalPerfectCatches or 0) + 1
                 end
                 local copy = {}
                 for k,v in pairs(_G.CurrentReelFish) do copy[k]=v end
-                -- panggil langsung, jangan task.delay
                 pcall(function() showCatchNotification(copy) end)
             elseif success == false then
                 _G.LocalCurrentStreak = 0 _G.IsReeling = false
@@ -413,7 +428,6 @@ if ReelController and not _G.shieldReelHooked then
             if oldFinish then return oldFinish(self, success, ...) end
         end
     end
-    -- Fallback: kalau Finish ga ke-hook di versi lain, pantau Instance Finish via hookfunction
     if hookfunction and ReelController.new then
         pcall(function()
             local oldNew = ReelController.new
@@ -421,7 +435,6 @@ if ReelController and not _G.shieldReelHooked then
         end)
     end
 end
--- Anti Stuck Watchdog
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -432,7 +445,6 @@ task.spawn(function()
         end
     end
 end)
--- Auto Drop Bobber on spawn
 local function dropAndReel()
     task.wait(0.3)
     pcall(function() ReplicatedStorage:WaitForChild("events"):WaitForChild("drop_bobber"):FireServer() end)
@@ -526,7 +538,6 @@ local function FindBobber()
     for _, v in ipairs(workspace:GetDescendants()) do if v.Name == "Bobber" and v:IsA("BasePart") then return v end end
     return nil
 end
--- Loop Instant Bobber: teleport tiap Heartbeat kalau aktif
 RunService.Heartbeat:Connect(function()
     if C.InstantBobber then
         pcall(function()
@@ -570,10 +581,7 @@ task.spawn(function()
                     task.spawn(function()
                         task.wait(0.05)
                         local bob = FindBobber()
-                        if bob and C.InstantBobber then
-                            local target = GetTargetPosition(hrp, bob)
-                            if target then InstantTeleportBobber(bob, target, hrp) end
-                        elseif bob and C.InstantCast then
+                        if bob and (C.InstantBobber or C.InstantCast) then
                             local target = GetTargetPosition(hrp, bob)
                             if target then InstantTeleportBobber(bob, target, hrp) end
                         end
@@ -585,7 +593,6 @@ task.spawn(function()
                 local bob = FindBobber()
                 if not bob then castState = S_CAST end
             elseif castState == S_LOCK then
-                -- tunggu lock selesai, jangan spam cast
             end
         end)
     end
@@ -675,7 +682,6 @@ task.spawn(function()
         end
     end
 end)
--- Spear Exploits (Auto Nuke tab exclusive)
 local function startSpearExploits()
     task.spawn(function()
         local remote = ReplicatedStorage:WaitForChild('packages'):WaitForChild('Net'):WaitForChild('RE/SpearFishing/Minigame')
@@ -732,7 +738,6 @@ local function setDeleteChars(v)
     C.DeletePlayer = v
     task.spawn(function() if v then for _, obj in pairs(workspace:GetChildren()) do if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj~=LocalPlayer.Character then pcall(function() obj:Destroy() end) end end for _, plr in pairs(Players:GetPlayers()) do if plr~=LocalPlayer and plr.Character then pcall(function() plr.Character:Destroy() end) end end end end)
 end
--- Shady Coin GUI
 task.spawn(function()
     local function setupShady()
         local gui = LocalPlayer:WaitForChild("PlayerGui", 10) if not gui then return end
@@ -753,7 +758,6 @@ task.spawn(function()
     end
     setupShady() LocalPlayer.CharacterAdded:Connect(function() task.wait(2) setupShady() end)
 end)
--- Disable Oxygen
 local function DisableOxygenScript()
     local char = LocalPlayer.Character if not char then return end
     local res = char:FindFirstChild("Resources") if not res then return end
@@ -798,6 +802,7 @@ local KNOWN_ZONES = {
 }
 local previousLocation = nil
 local teleportData = {}
+local SavedPos = nil
 local function SafeTP(char, targetCF)
     if not char or not targetCF then return end
     pcall(function() local hrp=char:FindFirstChild("HumanoidRootPart") local hum=char:FindFirstChildOfClass("Humanoid") if hrp then hrp.AssemblyLinearVelocity=Vector3.new(0,0,0) hrp.AssemblyAngularVelocity=Vector3.new(0,0,0) if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end char:PivotTo(targetCF) task.wait(0.02) hrp.AssemblyLinearVelocity=Vector3.new(0,0,0) end end)
@@ -854,7 +859,7 @@ task.spawn(function()
             if activeEvents then for _, ev in ipairs(activeEvents:GetChildren()) do local part=ev:IsA("BasePart") and ev or (ev:IsA("Model") and (ev.PrimaryPart or ev:FindFirstChildWhichIsA("BasePart"))) if part then AddEsp(part, "⚔️ "..ev.Name, Color3.fromRGB(255,170,0)) end end end
         elseif EspZoneAll then if fishingFolder then for _, zone in ipairs(fishingFolder:GetChildren()) do local part=zone:IsA("BasePart") and zone or (zone:IsA("Model") and (zone.PrimaryPart or zone:FindFirstChildWhichIsA("BasePart"))) if part then AddEsp(part, zone.Name, Color3.fromRGB(200,200,200)) end end end end
         if EspNpc then local npcs=workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs") if npcs then for _, npc in ipairs(npcs:GetChildren()) do local hrp=npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head") or npc.PrimaryPart if hrp then AddEsp(hrp, "👤 "..npc.Name, Color3.fromRGB(100,255,100)) if hrp:FindFirstChild("BF_ESP") and myRoot then hrp.BF_ESP.TextLabel.Text="👤 "..npc.Name.." ["..math.floor((myRoot.Position-hrp.Position).Magnitude).."m]" end end end end else local npcs=workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs") if npcs then for _, npc in ipairs(npcs:GetChildren()) do local hrp=npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head") or npc.PrimaryPart if hrp then RemoveEsp(hrp) end end end end
-        if EspRoaming then local active=workspace:FindFirstChild("active") local rf=active and active:FindFirstChild("roamingFish") if rf then for _, child in ipairs(rf:GetChildren()) do if child:IsA("Model") or child:IsA("Folder") then for _, model in ipairs(child:GetChildren()) do if model:IsA("Model") then local hb=model:FindFirstChild("Hitbox") or model.PrimaryPart if hb then local fn=model:GetAttribute("FishName") or model.Name local col=Color3.fromRGB(255,255,255) if child.Name=="Common" then col=Color3.fromRGB(200,200,200) elseif child.Name=="Uncommon" then col=Color3.fromRGB(100,255,100) elseif child.Name=="Rare" then col=Color3.fromRGB(50,150,255) elseif child.Name=="Legendary" then col=Color3.fromRGB(255,200,50) elseif child.Name=="Exotic" then col=Color3.fromRGB(255,50,255) elseif child.Name=="Mythical" then col=Color3.fromRGB(255,0,100) end AddEsp(hb, "🐟 "..fn, col, Vector3.new(0,2,0)) if hb:FindFirstChild("BF_ESP") and myRoot then hb.BF_ESP.TextLabel.Text="🐟 "..fn.." ["..math.floor((myRoot.Position-hb.Position).Magnitude).."m]" end end end end end end end end end
+        if EspRoaming then local active=workspace:FindFirstChild("active") local rf=active and active:FindFirstChild("roamingFish") if rf then for _, child in ipairs(rf:GetChildren()) do if child:IsA("Model") or child:IsA("Folder") then for _, model in ipairs(child:GetChildren()) do if model:IsA("Model") then local hb=model:FindFirstChild("Hitbox") or model.PrimaryPart if hb then local fn=model:GetAttribute("FishName") or model.Name local col=Color3.fromRGB(255,255,255) if child.Name=="Common" then col=Color3.fromRGB(200,200,200) elseif child.Name=="Uncommon" then col=Color3.fromRGB(100,255,100) elseif child.Name=="Rare" then col=Color3.fromRGB(50,150,255) elseif child.Name=="Legendary" then col=Color3.fromRGB(255,200,50) elseif child.Name=="Exotic" then col=Color3.fromRGB(255,50,255) elseif child.Name=="Mythical" then col=Color3.fromRGB(255,0,100) end AddEsp(hb, "🐟 "..fn, col, Vector3.new(0,2,0)) if hb:FindFirstChild("BF_ESP") and myRoot then hb.BF_ESP.TextLabel.Text="🐟 "..fn.." ["..math.floor((myRoot.Position-hb.Position).Magnitude).."m]" end end end end end end end end
     end
 end)
 
@@ -891,8 +896,6 @@ AccSetting:AddSlider({ Title = "Chance Perfect Catch", Min = 0, Max = 100, Defau
 AccSetting:AddSlider({ Title = "Bar Size", Min = 0.05, Max = 1, Default = _G.__var.barSize, Rounding = 2, Callback = function(v) _G.__var.barSize = v end })
 AccSetting:AddParagraph({ Title = "Setting Info", Content = "Shake Delay 0.01 paling cepat. Perfect Chance 100% = selalu perfect." })
 
-local snapRaritySel = {}
-local snapMutSel = {}
 AccSnap:AddInput({ Title = "Snap Target Manual (nama, pisah koma)", Value = _G.__var.SnapTargetManual or "", Callback = function(t) _G.__var.SnapTargetManual = t clearSnapCache() end })
 AccSnap:AddDropdown({ Title = "Snap Rarity (Keep Only)", Options = {"Common","Uncommon","Unusual","Rare","Legendary","Mythical","Exotic","Secret","Divine Secret"}, Multi = true, Callback = function(v) _G.__var.SnapRarity = v clearSnapCache() end })
 AccSnap:AddDropdown({ Title = "Snap Mutation / Trait", Options = {"Shiny","Sparkling","Shady","Sludge","Midas","Abyssal","Frozen","Glossy"}, Multi = true, Callback = function(v) _G.__var.SnapMutations = v clearSnapCache() end })
@@ -919,7 +922,6 @@ do
     local BAIT_LIST = {"Worm","Cricket","Leech","Minnow","Firefly","Shrimp","Squid","Sand Dollar","Pearl","Phantom Worm","Enchanted Bait","Seaside Sardine"}
     ShopBait:AddDropdown({ Title = "Auto Buy Bait Type", Content = "Select individual bait", Options = BAIT_LIST, Default = C.SelectedBait, Callback = function(v) C.SelectedBait = v end })
     ShopBait:AddInput({ Title = "Auto Buy Quantity", Content = "Quantity", Value = tostring(C.BuyBaitAmount), Callback = function(t) local a=tonumber(t) if a then C.BuyBaitAmount=a end end })
-    -- Auto Buy Bait loop
     task.spawn(function() while true do task.wait(1) if C.AutoBuyBait then pcall(function() purchase:FireServer(C.SelectedBait, "Fish", nil, C.BuyBaitAmount or 1) end) end end end)
     local itemNames = {}
     local okItems, itemsMod = pcall(function() return require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("modules"):WaitForChild("library"):WaitForChild("items")) end)
@@ -999,136 +1001,77 @@ do
     local function playerNames() local n={"None"} for _, p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then table.insert(n, p.Name) end end return n end
     TeleMain:AddDropdown({ Title="Teleport Player", Options=playerNames(), Default="None", Callback=function(v) selPlayer=v end })
     TeleMain:AddButton({ Title="Teleport ke Pemain", Callback=function() if selPlayer~="None" then local ch=LocalPlayer.Character local root=ch and ch:FindFirstChild("HumanoidRootPart") local tp=Players:FindFirstChild(selPlayer) if not root or not tp or not tp.Character then return end local tr=tp.Character:FindFirstChild("HumanoidRootPart") if not tr then return end local cf=tr.CFrame+Vector3.new(3,1,0) root.Anchored=true task.wait(0.05) local dist=(root.Position-tr.Position).Magnitude if dist>500 then root.CFrame=root.CFrame:Lerp(cf, 0.5) task.wait(0.1) end root.CFrame=cf task.wait(0.05) root.Anchored=false root.AssemblyLinearVelocity=Vector3.zero root.AssemblyAngularVelocity=Vector3.zero end end })
+
+    -- FIXED BALLOON: dulu disini kecampur chat, sekarang loop bener
     TeleBalloon:AddSeperator({ Title="Balloon Teleport" })
-    for _, spot in ipairs(BalloonSpots) do TeleBalloon:AddButton({ Title="Teleport ke "..spot.nameOke, ini versi yang udah gw rapihin jadi 1 struktur `lib` — tinggal copy paste. Yang paling penting udah gw benerin:
+    for _, spot in ipairs(BalloonSpots) do
+        TeleBalloon:AddButton({
+            Title = "Teleport ke "..spot.name,
+            Callback = function()
+                local ch = LocalPlayer.Character
+                local hrp = ch and ch:FindFirstChild("HumanoidRootPart")
+                if hrp then SafeTP(ch, CFrame.new(spot.pos)) end
+            end
+        })
+    end
 
-**1. Notif Fix — `lib/Notif.lua`**
-Rarity yang kemarin `nil` itu karena lu ambil dari `fishData.Rarity` yang kadang gak ada. Sekarang selalu lookup ke `fish` lib + fallback. Delay ilang karena gak nunggu `PlayerGui` / event lama, langsung `Instance.new` + `ZIndex = 99999` + `DisplayOrder = 99999`.
-
-```lua
--- lib/Notif.lua
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
-local LocalPlayer = Players.LocalPlayer
-
-local Notif = {}
-local currentFrame = nil
-local currentTask = nil
-
-local function getFishLib()
-    local ok, lib = pcall(function()
-        return require(ReplicatedStorage.shared.modules.library.fish)
-    end)
-    return ok and lib or nil
+    TeleSaved:AddParagraph({ Title = "Saved Position", Content = "Save posisi sekarang, balik lagi kapan aja." })
+    TeleSaved:AddButton({ Title = "Save Current Position", Callback = function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then SavedPos = hrp.CFrame _G.SavedPos = SavedPos print("Saved:", tostring(SavedPos)) end
+    end })
+    TeleSaved:AddButton({ Title = "Teleport to Saved", Callback = function()
+        local ch = LocalPlayer.Character
+        if ch and SavedPos then SafeTP(ch, SavedPos) end
+    end })
+    TeleSaved:AddButton({ Title = "Clear Saved", Callback = function() SavedPos = nil _G.SavedPos = nil end })
+    TeleSaved:AddButton({ Title = "Back to Previous", Callback = function()
+        local ch = LocalPlayer.Character
+        if ch and previousLocation then SafeTP(ch, previousLocation) end
+    end })
 end
 
-local function getMutLib()
-    local ok, lib = pcall(function()
-        return require(ReplicatedStorage.shared.modules.fishing.mutations)
-    end)
-    return ok and lib or nil
-end
+-- ESP GROUP
+local EspGroup = Window:Group({ Title = "ESP", Icon = "eye" })
+local EspTab = EspGroup:Tab({ Title = "Main", Icon = "home", Subtitle = "ESP players, zones, NPC" })
+local EspSub = EspTab:SubTab({ Title = "ESP" })
+local AccEsp = EspSub:Accordion({ Title = "ESP", Column = 1, Open = true })
+local AccEsp2 = EspSub:Accordion({ Title = "ESP Events", Column = 2, Open = true })
+AccEsp:AddToggle({ Title = "ESP Players", Default = false, Callback = function(v) EspPlayers = v end })
+AccEsp:AddToggle({ Title = "ESP NPC", Default = false, Callback = function(v) EspNpc = v end })
+AccEsp:AddToggle({ Title = "ESP Roaming Fish", Default = false, Callback = function(v) EspRoaming = v end })
+AccEsp2:AddToggle({ Title = "ESP Zone", Default = false, Callback = function(v) EspZone = v end })
+AccEsp2:AddToggle({ Title = "ESP All Zones", Default = false, Callback = function(v) EspZoneAll = v end })
+AccEsp2:AddToggle({ Title = "ESP Hunts / Events", Default = false, Callback = function(v) EspHunts = v end })
 
-function Notif.Show(fishData)
-    if not fishData then return end
-    if not _G.Config.FishNotificationEnabled then return end
+-- MOVEMENT + MISC GROUP
+local MiscGroup = Window:Group({ Title = "Misc", Icon = "settings" })
+local MiscTab = MiscGroup:Tab({ Title = "Main", Icon = "home", Subtitle = "Movement, delete, misc" })
+local MiscSub = MiscTab:SubTab({ Title = "Misc" })
+local AccMove = MiscSub:Accordion({ Title = "Movement", Column = 1, Open = true })
+local AccMisc = MiscSub:Accordion({ Title = "Delete / Misc", Column = 2, Open = true })
+local AccExtra = MiscSub:Accordion({ Title = "Extra", Column = 1, Open = false })
 
-    local fishName = fishData.Name or "Unknown"
-    local weight = fishData.Weight or 0
-    local fishLib = getFishLib()
-    local mutLib = getMutLib()
-    local info = fishLib and (fishLib[fishName] or fishLib[fishData.Id])
-    local rarity = fishData.Rarity or fishData.rarity or (info and (info.Rarity or info.rarity)) or "Common"
-    local price = info and info.Price or 0
+AccMove:AddToggle({ Title = "WalkSpeed", Default = false, Callback = function(v) SetSpeed(v, speedValue) end })
+AccMove:AddSlider({ Title = "WalkSpeed Value", Min = 16, Max = 200, Default = 16, Rounding = 0, Suffix = "", Callback = function(v) speedValue = v if speedEnabled then SetSpeed(true, v) end end })
+AccMove:AddToggle({ Title = "Infinite Jump", Default = false, Callback = function(v) SetInfJump(v) end })
+AccMove:AddToggle({ Title = "NoClip", Default = false, Callback = function(v) SetNoClip(v) end })
+AccMove:AddToggle({ Title = "Remove Fog", Default = false, Callback = function(v) SetRemoveFog(v) end })
+AccMove:AddToggle({ Title = "Jump Power Boost", Default = false, Callback = function(v) SetJumpPower(v, 100) end })
 
-    if info and weight > 0 and info.WeightPool then
-        price = math.ceil(weight / (info.WeightPool[2] / 10) * (info.Price or 0))
-    end
-    if fishData.Shiny then price = math.ceil(price * 1.85) end
-    if fishData.Sparkling then price = math.ceil(price * 1.85) end
-    if fishData.Mutation and mutLib and mutLib.Mutations and mutLib.Mutations[fishData.Mutation] then
-        price = math.ceil(price * (mutLib.Mutations[fishData.Mutation].PriceMultiply or 1))
-    end
+AccMisc:AddToggle({ Title = "Delete Fish Model", Default = C.DeleteFishModel, Callback = function(v) setDeleteFishModel(v) end })
+AccMisc:AddToggle({ Title = "Delete Map", Default = C.DeleteMap, Callback = function(v) setDeleteMap(v) end })
+AccMisc:AddToggle({ Title = "Delete Player (Other)", Default = C.DeletePlayer, Callback = function(v) setDeleteChars(v) end })
+AccMisc:AddToggle({ Title = "Disable Oxygen", Default = C.DisableOxygen, Callback = function(v) C.DisableOxygen = v end })
+AccMisc:AddToggle({ Title = "Delete Animation", Default = C.DeleteAnimation, Callback = function(v) C.DeleteAnimation = v end })
 
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if not pg then return end
+AccExtra:AddToggle({ Title = "Break Streak", Default = C.BreakStreak, Callback = function(v) C.BreakStreak = v end })
+AccExtra:AddSlider({ Title = "Break Streak Threshold", Min = 1, Max = 50, Default = C.BreakStreakThreshold, Rounding = 0, Callback = function(v) C.BreakStreakThreshold = v end })
+AccExtra:AddToggle({ Title = "Dupe Fisch (Spear)", Default = C.DupeFischToggle, Callback = function(v) C.DupeFischToggle = v if v then startSpearExploits() end end })
+AccExtra:AddToggle({ Title = "Auto Hop Cosmic", Default = C.AutoHopCosmic, Callback = function(v) C.AutoHopCosmic = v end })
+AccExtra:AddToggle({ Title = "Auto Buy Aurora", Default = C.AutoBuyAurora, Callback = function(v) C.AutoBuyAurora = v end })
+AccExtra:AddToggle({ Title = "Discord Webhook", Default = C.DiscordWebhookEnabled, Callback = function(v) C.DiscordWebhookEnabled = v end })
+AccExtra:AddInput({ Title = "Discord Webhook URL", Value = C.DiscordWebhookURL or "", Callback = function(t) C.DiscordWebhookURL = t end })
+AccExtra:AddParagraph({ Title = "Stats", Content = "Cek stats di console: _G.LocalFishCaught, _G.LocalCurrentStreak, _G.LocalPerfectCatches" })
 
-    -- Instance.new terus, bukan clone dari game
-    local gui = pg:FindFirstChild("FishNotificationUI")
-    if not gui then
-        gui = Instance.new("ScreenGui")
-        gui.Name = "FishNotificationUI"
-        gui.ResetOnSpawn = false
-        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        gui.DisplayOrder = 99999
-        gui.IgnoreGuiInset = true
-        gui.Parent = pg
-    end
-
-    -- Kalau ikan sama, refresh aja jangan numpuk
-    if currentFrame and currentFrame.Parent and currentFrame:GetAttribute("DisplayID") == fishName..tostring(fishData.Mutation) then
-        if currentTask then task.cancel(currentTask) end
-        currentTask = task.delay(4, function() Notif.Hide() end)
-        return
-    end
-    Notif.Hide(true)
-
-    local frame = Instance.new("Frame")
-    frame.Name = "NotifFrame"
-    frame.Size = UDim2.new(0, 270, 0, 85)
-    frame.Position = UDim2.new(0, -300, 0.5, -43)
-    frame.BackgroundColor3 = Color3.fromRGB(15,15,15)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.ZIndex = 99999
-    frame:SetAttribute("DisplayID", fishName..tostring(fishData.Mutation))
-    frame.Parent = gui
-    currentFrame = frame
-
-    local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0,12); corner.Parent = frame
-    local stroke = Instance.new("UIStroke"); stroke.Thickness = 1.2; stroke.Color = Color3.fromRGB(80,80,80); stroke.Transparency = 0.6; stroke.Parent = frame
-
-    local title = Instance.new("TextLabel")
-    title.Text = fishName; title.Size = UDim2.new(1,-55,0,18); title.Position = UDim2.new(0,48,0,22)
-    title.BackgroundTransparency = 1; title.Font = Enum.Font.GothamBold; title.TextColor3 = Color3.new(1,1,1)
-    title.TextSize = 13; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 99999; title.Parent = frame
-
-    local colors = {Common=Color3.fromRGB(100,100,100), Uncommon=Color3.fromRGB(0,200,0), Unusual=Color3.fromRGB(0,150,255), Rare=Color3.fromRGB(150,0,255), Legendary=Color3.fromRGB(255,150,0), Mythical=Color3.fromRGB(255,0,100), Exotic=Color3.fromRGB(255,255,0), Secret=Color3.fromRGB(255,0,0)}
-    local badge = Instance.new("Frame"); badge.Size = UDim2.new(0,50,0,16); badge.Position = UDim2.new(1,-58,0,24)
-    badge.BackgroundColor3 = colors[rarity] or colors.Common; badge.BorderSizePixel = 0; badge.ZIndex = 99999; badge.Parent = frame
-    local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0,4); bc.Parent = badge
-    local bt = Instance.new("TextLabel"); bt.Size = UDim2.new(1,0,1,0); bt.BackgroundTransparency = 1; bt.Text = rarity:sub(1,3):upper()
-    bt.TextColor3 = Color3.new(1,1,1); bt.TextSize = 9; bt.Font = Enum.Font.GothamBold; bt.ZIndex = 99999; bt.Parent = badge
-
-    local wl = Instance.new("TextLabel"); wl.Text = "⚖️ "..string.format("%.1f kg", weight); wl.Size = UDim2.new(0.5,-25,0,14); wl.Position = UDim2.new(0,48,0,42)
-    wl.BackgroundTransparency = 1; wl.Font = Enum.Font.Gotham; wl.TextColor3 = Color3.fromRGB(200,200,200); wl.TextSize = 10; wl.TextXAlignment = Enum.TextXAlignment.Left; wl.ZIndex = 99999; wl.Parent = frame
-
-    local pl = Instance.new("TextLabel"); pl.Text = "💰 "..tostring(price).." C$"; pl.Size = UDim2.new(0.5,-25,0,14); pl.Position = UDim2.new(0.5,0,0,42)
-    pl.BackgroundTransparency = 1; pl.Font = Enum.Font.GothamBold; pl.TextColor3 = Color3.fromRGB(255,215,0); pl.TextSize = 10; pl.TextXAlignment = Enum.TextXAlignment.Left; pl.ZIndex = 99999; pl.Parent = frame
-
-    -- Mutasi badge
-    local muts = {}
-    if fishData.Shiny then table.insert(muts, "Shiny") end
-    if fishData.Sparkling then table.insert(muts, "Sparkling") end
-    if fishData.Mutation and fishData.Mutation ~= "None" and fishData.Mutation ~= "" then table.insert(muts, fishData.Mutation) end
-    if #muts > 0 then
-        local ml = Instance.new("TextLabel"); ml.Text = table.concat(muts, ", "); ml.Size = UDim2.new(1,-55,0,14); ml.Position = UDim2.new(0,48,0,60)
-        ml.BackgroundTransparency = 1; ml.Font = Enum.Font.GothamBold; ml.TextColor3 = Color3.fromRGB(180,120,255); ml.TextSize = 10; ml.TextXAlignment = Enum.TextXAlignment.Left; ml.ZIndex = 99999; ml.Parent = frame
-    end
-
-    TweenService:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Position = UDim2.new(0,20,0.5,-43)}):Play()
-    currentTask = task.delay(4, function() Notif.Hide() end)
-end
-
-function Notif.Hide(instant)
-    if currentFrame and currentFrame.Parent then
-        local f = currentFrame; currentFrame = nil
-        if instant then f:Destroy() return end
-        local tw = TweenService:Create(f, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Position = UDim2.new(0,-300,0.5,-43), BackgroundTransparency = 1})
-        tw:Play(); tw.Completed:Wait(); f:Destroy()
-    end
-end
-
-_G.ShowCatchNotification = function(fishData) Notif.Show(fishData) end
-return Notif
+print("Fishing Hub FIXED FULL loaded - UI:", tostring(UI ~= nil))
