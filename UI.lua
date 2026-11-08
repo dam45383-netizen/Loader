@@ -2401,6 +2401,109 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                 end
             end)
 
+            ---------------- BARIS 4b: Join Small Server (cari server game ini yang paling sepi + ping rendah) ----------------
+            do
+                local PAGES, W_PLAYER = 3, 15 -- PAGES = berapa halaman server (x100) yang dicek | W_PLAYER = 1 pemain dianggap setara berapa ms ping
+                local TeleportService = game:GetService("TeleportService")
+                local httpReq = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
+                local tried, busy = {}, false -- tried = server yang sudah pernah dicoba, supaya klik berikutnya pindah ke kandidat lain
+
+                local function httpGet(url)
+                    local ok, body = pcall(function() return game:HttpGet(url) end)
+                    if ok and type(body) == "string" and body ~= "" then return body end
+                    if httpReq then
+                        local ok2, res = pcall(httpReq, {Url = url, Method = "GET"})
+                        if ok2 and type(res) == "table" and res.Body and (res.StatusCode or 200) == 200 then return res.Body end
+                    end
+                end
+
+                local sr = rowF(46)
+                local c = card(sr, UDim2.fromScale(1, 1))
+                c.ClipsDescendants = true
+                local cst = c:FindFirstChildOfClass("UIStroke")
+                chip(c, "search", 12, 12)
+                lb(c, "Join Small Server", 44, 7, UDim2.new(1, -90, 0, 16), nil, {W = 3, TextSize = 12})
+                local status = lb(c, "Emptiest server with the lowest ping", 44, 24, UDim2.new(1, -90, 0, 12), nil, {W = 1, TextSize = 9, TextColor3 = T.faint})
+                local goB = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(22, 22), BackgroundColor3 = T.field, BorderSizePixel = 0}, c)
+                corner(goB, "full")
+                mkIcon(goB, "play", 8, T.mid, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+                local function setStatus(s, col) status.Text, status.TextColor3 = s, col or T.faint end
+
+                -- ambil server Public game ini (urut paling sedikit pemain), skor = pemain * W_PLAYER + ping (makin kecil makin bagus)
+                local function findServer()
+                    local base = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&excludeFullGames=true&limit=100"):format(game.PlaceId)
+                    local best, bestScore, cursor
+                    for page = 1, PAGES do
+                        setStatus(("Searching servers... (%d/%d)"):format(page, PAGES), T.mid)
+                        local body = httpGet(base .. (cursor and ("&cursor=" .. cursor) or ""))
+                        if not body then break end
+                        local ok, res = pcall(function() return Http:JSONDecode(body) end)
+                        if not (ok and type(res) == "table" and type(res.data) == "table") then break end
+                        for _, s in ipairs(res.data) do
+                            local pl, mx = tonumber(s.playing) or 0, tonumber(s.maxPlayers) or 0
+                            if s.id ~= game.JobId and pl < mx and not tried[s.id] then
+                                local score = pl * W_PLAYER + (tonumber(s.ping) or 999)
+                                if not bestScore or score < bestScore then best, bestScore = s, score end
+                            end
+                        end
+                        cursor = res.nextPageCursor
+                        if type(cursor) ~= "string" then break end
+                        task.wait(0.4) -- jeda kecil supaya tidak kena rate limit
+                    end
+                    return best
+                end
+
+                local function joinSmall()
+                    if busy then return end
+                    if game.PrivateServerId ~= "" then
+                        setStatus("Private server, can't search", T.bad)
+                        Window.Notify("Join Small Server", "This is a private server", T.bad, 3)
+                        return
+                    end
+                    busy = true
+                    task.spawn(function()
+                        local best = findServer()
+                        if not best then
+                            busy = false
+                            setStatus("No server found, tap to retry", T.bad)
+                            Window.Notify("Join Small Server", "No server found", T.bad, 3)
+                            return
+                        end
+                        tried[best.id] = true
+                        local ping = tonumber(best.ping)
+                        local info = ("%d/%d players%s"):format(best.playing, best.maxPlayers, ping and (" · " .. math.floor(ping + 0.5) .. " ms") or "")
+                        setStatus("Joining " .. info, T.ok)
+                        Window.Notify("Join Small Server", info, T.ok, 3)
+                        local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LP) end)
+                        if ok then
+                            task.delay(10, function() busy = false end)
+                        else
+                            busy = false
+                            setStatus("Teleport failed, tap to retry", T.bad)
+                            Window.Notify("Join Small Server", tostring(err), T.bad, 4)
+                        end
+                    end)
+                end
+                bind(TeleportService.TeleportInitFailed, function(plr, _, msg)
+                    if plr ~= LP or not busy then return end
+                    busy = false
+                    setStatus("Teleport failed: " .. tostring(msg), T.bad)
+                end)
+
+                local hit = new("TextButton", {Name = "Hit", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 2}, c)
+                local hov = false
+                local function rest()
+                    play(c, {BackgroundColor3 = hov and T.hover or T.el}, 0.2)
+                    if cst then play(cst, {Color = hov and T.accent or T.outline, Transparency = hov and 0.45 or 0.4}, 0.2) end
+                end
+                hit.MouseEnter:Connect(function() hov = true rest() end)
+                hit.MouseLeave:Connect(function() hov = false rest() end)
+                hit.MouseButton1Click:Connect(function()
+                    ripple(c, 220)
+                    joinSmall()
+                end)
+            end
+
             ---------------- BARIS 5: community (leaderboard / changelogs) ----------------
             local cm = new("Frame", {Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = T.el, BorderSizePixel = 0, LayoutOrder = nextO()}, root)
             corner(cm, 10)
