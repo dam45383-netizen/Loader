@@ -1,5 +1,7 @@
 
 -- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
+-- Dashboard OTOMATIS: grup "Loaded" > tab "Dashboard" langsung ada begitu CreateWindow jalan (tidak perlu dipanggil). Akses isinya lewat Window.Dashboard.
+--   Opsi: AutoDashboard = false (matikan), DashboardGroup = "Nama Grup" (ganti nama grup, default "Loaded").
 local SORU = {Version = "1.2"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
@@ -853,13 +855,13 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         g.holder.Visible = g.vis ~= false
         if anim then play(g.holder, {Size = UDim2.new(1, 0, 0, h)}, 0.25) else g.holder.Size = UDim2.new(1, 0, 0, h) end
     end
-local function isDash(n) return tostring(n):lower() == "dashboard" end
+
     local function createGroup(name, icon)
         if groups[name] then return groups[name] end
         local g = {name = name, pages = {}, open = true}
         groups[name] = g
         glist[#glist + 1] = g
-        g.holder = new("Frame", {Name = name .. "Group", Size = UDim2.new(1, 0, 0, GH), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = isDash(name) and 0 or #glist, nav)
+        g.holder = new("Frame", {Name = name .. "Group", Size = UDim2.new(1, 0, 0, GH), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = #glist}, nav)
         g.head = new("TextButton", {Name = "Header", Size = UDim2.new(1, 0, 0, GH), BackgroundColor3 = T.el, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.holder)
         corner(g.head, 7)
         g.icon = mkIcon(g.head, icon or "dot", 12, T.text, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
@@ -946,7 +948,7 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
         if not hidden then
             local g = createGroup(gname, nil)
             p.group = g
-            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = isDash(name) and 0 or #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.el, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
+            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.el, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
             corner(p.item, 8)
             -- pil aktif (gradien horizontal), hanya tampil saat tab dipilih
             p.pill = new("Frame", {Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
@@ -2409,10 +2411,12 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
         end
     end
 
+    local dashGroup -- nama grup Dashboard otomatis (diisi setelah cek support game)
     local function addTab(gname, c)
         c = (type(c) == "table") and c or {Title = tostring(c)}
         local title = tostring(c.Title or c.Name or "Tab")
         local dash = title:lower() == "dashboard" and c.Dashboard ~= false
+        if dash and Window.Dashboard then return Window.Dashboard end -- sudah ada otomatis, jangan dobel
         local p = createPage(gname, title, c.Icon, dash and "Overview, leaderboard and changelogs" or (c.Subtitle or c.Desc), dash and 1 or c.Columns)
         Window.Tabs[p.key] = p
         if dash then buildDashboard(p) end
@@ -2422,6 +2426,7 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
     function Window:Group(c)
         if type(c) ~= "table" then c = {Title = tostring(c)} end
         local gname = tostring(c.Title or c.Name or "Menu")
+        if dashGroup and gname:lower() == "dashboard" then gname = dashGroup end -- kode lama: Group "Dashboard" ikut masuk grup otomatis
         createGroup(gname, c.Icon)
         local G = {}
         function G:Tab(tc) return addTab(gname, tc) end
@@ -2431,6 +2436,7 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
     -- gaya lama (tanpa grup): halaman masuk ke grup "Menu" (atau c.Group)
     function Window:Tab(c)
         c = (type(c) == "table") and c or {Title = tostring(c)}
+        if Window.Dashboard and tostring(c.Title or c.Name or ""):lower() == "dashboard" and c.Dashboard ~= false then return Window.Dashboard end
         local gname = tostring(c.Group or "Menu")
         if not groups[gname] then createGroup(gname, c.GroupIcon or ((gname == "Menu") and "grid" or nil)) end
         return addTab(gname, c)
@@ -2469,6 +2475,14 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
         function Window:Panel() return dummy() end
         Window.CreateTab = Window.Tab
         return Window
+    end
+
+    -- DASHBOARD OTOMATIS: grup "Loaded" > tab "Dashboard", dibuat langsung di sini (pertama di sidebar, jadi halaman awal).
+    -- Tidak perlu Window:Group / :Tab dari script kamu. Isi tambahan: Window.Dashboard:Accordion({...}), dst.
+    if C.AutoDashboard ~= false then
+        dashGroup = tostring(C.DashboardGroup or "Loaded")
+        local dg = Window:Group({Title = dashGroup, Icon = "grid"})
+        Window.Dashboard = dg:Tab({Title = "Dashboard", Icon = "grid"})
     end
 
     ------------------------------------------------------------------
@@ -2872,8 +2886,7 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
     -- DEMO: tiruan isi video (C.Demo = true). Dashboard / GrowBlox (Farm + 6 sub-tab) / Settings
     ------------------------------------------------------------------
     if C.Demo then
-        local D = Window:Group({Title = "Dashboard", Icon = "grid"})
-        local dash = D:Tab({Title = "Dashboard", Icon = "grid", Subtitle = "Overview and component showcase"})
+        local dash = Window.Dashboard or Window:Group({Title = "Dashboard", Icon = "grid"}):Tab({Title = "Dashboard", Icon = "grid"}) -- sudah otomatis di grup "Loaded"
         local c1 = dash:Accordion({Title = "Components", Icon = "layers", Column = 1})
         c1:Button({Title = "Button", Desc = "Click me", Callback = function() notify("Button", "Clicked", T.accent, 1.5) end})
         c1:Toggle({Title = "Toggle", Desc = "Switch with a description", Flag = "Demo_Toggle", Default = true})
