@@ -859,7 +859,7 @@ local function isDash(n) return tostring(n):lower() == "dashboard" end
         local g = {name = name, pages = {}, open = true}
         groups[name] = g
         glist[#glist + 1] = g
-        g.holder = new("Frame", {Name = name .. "Group", Size = UDim2.new(1, 0, 0, GH), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = isDash(name) and 0 or #glist
+        g.holder = new("Frame", {Name = name .. "Group", Size = UDim2.new(1, 0, 0, GH), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = isDash(name) and 0 or #glist, nav)
         g.head = new("TextButton", {Name = "Header", Size = UDim2.new(1, 0, 0, GH), BackgroundColor3 = T.el, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.holder)
         corner(g.head, 7)
         g.icon = mkIcon(g.head, icon or "dot", 12, T.text, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
