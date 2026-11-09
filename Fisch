@@ -1,30 +1,100 @@
--- Load UI SORU
-local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
+print("[FishingHub] v2 loading...")
+local UI_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
 
--- ===== ANTI DOUBLE LOAD =====
-if _G.FishingHub and _G.FishingHub.Cleanup then pcall(_G.FishingHub.Cleanup) end
+local function fetchSource(url)
+    local req = http_request or (syn and syn.request) or request
+    if req then
+        local ok, res = pcall(function()
+            return req({Url = url, Method = "GET"})
+        end)
+        if ok and res and res.Body and #res.Body > 100 and not res.Body:find("404") then
+            return res.Body
+        end
+        if ok and res and type(res) == "string" and #res > 100 then
+            return res
+        end
+    end
+    if game and game.HttpGet then
+        local ok, res = pcall(function()
+            return game:HttpGet(url)
+        end)
+        if ok and res and type(res) == "string" and #res > 100 and not res:find("404") then
+            return res
+        end
+    end
+    if game and game.HttpGetAsync then
+        local ok, res = pcall(function()
+            return game:HttpGetAsync(game, url)
+        end)
+        if ok and res and type(res) == "string" and #res > 100 then
+            return res
+        end
+    end
+    return nil
+end
+
+local src = fetchSource(UI_URL)
+if not src then
+    warn("[FishingHub] Gagal download UI.lua, cek link / executor lu ga support HttpGet")
+    return
+end
+print("[FishingHub] dapet UI.lua panjang " .. #src)
+
+local loadFn = loadstring or load
+if not loadFn then
+    warn("[FishingHub] loadstring/load nil di executor lu")
+    return
+end
+
+local okC, compiled = pcall(function()
+    return loadFn(src)
+end)
+if not okC or not compiled then
+    warn("[FishingHub] Gagal compile UI.lua: " .. tostring(compiled))
+    warn("[FishingHub] Awal file: " .. src:sub(1, 200))
+    return
+end
+
+local okUI, UI = pcall(compiled)
+if not okUI or not UI then
+    warn("[FishingHub] Gagal jalanin UI.lua: " .. tostring(UI))
+    return
+end
+print("[FishingHub] UI ke-load")
+
+-- Anti double load
+if _G.FishingHub and _G.FishingHub.Cleanup then
+    pcall(_G.FishingHub.Cleanup)
+end
 _G.FishingHub = _G.FishingHub or {}
 _G.FishingHub.RunId = (_G.FishingHub.RunId or 0) + 1
 local MY_RUN_ID = _G.FishingHub.RunId
 _G.FishingHub.Connections = {}
 _G.FishingHub.CleanupFuncs = {}
 _G.FishingHub.ActiveToasts = _G.FishingHub.ActiveToasts or {}
-_G.FishingHub.NotifGui = _G.FishingHub.NotifGui or nil
 _G.NotifDedup = _G.NotifDedup or {
     seenData = setmetatable({}, {__mode = "k"}),
     lastKey = "",
     lastTime = 0,
-    activeKeys = {},
+    activeKeys = {}
 }
 _G.FishingHub.Cleanup = function()
     for _, c in ipairs(_G.FishingHub.Connections or {}) do
-        pcall(function() if c and c.Disconnect then c:Disconnect() end end)
+        pcall(function()
+            if c and c.Disconnect then
+                c:Disconnect()
+            end
+        end)
     end
-    for _, fn in ipairs(_G.FishingHub.CleanupFuncs or {}) do pcall(fn) end
+    for _, fn in ipairs(_G.FishingHub.CleanupFuncs or {}) do
+        pcall(fn)
+    end
     if _G.FishingHub.Controller and _G.FishingHub.OriginalStartReel then
         pcall(function()
             _G.FishingHub.Controller.StartReel = _G.FishingHub.OriginalStartReel
-            if _G.FishingHub.OriginalUpdate then _G.FishingHub.Controller.Update = _G.FishingHub.OriginalUpdate end
+            if _G.FishingHub.OriginalUpdate then
+                _G.FishingHub.Controller.Update = _G.FishingHub.OriginalUpdate
+            end
         end)
     end
     _G.FishingHub.Controller = nil
@@ -34,12 +104,15 @@ _G.FishingHub.Cleanup = function()
     _G.FishingHub.Connections = {}
     _G.FishingHub.CleanupFuncs = {}
 end
+
 local function trackConn(conn)
-    if conn then table.insert(_G.FishingHub.Connections, conn) end
+    if conn then
+        table.insert(_G.FishingHub.Connections, conn)
+    end
     return conn
 end
 
--- ===== Config =====
+-- Config
 _G.Config = _G.Config or {}
 _G.Config.AutoReel = _G.Config.AutoReel or false
 _G.Config.ReelMode = _G.Config.ReelMode or "Legit"
@@ -59,7 +132,6 @@ _G.__var = _G.__var or {}
 _G._NextCastAt = _G._NextCastAt or 0
 _G.LastReelEndTick = _G.LastReelEndTick or 0
 _G.Config.selectedZone = _G.Config.selectedZone or "None"
--- Exclusive defaults
 _G.Config.FishNotificationEnabled = (_G.Config.FishNotificationEnabled == nil) and true or _G.Config.FishNotificationEnabled
 _G.Config.DiscordWebhookEnabled = _G.Config.DiscordWebhookEnabled or false
 _G.Config.DiscordWebhookURL = _G.Config.DiscordWebhookURL or ""
@@ -82,6 +154,12 @@ _G.Config.VolleySide = _G.Config.VolleySide or "Side 1"
 _G.Config.VolleyTargetScore = _G.Config.VolleyTargetScore or 15
 _G.Config.AutoJoinVolley = _G.Config.AutoJoinVolley or false
 _G.Config.AutoVolley = _G.Config.AutoVolley or false
+_G.Config.AutoBuyBait = _G.Config.AutoBuyBait or false
+_G.Config.SelectedBait = _G.Config.SelectedBait or "Worm"
+_G.Config.BuyBaitAmount = _G.Config.BuyBaitAmount or 1
+_G.Config.AutoBuyCarrot = _G.Config.AutoBuyCarrot or false
+_G.Config.AutoBuyAllRods = _G.Config.AutoBuyAllRods or false
+_G.Config.AutoBuyMerlin = _G.Config.AutoBuyMerlin or false
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
@@ -90,55 +168,77 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
-local Window = nil
 
--- ===== NOTIF SYSTEM - PAKE LOGIC DARI EXCLUSIVE SNIPPET + DEDUP LAMA =====
+-- NOTIF SYSTEM, pake logic Exclusive
 local fishLib = nil
 local mutLib = nil
 local PlayerGuiCache = nil
+
 local function getPlayerGui()
-    if PlayerGuiCache then return PlayerGuiCache end
+    if PlayerGuiCache then
+        return PlayerGuiCache
+    end
     PlayerGuiCache = LocalPlayer:FindFirstChild("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui", 5)
     return PlayerGuiCache
 end
+
 local function getFishLib()
-    if fishLib then return fishLib end
+    if fishLib then
+        return fishLib
+    end
     pcall(function()
         local shared = ReplicatedStorage:WaitForChild("shared", 5)
         local modules = shared and shared:WaitForChild("modules", 5)
         local library = modules and modules:WaitForChild("library", 5)
         local fishMod = library and library:WaitForChild("fish", 5)
-        if fishMod then fishLib = require(fishMod) end
+        if fishMod then
+            fishLib = require(fishMod)
+        end
     end)
     return fishLib
 end
+
 local function getMutLib()
-    if mutLib then return mutLib end
+    if mutLib then
+        return mutLib
+    end
     pcall(function()
         local shared = ReplicatedStorage:WaitForChild("shared", 5)
         local modules = shared and shared:WaitForChild("modules", 5)
         local fishing = modules and modules:WaitForChild("fishing", 5)
         local mutMod = fishing and fishing:WaitForChild("mutations", 5)
-        if mutMod then mutLib = require(mutMod) end
+        if mutMod then
+            mutLib = require(mutMod)
+        end
     end)
     return mutLib
 end
--- Fallback DB lama, kalo fishLib gagal
+
 local FishDBCache = nil
+
 local function collectFishTable(tbl, out)
-    if type(tbl) ~= "table" then return end
+    if type(tbl) ~= "table" then
+        return
+    end
     for k, v in pairs(tbl) do
         if type(v) == "table" then
             local fname = v.Name or v.name or v.FishName or v.DisplayName
-            if not fname and type(k) == "string" then fname = k end
+            if not fname and type(k) == "string" then
+                fname = k
+            end
             local rarity = v.Rarity or v.rarity or v.RarityName or v.Tier or v.Rare
             local price = v.Price or v.SellPrice or v.SellValue or v.BasePrice or v.Value or v.Worth or v.Cost
-            if fname and (rarity ~= nil or price ~= nil) then out[tostring(fname):lower()] = { Rarity = rarity, Price = price } end
+            if fname and (rarity ~= nil or price ~= nil) then
+                out[tostring(fname):lower()] = { Rarity = rarity, Price = price }
+            end
         end
     end
 end
+
 local function getFishDB()
-    if FishDBCache then return FishDBCache end
+    if FishDBCache then
+        return FishDBCache
+    end
     FishDBCache = {}
     for _, mod in ipairs(ReplicatedStorage:GetDescendants()) do
         if mod:IsA("ModuleScript") then
@@ -146,17 +246,21 @@ local function getFishDB()
             if ok and type(tbl) == "table" then
                 collectFishTable(tbl, FishDBCache)
                 for _, subKey in ipairs({"Data", "Fishes", "Fish", "AllFish", "FishesData", "FishData"}) do
-                    if type(tbl[subKey]) == "table" then collectFishTable(tbl[subKey], FishDBCache) end
+                    if type(tbl[subKey]) == "table" then
+                        collectFishTable(tbl[subKey], FishDBCache)
+                    end
                 end
             end
         end
     end
     return FishDBCache
 end
+
 local function lookupStatic(name)
-    if not name then return nil end
-    local db = getFishDB()
-    return db[tostring(name):lower()]
+    if not name then
+        return nil
+    end
+    return getFishDB()[tostring(name):lower()]
 end
 
 local currentNotification = nil
@@ -166,7 +270,9 @@ local MAX_NOTIFICATIONS = 3
 
 local function createFishNotification(fishName, mutation, fishWeight, estimatedPrice, rarity)
     local playerGui = getPlayerGui()
-    if not playerGui then return end
+    if not playerGui then
+        return
+    end
     local screenGui = playerGui:FindFirstChild("FishNotificationUI")
     if not screenGui then
         screenGui = Instance.new("ScreenGui")
@@ -179,27 +285,31 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
         local display = currentNotification:GetAttribute("DisplayID")
         local newID = fishName .. mutation
         if display == newID then
-            if notificationTask then task.cancel(notificationTask) end
+            if notificationTask then
+                task.cancel(notificationTask)
+            end
             currentNotification.Size = UDim2.new(0, 270, 0, 85)
-            TweenService:Create(currentNotification, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true), {
-                Size = UDim2.new(0, 280, 0, 87)
-            }):Play()
+            TweenService:Create(currentNotification, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0, true), { Size = UDim2.new(0, 280, 0, 87) }):Play()
             notificationTask = task.delay(4, function()
                 if currentNotification and currentNotification.Parent then
-                    local tw = TweenService:Create(currentNotification, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                        Position = UDim2.new(0, -300, 0.5, -43),
-                        BackgroundTransparency = 1
-                    })
+                    local tw = TweenService:Create(currentNotification, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(0, -300, 0.5, -43), BackgroundTransparency = 1 })
                     tw:Play()
                     tw.Completed:Wait()
-                    if currentNotification then currentNotification:Destroy() currentNotification = nil end
+                    if currentNotification then
+                        currentNotification:Destroy()
+                        currentNotification = nil
+                    end
                 end
             end)
             return
         else
-            if currentNotification then currentNotification:Destroy() end
+            if currentNotification then
+                currentNotification:Destroy()
+            end
             currentNotification = nil
-            if notificationTask then task.cancel(notificationTask) end
+            if notificationTask then
+                task.cancel(notificationTask)
+            end
         end
     end
     local frame = Instance.new("Frame")
@@ -264,22 +374,22 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
             ["Exotic"] = Color3.fromRGB(255, 255, 0),
             ["Secret"] = Color3.fromRGB(0, 255, 150),
             ["Divine Secret"] = Color3.fromRGB(0, 255, 150),
-            ["Trash"] = Color3.fromRGB(100, 100, 100),
+            ["Trash"] = Color3.fromRGB(100, 100, 100)
         }
         rarityBadge.BackgroundColor3 = rarityColours[rarity] or Color3.fromRGB(100, 100, 100)
         rarityBadge.BorderSizePixel = 0
         rarityBadge.Parent = frame
-        local rarityCorner = Instance.new("UICorner")
-        rarityCorner.CornerRadius = UDim.new(0, 4)
-        rarityCorner.Parent = rarityBadge
-        local rarityText = Instance.new("TextLabel")
-        rarityText.Size = UDim2.new(1, 0, 1, 0)
-        rarityText.BackgroundTransparency = 1
-        rarityText.Text = rarity:sub(1, 3):upper()
-        rarityText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        rarityText.TextSize = 9
-        rarityText.Font = Enum.Font.GothamBold
-        rarityText.Parent = rarityBadge
+        local rc = Instance.new("UICorner")
+        rc.CornerRadius = UDim.new(0, 4)
+        rc.Parent = rarityBadge
+        local rt = Instance.new("TextLabel")
+        rt.Size = UDim2.new(1, 0, 1, 0)
+        rt.BackgroundTransparency = 1
+        rt.Text = rarity:sub(1, 3):upper()
+        rt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        rt.TextSize = 9
+        rt.Font = Enum.Font.GothamBold
+        rt.Parent = rarityBadge
     end
     local weightLabel = Instance.new("TextLabel")
     weightLabel.Text = string.format("%.1f kg", fishWeight or 0)
@@ -315,7 +425,9 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
     if mutation and mutation ~= "None" then
         for m in string.gmatch(mutation, "([^,]+)") do
             local clean = m:match("^%s*(.-)%s*$")
-            if clean and clean ~= "" then table.insert(mutationsList, clean) end
+            if clean and clean ~= "" then
+                table.insert(mutationsList, clean)
+            end
         end
     end
     for _, mut in ipairs(mutationsList) do
@@ -325,9 +437,9 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
         badge.TextSize = 9
         badge.Font = Enum.Font.GothamBold
         badge.AutomaticSize = Enum.AutomaticSize.X
-        local badgeCorner = Instance.new("UICorner")
-        badgeCorner.CornerRadius = UDim.new(0, 4)
-        badgeCorner.Parent = badge
+        local bc = Instance.new("UICorner")
+        bc.CornerRadius = UDim.new(0, 4)
+        bc.Parent = badge
         if mut == "Shiny" then
             badge.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
             badge.Text = " SHINY "
@@ -343,142 +455,214 @@ local function createFishNotification(fishName, mutation, fishWeight, estimatedP
         end
         badge.Parent = badgeContainer
     end
-    TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0, 20, 0.5, -43)
-    }):Play()
+    TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 20, 0.5, -43) }):Play()
     notificationTask = task.delay(4, function()
         if currentNotification == frame then
-            local tw = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(0, -300, 0.5, -43),
-                BackgroundTransparency = 1
-            })
+            local tw = TweenService:Create(frame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(0, -300, 0.5, -43), BackgroundTransparency = 1 })
             tw:Play()
             tw.Completed:Wait()
-            if currentNotification == frame then frame:Destroy() currentNotification = nil end
+            if currentNotification == frame then
+                frame:Destroy()
+                currentNotification = nil
+            end
         end
     end)
 end
 
--- ===== SNAP FILTER - dipake StartReel buat AutoSnap =====
 local filterCache = nil
-local function clearSnapCache() filterCache = nil end
+local function clearSnapCache()
+    filterCache = nil
+end
 _G.ClearSnapCache = clearSnapCache
+
 local function buildFilterCache()
     local cache = { names = {}, relics = {}, rarities = {}, mutations = {}, traits = {} }
     local targetManual = _G.__var and _G.__var.SnapTargetManual
     if targetManual and targetManual ~= "" then
         for t in string.gmatch(targetManual, "([^,]+)") do
             local trimmed = t:match("^%s*(.-)%s*$")
-            if trimmed ~= "" then table.insert(cache.names, trimmed:lower()) end
+            if trimmed ~= "" then
+                table.insert(cache.names, trimmed:lower())
+            end
         end
     end
     local snapRelics = _G.__var and _G.__var.SnapRelics
     if snapRelics then
         for k, v in pairs(snapRelics) do
-            if type(k) == "string" and v == true then table.insert(cache.relics, k:lower())
-            elseif type(k) == "number" and type(v) == "string" and v ~= "" then table.insert(cache.relics, v:lower()) end
+            if type(k) == "string" and v == true then
+                table.insert(cache.relics, k:lower())
+            elseif type(k) == "number" and type(v) == "string" and v ~= "" then
+                table.insert(cache.relics, v:lower())
+            end
         end
     end
     local snapRarity = _G.__var and _G.__var.SnapRarity
     if snapRarity then
         if type(snapRarity) == "table" then
             for k, v in pairs(snapRarity) do
-                if type(k) == "string" and v == true then table.insert(cache.rarities, k:lower())
-                elseif type(k) == "number" and type(v) == "string" and v ~= "" then table.insert(cache.rarities, v:lower())
-                elseif type(v) == "string" and v ~= "" then table.insert(cache.rarities, v:lower()) end
+                if type(k) == "string" and v == true then
+                    table.insert(cache.rarities, k:lower())
+                elseif type(k) == "number" and type(v) == "string" and v ~= "" then
+                    table.insert(cache.rarities, v:lower())
+                elseif type(v) == "string" and v ~= "" then
+                    table.insert(cache.rarities, v:lower())
+                end
             end
-        elseif type(snapRarity) == "string" and snapRarity ~= "" then table.insert(cache.rarities, snapRarity:lower()) end
+        elseif type(snapRarity) == "string" and snapRarity ~= "" then
+            table.insert(cache.rarities, snapRarity:lower())
+        end
     end
     local snapMutations = _G.__var and _G.__var.SnapMutations
     if snapMutations then
         for k, v in pairs(snapMutations) do
             local val = nil
-            if type(k) == "string" and v == true then val = k:lower()
-            elseif type(k) == "number" and type(v) == "string" and v ~= "" then val = v:lower()
-            elseif type(v) == "string" and v ~= "" then val = v:lower() end
+            if type(k) == "string" and v == true then
+                val = k:lower()
+            elseif type(k) == "number" and type(v) == "string" and v ~= "" then
+                val = v:lower()
+            elseif type(v) == "string" and v ~= "" then
+                val = v:lower()
+            end
             if val then
-                if val == "shiny" or val == "sparkling" then table.insert(cache.traits, val)
-                else table.insert(cache.mutations, val) end
+                if val == "shiny" or val == "sparkling" then
+                    table.insert(cache.traits, val)
+                else
+                    table.insert(cache.mutations, val)
+                end
             end
         end
-    end
-    if #cache.rarities > 0 or #cache.names > 0 or #cache.relics > 0 then
-        local parts = {}
-        if #cache.rarities > 0 then table.insert(parts, "rarities=" .. table.concat(cache.rarities, ",")) end
-        if #cache.names > 0 then table.insert(parts, "names=" .. table.concat(cache.names, ",")) end
-        if #cache.relics > 0 then table.insert(parts, "relics=" .. table.concat(cache.relics, ",")) end
-        warn("[SnapFilter] Cache built: " .. table.concat(parts, " | "))
     end
     filterCache = cache
     return cache
 end
+
 local function checkSnapFilter(fishData)
-    if not fishData then return true end
+    if not fishData then
+        return true
+    end
     local cache = filterCache or buildFilterCache()
     local hasNameFilter = (#cache.names > 0)
     local hasRelicFilter = (#cache.relics > 0)
     local hasRarityFilter = (#cache.rarities > 0)
     local hasMutationFilter = (#cache.mutations > 0 or #cache.traits > 0)
-    if not hasNameFilter and not hasRelicFilter and not hasRarityFilter and not hasMutationFilter then return true end
+    if not hasNameFilter and not hasRelicFilter and not hasRarityFilter and not hasMutationFilter then
+        return true
+    end
     local fishName = fishData.Name or fishData.name or "Unknown"
     local fName = fishName:lower()
     local rarity = fishData.Rarity or fishData.rarity
     if not rarity then
-        local currentFishLib = getFishLib()
-        local fishInfo = currentFishLib and (currentFishLib[fishName] or (fishData.Id and currentFishLib[fishData.Id]))
-        if fishInfo then rarity = fishInfo.Rarity or fishInfo.rarity end
+        local lib = getFishLib()
+        local info = lib and (lib[fishName] or (fishData.Id and lib[fishData.Id]))
+        if info then
+            rarity = info.Rarity or info.rarity
+        end
     end
-    if not rarity then rarity = "Common" end
+    if not rarity then
+        rarity = "Common"
+    end
     local fRarity = tostring(rarity):lower()
     local isShiny = fishData.Shiny or false
     local isSparkling = fishData.Sparkling or false
     local mutation = fishData.Mutation
     local nameMatch = false
-    if hasNameFilter then for _, t in ipairs(cache.names) do if fName:find(t, 1, true) then nameMatch = true break end end end
+    if hasNameFilter then
+        for _, t in ipairs(cache.names) do
+            if fName:find(t, 1, true) then
+                nameMatch = true
+                break
+            end
+        end
+    end
     local relicMatch = false
-    if hasRelicFilter then for _, t in ipairs(cache.relics) do if fName:find(t, 1, true) then relicMatch = true break end end end
+    if hasRelicFilter then
+        for _, t in ipairs(cache.relics) do
+            if fName:find(t, 1, true) then
+                relicMatch = true
+                break
+            end
+        end
+    end
     local rarityMatch = false
-    if hasRarityFilter then for _, t in ipairs(cache.rarities) do if fRarity == t or fRarity:find(t, 1, true) then rarityMatch = true break end end end
+    if hasRarityFilter then
+        for _, t in ipairs(cache.rarities) do
+            if fRarity == t or fRarity:find(t, 1, true) then
+                rarityMatch = true
+                break
+            end
+        end
+    end
     local mutationMatch = false
     if hasMutationFilter then
         local traitOK = (#cache.traits == 0)
-        if not traitOK then for _, tr in ipairs(cache.traits) do if (tr == "shiny" and isShiny) or (tr == "sparkling" and isSparkling) then traitOK = true break end end end
+        if not traitOK then
+            for _, tr in ipairs(cache.traits) do
+                if (tr == "shiny" and isShiny) or (tr == "sparkling" and isSparkling) then
+                    traitOK = true
+                    break
+                end
+            end
+        end
         local mutOK = (#cache.mutations == 0)
         if not mutOK and mutation then
-            local currentMutLib = getMutLib()
-            local mutLibData = currentMutLib and (currentMutLib.Mutations or currentMutLib)
+            local ml = getMutLib()
+            local md = ml and (ml.Mutations or ml)
             local mutDisplay = mutation
-            if mutLibData and mutLibData[mutation] and mutLibData[mutation].Display then mutDisplay = mutLibData[mutation].Display end
+            if md and md[mutation] and md[mutation].Display then
+                mutDisplay = md[mutation].Display
+            end
             local mLower = mutation:lower()
-            local mDisplayLower = mutDisplay:lower()
-            for _, t in ipairs(cache.mutations) do if mLower:find(t, 1, true) or mDisplayLower:find(t, 1, true) then mutOK = true break end end
+            local dLower = mutDisplay:lower()
+            for _, t in ipairs(cache.mutations) do
+                if mLower:find(t, 1, true) or dLower:find(t, 1, true) then
+                    mutOK = true
+                    break
+                end
+            end
         end
         mutationMatch = (traitOK and mutOK)
     end
-    local anyActive = hasRelicFilter or hasNameFilter or hasRarityFilter or hasMutationFilter
-    if not anyActive then return true end
     local rarityAndMutationOK = true
-    if hasRarityFilter and hasMutationFilter then rarityAndMutationOK = (rarityMatch and mutationMatch)
-    elseif hasRarityFilter then rarityAndMutationOK = rarityMatch
-    elseif hasMutationFilter then rarityAndMutationOK = mutationMatch
-    else rarityAndMutationOK = false end
+    if hasRarityFilter and hasMutationFilter then
+        rarityAndMutationOK = (rarityMatch and mutationMatch)
+    elseif hasRarityFilter then
+        rarityAndMutationOK = rarityMatch
+    elseif hasMutationFilter then
+        rarityAndMutationOK = mutationMatch
+    else
+        rarityAndMutationOK = false
+    end
     local shouldKeep = false
-    if (hasRarityFilter or hasMutationFilter) and rarityAndMutationOK then shouldKeep = true end
-    if hasRelicFilter and relicMatch then shouldKeep = true end
-    if hasNameFilter and nameMatch then shouldKeep = true end
+    if (hasRarityFilter or hasMutationFilter) and rarityAndMutationOK then
+        shouldKeep = true
+    end
+    if hasRelicFilter and relicMatch then
+        shouldKeep = true
+    end
+    if hasNameFilter and nameMatch then
+        shouldKeep = true
+    end
     return shouldKeep
 end
 _G.CheckSnapFilter = checkSnapFilter
 
 local function showCatchNotification(fishData, force)
-    if not fishData then return end
+    if not fishData then
+        return
+    end
     if not force and type(fishData) == "table" then
-        if _G.NotifDedup.seenData[fishData] then return end
+        if _G.NotifDedup.seenData[fishData] then
+            return
+        end
         _G.NotifDedup.seenData[fishData] = true
         local dedupKey = tostring(fishData.Name or fishData.name or ""):lower() .. "|" .. tostring(fishData.Mutation or ""):lower()
         local now = tick()
-        if _G.NotifDedup.activeKeys[dedupKey] and (now - _G.NotifDedup.activeKeys[dedupKey] < 3) then return end
-        if dedupKey == _G.NotifDedup.lastKey and (now - _G.NotifDedup.lastTime) < 2.5 then return end
+        if _G.NotifDedup.activeKeys[dedupKey] and (now - _G.NotifDedup.activeKeys[dedupKey] < 3) then
+            return
+        end
+        if dedupKey == _G.NotifDedup.lastKey and (now - _G.NotifDedup.lastTime) < 2.5 then
+            return
+        end
         _G.NotifDedup.lastKey = dedupKey
         _G.NotifDedup.lastTime = now
         _G.NotifDedup.activeKeys[dedupKey] = now
@@ -488,8 +672,8 @@ local function showCatchNotification(fishData, force)
     local isShiny = fishData.Shiny or false
     local isSparkling = fishData.Sparkling or false
     local mutation = fishData.Mutation
-    local currentFishLib = getFishLib()
-    local fishInfo = currentFishLib and currentFishLib[fishName]
+    local lib = getFishLib()
+    local fishInfo = lib and lib[fishName]
     local price = 0
     local rarity = nil
     if fishInfo then
@@ -498,44 +682,84 @@ local function showCatchNotification(fishData, force)
         if fishWeight and fishInfo.WeightPool then
             price = math.ceil(fishWeight / (fishInfo.WeightPool[2] / 10) * (fishInfo.Price or 0))
         end
-        if isShiny then price = math.ceil(price * 1.85) end
-        if isSparkling then price = math.ceil(price * 1.85) end
-        local currentMutLib = getMutLib()
-        if mutation and currentMutLib and currentMutLib.Mutations and currentMutLib.Mutations[mutation] then
-            price = math.ceil(price * (currentMutLib.Mutations[mutation].PriceMultiply or 1))
+        if isShiny then
+            price = math.ceil(price * 1.85)
+        end
+        if isSparkling then
+            price = math.ceil(price * 1.85)
+        end
+        local ml = getMutLib()
+        if mutation and ml and ml.Mutations and ml.Mutations[mutation] then
+            price = math.ceil(price * (ml.Mutations[mutation].PriceMultiply or 1))
         end
     else
-        local static = lookupStatic(fishName)
-        if static then rarity = static.Rarity price = static.Price or 0 end
-        if fishData.Rarity then rarity = fishData.Rarity end
-        if fishData.Price then price = fishData.Price end
+        local st = lookupStatic(fishName)
+        if st then
+            rarity = st.Rarity
+            price = st.Price or 0
+        end
+        if fishData.Rarity then
+            rarity = fishData.Rarity
+        end
+        if fishData.Price then
+            price = fishData.Price
+        end
     end
     local mutationParts = {}
-    if isShiny then table.insert(mutationParts, "Shiny") end
-    if isSparkling then table.insert(mutationParts, "Sparkling") end
+    if isShiny then
+        table.insert(mutationParts, "Shiny")
+    end
+    if isSparkling then
+        table.insert(mutationParts, "Sparkling")
+    end
     if mutation and mutation ~= "None" and mutation ~= "" then
         local already = false
-        for _, v in ipairs(mutationParts) do if v == mutation then already = true break end end
-        if not already then table.insert(mutationParts, mutation) end
+        for _, v in ipairs(mutationParts) do
+            if v == mutation then
+                already = true
+                break
+            end
+        end
+        if not already then
+            table.insert(mutationParts, mutation)
+        end
     end
     local mutationDisplay = (#mutationParts > 0) and table.concat(mutationParts, ", ") or "None"
     print("[Fishing] Notif: " .. fishName .. " | " .. mutationDisplay .. " | " .. tostring(rarity) .. " | " .. tostring(fishWeight) .. "kg | " .. tostring(price))
     if _G.Config.FishNotificationEnabled then
         if #activeNotifications >= MAX_NOTIFICATIONS then
             local old = table.remove(activeNotifications, 1)
-            if old then pcall(function() task.cancel(old) end) end
+            if old then
+                pcall(function()
+                    task.cancel(old)
+                end)
+            end
         end
-        local t = task.spawn(function() createFishNotification(fishName, mutationDisplay, fishWeight, price, rarity) end)
+        local t = task.spawn(function()
+            createFishNotification(fishName, mutationDisplay, fishWeight, price, rarity)
+        end)
         table.insert(activeNotifications, t)
     end
     if _G.Config.DiscordWebhookEnabled and _G.Config.DiscordWebhookURL and _G.Config.DiscordWebhookURL ~= "" then
         task.spawn(function()
             local requestFunc = (syn and syn.request) or (http and http.request) or request or http_request
-            if not requestFunc then return end
+            if not requestFunc then
+                return
+            end
             local rarityColors = {
-                ["Common"] = 5921370, ["Uncommon"] = 5294195, ["Unusual"] = 14392656, ["Rare"] = 286207,
-                ["Legendary"] = 16766720, ["Mythical"] = 16724889, ["Exotic"] = 16737228, ["Limited"] = 16747520,
-                ["Event"] = 65437, ["Relic"] = 3394559, ["Aurora"] = 3066993, ["Admin"] = 16776960, ["Secret"] = 0
+                ["Common"] = 5921370,
+                ["Uncommon"] = 5294195,
+                ["Unusual"] = 14392656,
+                ["Rare"] = 286207,
+                ["Legendary"] = 16766720,
+                ["Mythical"] = 16724889,
+                ["Exotic"] = 16737228,
+                ["Limited"] = 16747520,
+                ["Event"] = 65437,
+                ["Relic"] = 3394559,
+                ["Aurora"] = 3066993,
+                ["Admin"] = 16776960,
+                ["Secret"] = 0
             }
             local embedColor = rarityColors[rarity] or 5921370
             local cleanName = fishName:gsub(" ", "_")
@@ -545,7 +769,7 @@ local function showCatchNotification(fishData, force)
                 { name = "Mutation", value = mutForEmbed, inline = true },
                 { name = "Weight", value = string.format("%.1f kg", fishWeight or 0), inline = true },
                 { name = "Value", value = "$" .. tostring(price or 0), inline = true },
-                { name = "Rarity", value = rarity or "Common", inline = true },
+                { name = "Rarity", value = rarity or "Common", inline = true }
             }
             local plr = Players.LocalPlayer
             local payload = {
@@ -558,7 +782,7 @@ local function showCatchNotification(fishData, force)
                     color = embedColor,
                     fields = fields,
                     thumbnail = { url = thumbnail },
-                    footer = { text = "Shield Team Client • " .. os.date("%Y-%m-%d"), icon_url = "https://i.imgur.com/4M34hi2.png" },
+                    footer = { text = "Shield Team Client - " .. os.date("%Y-%m-%d"), icon_url = "https://i.imgur.com/4M34hi2.png" },
                     timestamp = os.date("!%Y-%m-%dT%H:%M:%S")
                 }}
             }
@@ -570,7 +794,8 @@ local function showCatchNotification(fishData, force)
 end
 _G.ShowCatchNotification = showCatchNotification
 
--- ===== AUTO CAST =====
+
+-- AUTO CAST
 local castRemote = nil
 local heartbeatConn = nil
 local bobberConn = nil
@@ -583,23 +808,15 @@ local bobberRef = nil
 local lockedCF = nil
 local THROTTLE = 0.01
 local LOCK_TIMEOUT = 2.5
+
 local function GetTargetPosition(hrp, bobberPart)
-    if not hrp then hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") end
-    if not hrp then return nil end
-    local hrpPos = hrp.Position
-    local carrotSecretFolder = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("map") and workspace.world.map:FindFirstChild("Carrot Secret")
-    if carrotSecretFolder then
-        local closestDist = math.huge
-        local closestMesh = nil
-        for _, model in ipairs(carrotSecretFolder:GetChildren()) do
-            local mesh = model:FindFirstChild("Meshes/CarrotPool_Cube.001 (1)")
-            if mesh and mesh:IsA("MeshPart") then
-                local dist = (hrpPos - mesh.Position).Magnitude
-                if dist < closestDist then closestDist = dist closestMesh = mesh end
-            end
-        end
-        if closestMesh and closestDist < 50 then return CFrame.new(closestMesh.Position - Vector3.new(0, 3, 0)) end
+    if not hrp then
+        hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     end
+    if not hrp then
+        return nil
+    end
+    local hrpPos = hrp.Position
     local Params = RaycastParams.new()
     Params.FilterType = Enum.RaycastFilterType.Include
     Params.FilterDescendantsInstances = {workspace.Terrain}
@@ -627,74 +844,133 @@ local function GetTargetPosition(hrp, bobberPart)
             local sz = hrpPos.Z + sinA * radius
             local result = workspace:Raycast(Vector3.new(sx, scanY, sz), Vector3.new(0, -300, 0), Params)
             if result and result.Instance:IsA("Terrain") and result.Material == Enum.Material.Water then
-                if radius < bestDist then bestDist = radius bestPos = result.Position end
+                if radius < bestDist then
+                    bestDist = radius
+                    bestPos = result.Position
+                end
                 break
             end
         end
     end
-    if bestPos then return CFrame.new(bestPos - Vector3.new(0, 3, 0)) end
+    if bestPos then
+        return CFrame.new(bestPos - Vector3.new(0, 3, 0))
+    end
     local basePos = head and head.Position or hrpPos
-    local fallbackPos = basePos + (lookVec * 10) - Vector3.new(0, 11, 0)
-    return CFrame.new(fallbackPos)
+    return CFrame.new(basePos + (lookVec * 10) - Vector3.new(0, 11, 0))
 end
+
 local function InstantTeleportBobber(bobber, targetCF, hrp)
-    if not bobber or not bobber.Parent then return targetCF end
+    if not bobber or not bobber.Parent then
+        return targetCF
+    end
     local humanoidRootPart = hrp or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
     local finalCF = targetCF or GetTargetPosition(humanoidRootPart, bobber)
-    if not finalCF then return targetCF end
-    pcall(function() bobber:PivotTo(finalCF) end)
+    if not finalCF then
+        return targetCF
+    end
+    pcall(function()
+        bobber:PivotTo(finalCF)
+    end)
     return finalCF
 end
 _G.InstantTeleportBobber = InstantTeleportBobber
 _G.GetTargetPosition = GetTargetPosition
+
 local function getCastRemote()
-    if castRemote and castRemote.Parent then return castRemote end
+    if castRemote and castRemote.Parent then
+        return castRemote
+    end
     pcall(function()
         local rep = game:GetService("ReplicatedStorage")
         local pkg = rep:FindFirstChild("packages")
         local net = pkg and pkg:FindFirstChild("Net")
-        if net then castRemote = net:FindFirstChild("RF/FishingRod/Cast") end
-        if not castRemote then castRemote = rep:WaitForChild("packages", 5):WaitForChild("Net", 5):WaitForChild("RF/FishingRod/Cast", 5) end
+        if net then
+            castRemote = net:FindFirstChild("RF/FishingRod/Cast")
+        end
+        if not castRemote then
+            castRemote = rep:WaitForChild("packages", 5):WaitForChild("Net", 5):WaitForChild("RF/FishingRod/Cast", 5)
+        end
     end)
     return castRemote
 end
+
 local function getRod(char)
-    if not char then return nil end
+    if not char then
+        return nil
+    end
     local rodName = nil
-    pcall(function() rodName = workspace.PlayerStats[LocalPlayer.Name].T[LocalPlayer.Name].Stats.rod.Value end)
-    if rodName and rodName ~= "" then local rod = char:FindFirstChild(rodName) if rod then return rod end end
-    for _, v in ipairs(char:GetChildren()) do if v:IsA("Tool") then return v end end
+    pcall(function()
+        rodName = workspace.PlayerStats[LocalPlayer.Name].T[LocalPlayer.Name].Stats.rod.Value
+    end)
+    if rodName and rodName ~= "" then
+        local rod = char:FindFirstChild(rodName)
+        if rod then
+            return rod
+        end
+    end
+    for _, v in ipairs(char:GetChildren()) do
+        if v:IsA("Tool") then
+            return v
+        end
+    end
     return nil
 end
+
 local function resetAutoCastState(bypassCooldown)
     castState = S_CAST
     lockedCF = nil
     lockStartTick = 0
-    if bypassCooldown then lastCastTick = 0 end
+    if bypassCooldown then
+        lastCastTick = 0
+    end
     bobberRef = nil
-    if bobberConn then bobberConn:Disconnect() bobberConn = nil end
+    if bobberConn then
+        bobberConn:Disconnect()
+        bobberConn = nil
+    end
 end
 _G.ResetAutoCastState = resetAutoCastState
+
 task.spawn(function()
     while true do
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         task.wait(1)
-        if not (_G.Config and _G.Config.AutoCast) then continue end
-        if _G.IsReeling then continue end
+        if not (_G.Config and _G.Config.AutoCast) then
+            continue
+        end
+        if _G.IsReeling then
+            continue
+        end
         local now = tick()
         if castState == S_LOCK and lockStartTick > 0 and (now - lockStartTick > LOCK_TIMEOUT) then
-            pcall(function() local events = game:GetService("ReplicatedStorage"):FindFirstChild("events") local dropRod = events and (events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber")) if dropRod then dropRod:FireServer() end end)
+            pcall(function()
+                local events = game:GetService("ReplicatedStorage"):FindFirstChild("events")
+                local dropRod = events and (events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber"))
+                if dropRod then
+                    dropRod:FireServer()
+                end
+            end)
             resetAutoCastState(true)
         end
     end
 end)
+
 local MIN_CAST_INTERVAL = 0.25
+
 local function doCast(rod, hrp)
     local now = tick()
-    if _G._NextCastAt and now < _G._NextCastAt then return end
-    if now - lastCastTick < MIN_CAST_INTERVAL then return end
+    if _G._NextCastAt and now < _G._NextCastAt then
+        return
+    end
+    if now - lastCastTick < MIN_CAST_INTERVAL then
+        return
+    end
     local remote = getCastRemote()
-    if not remote then return end
+    if not remote then
+        return
+    end
     lastCastTick = now
     castState = S_WAIT
     lockedCF = nil
@@ -708,35 +984,59 @@ local function doCast(rod, hrp)
         end)
     end)
 end
+
 local function startCastLoop()
-    if heartbeatConn then heartbeatConn:Disconnect() end
+    if heartbeatConn then
+        heartbeatConn:Disconnect()
+    end
     heartbeatConn = trackConn(RunService.Heartbeat:Connect(function()
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         local now = tick()
-        if now - lastTick < THROTTLE then return end
+        if now - lastTick < THROTTLE then
+            return
+        end
         lastTick = now
-        if not (_G.Config and _G.Config.AutoCast) then return end
+        if not (_G.Config and _G.Config.AutoCast) then
+            return
+        end
         local char = LocalPlayer.Character
-        if not char then return end
-        if _G.IsReeling then return end
+        if not char then
+            return
+        end
+        if _G.IsReeling then
+            return
+        end
         if char:GetAttribute("Reeling") then
             local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
             local reelGui = playerGui and playerGui:FindFirstChild("reel")
             local shakeui = playerGui and playerGui:FindFirstChild("shakeui")
             local isActivelyReeling = (reelGui and reelGui.Enabled) or (shakeui and shakeui.Enabled)
-            if isActivelyReeling then return end
-            pcall(function() char:SetAttribute("Reeling", nil) end)
+            if isActivelyReeling then
+                return
+            end
+            pcall(function()
+                char:SetAttribute("Reeling", nil)
+            end)
         end
         local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
+        if not hrp then
+            return
+        end
         local rod = getRod(char)
-        if not rod then resetAutoCastState() return end
+        if not rod then
+            resetAutoCastState()
+            return
+        end
         if castState == S_CAST then
             doCast(rod, hrp)
         elseif castState == S_WAIT then
             local b = rod:FindFirstChild("bobber") or rod:FindFirstChild("Bobber")
             if b and b.Parent then
-                if _G.Config and _G.Config.InstantCast then lockedCF = InstantTeleportBobber(b, nil, hrp) end
+                if _G.Config and _G.Config.InstantCast then
+                    lockedCF = InstantTeleportBobber(b, nil, hrp)
+                end
                 bobberRef = b
                 castState = S_LOCK
                 lockStartTick = tick()
@@ -745,18 +1045,32 @@ local function startCastLoop()
             end
         elseif castState == S_LOCK then
             if _G.Config and _G.Config.InstantCast and lockedCF and bobberRef and bobberRef.Parent then
-                pcall(function() bobberRef:PivotTo(lockedCF) end)
+                pcall(function()
+                    bobberRef:PivotTo(lockedCF)
+                end)
             end
             if lockStartTick > 0 and (now - lockStartTick > LOCK_TIMEOUT) then
-                pcall(function() local events = game:GetService("ReplicatedStorage"):FindFirstChild("events") local dropRod = events and (events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber")) if dropRod then dropRod:FireServer() end end)
+                pcall(function()
+                    local events = game:GetService("ReplicatedStorage"):FindFirstChild("events")
+                    local dropRod = events and (events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber"))
+                    if dropRod then
+                        dropRod:FireServer()
+                    end
+                end)
                 resetAutoCastState()
                 return
             end
             if not (bobberRef and bobberRef.Parent) then
                 local reelStarting = _G.IsReeling or char:GetAttribute("Reeling")
-                if reelStarting then return end
-                if not _G._bobberGoneTick then _G._bobberGoneTick = now end
-                if now - _G._bobberGoneTick < 0.1 then return end
+                if reelStarting then
+                    return
+                end
+                if not _G._bobberGoneTick then
+                    _G._bobberGoneTick = now
+                end
+                if now - _G._bobberGoneTick < 0.1 then
+                    return
+                end
                 _G._bobberGoneTick = nil
                 resetAutoCastState()
                 return
@@ -768,16 +1082,29 @@ local function startCastLoop()
 end
 task.spawn(startCastLoop)
 
--- ===== Hook Reel =====
+-- Hook Reel
 task.spawn(function()
-    if _G.ShieldReelHooked then return end
+    if _G.ShieldReelHooked then
+        return
+    end
     local elapsed = 0
-    while not ReplicatedStorage:FindFirstChild("client") and elapsed < 10 do task.wait(0.5) elapsed = elapsed + 0.5 end
-    if not ReplicatedStorage:FindFirstChild("client") then print("[Fishing] Gagal: ReplicatedStorage.client gak ketemu") return end
-    if _G.ShieldReelHooked then return end
+    while not ReplicatedStorage:FindFirstChild("client") and elapsed < 10 do
+        task.wait(0.5)
+        elapsed = elapsed + 0.5
+    end
+    if not ReplicatedStorage:FindFirstChild("client") then
+        print("[Fishing] Gagal: ReplicatedStorage.client gak ketemu")
+        return
+    end
+    if _G.ShieldReelHooked then
+        return
+    end
     local ok, controller = pcall(require, ReplicatedStorage.client.legacyControllers.ReelController)
-    if not ok or not controller then print("[Fishing] Gagal: ReelController gak ketemu") return end
-    print("[Fishing] Hook OK, ReelController ketemu")
+    if not ok or not controller then
+        print("[Fishing] Gagal: ReelController gak ketemu")
+        return
+    end
+    print("[Fishing] Hook OK")
     _G.ShieldReelHooked = true
     _G.FishingHub.Controller = controller
     _G.FishingHub.OriginalStartReel = controller.StartReel
@@ -786,15 +1113,23 @@ task.spawn(function()
         local oldUpdate = controller.Update
         controller.Update = function(self, dt)
             local barMult = (_G.__var and _G.__var.barSize) or (_G.Config and _G.Config.barSize) or 1
-            if barMult and barMult > 1 then if self.barScale then self.barScale = math.clamp(self.barScale * barMult, 0.05, 1) end end
+            if barMult and barMult > 1 then
+                if self.barScale then
+                    self.barScale = math.clamp(self.barScale * barMult, 0.05, 1)
+                end
+            end
             oldUpdate(self, dt)
-            if _G.Config and _G.Config.AutoReel and _G.Config.ReelMode == "Legit" then self.fishPosition = self.barPosition end
+            if _G.Config and _G.Config.AutoReel and _G.Config.ReelMode == "Legit" then
+                self.fishPosition = self.barPosition
+            end
         end
     end
     task.spawn(function()
         local playerGui = LocalPlayer:WaitForChild("PlayerGui")
         local function applyBarScale(gui)
-            if not gui then return end
+            if not gui then
+                return
+            end
             local barMult = (_G.__var and _G.__var.barSize) or (_G.Config and _G.Config.barSize) or 1
             pcall(function()
                 for _, obj in ipairs(gui:GetDescendants()) do
@@ -802,33 +1137,58 @@ task.spawn(function()
                         local n = obj.Name:lower()
                         if (n == "playerbar" or n == "player_bar" or n == "whitebar" or n == "catchbar") and not obj:FindFirstChild("fish") and not obj:FindFirstChild("Fish") then
                             local baseSize = obj:GetAttribute("BaseSizeXScale")
-                            if not baseSize then baseSize = obj.Size.X.Scale if baseSize > 0 then obj:SetAttribute("BaseSizeXScale", baseSize) end end
+                            if not baseSize then
+                                baseSize = obj.Size.X.Scale
+                                if baseSize > 0 then
+                                    obj:SetAttribute("BaseSizeXScale", baseSize)
+                                end
+                            end
                             if baseSize and baseSize > 0 then
-                                if barMult and barMult > 1 then obj.Size = UDim2.new(math.clamp(baseSize * barMult, 0.02, 1), obj.Size.X.Offset, obj.Size.Y.Scale, obj.Size.Y.Offset)
-                                else obj.Size = UDim2.new(baseSize, obj.Size.X.Offset, obj.Size.Y.Scale, obj.Size.Y.Offset) end
+                                if barMult and barMult > 1 then
+                                    obj.Size = UDim2.new(math.clamp(baseSize * barMult, 0.02, 1), obj.Size.X.Offset, obj.Size.Y.Scale, obj.Size.Y.Offset)
+                                else
+                                    obj.Size = UDim2.new(baseSize, obj.Size.X.Offset, obj.Size.Y.Scale, obj.Size.Y.Offset)
+                                end
                             end
                         end
                     end
                 end
             end)
         end
-        trackConn(playerGui.ChildAdded:Connect(function(child) if child.Name:lower():find("reel") and child:IsA("ScreenGui") and child.Enabled then task.wait(0.05) applyBarScale(child) end end))
-        trackConn(RunService.RenderStepped:Connect(function() local rGui = playerGui:FindFirstChild("reel") or playerGui:FindFirstChild("Reel") if rGui and rGui.Enabled then applyBarScale(rGui) end end))
+        trackConn(playerGui.ChildAdded:Connect(function(child)
+            if child.Name:lower():find("reel") and child:IsA("ScreenGui") and child.Enabled then
+                task.wait(0.05)
+                applyBarScale(child)
+            end
+        end))
+        trackConn(RunService.RenderStepped:Connect(function()
+            local rGui = playerGui:FindFirstChild("reel") or playerGui:FindFirstChild("Reel")
+            if rGui and rGui.Enabled then
+                applyBarScale(rGui)
+            end
+        end))
     end)
     local isSnapping = false
     local shieldOriginalStartReel = controller.StartReel
     controller.StartReel = function(data)
         print("[Fishing] StartReel dipanggil")
-        if not data or not _G.Config then return shieldOriginalStartReel(data) end
+        if not data or not _G.Config then
+            return shieldOriginalStartReel(data)
+        end
         local myReelTick = tick()
         _G.IsReeling = true
         _G.ReelStartTick = myReelTick
-        if _G.ShowCatchNotification and data.fish then task.spawn(_G.ShowCatchNotification, data.fish) end
+        if _G.ShowCatchNotification and data.fish then
+            task.spawn(_G.ShowCatchNotification, data.fish)
+        end
         if data.fish then
             local fish = data.fish
             local mutStr = tostring(fish.Mutation or ""):lower()
             local fishName = tostring(fish.Name or fish):lower()
-            if mutStr:find("shady", 1, true) or mutStr:find("sludge", 1, true) or fishName:find("shady", 1, true) or fishName:find("sludge", 1, true) then _G.ShadyInInventory = true _G.LastShadyStartReelTime = tick() end
+            if mutStr:find("shady", 1, true) or mutStr:find("sludge", 1, true) or fishName:find("shady", 1, true) or fishName:find("sludge", 1, true) then
+                _G.ShadyInInventory = true
+                _G.LastShadyStartReelTime = tick()
+            end
         end
         if not isSnapping and _G.__var and _G.__var.AutoSnapEnabled and _G.CheckSnapFilter then
             local char = LocalPlayer.Character
@@ -837,27 +1197,73 @@ task.spawn(function()
                 local shouldKeep = _G.CheckSnapFilter(data.fish)
                 if not shouldKeep then
                     isSnapping = true
-                    pcall(function() local events = ReplicatedStorage:FindFirstChild("events") if events then local dropRod = events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber") if dropRod then dropRod:FireServer() end end end)
-                    pcall(function() local pkg = ReplicatedStorage:FindFirstChild("packages") local netMod = pkg and pkg:FindFirstChild("Net") if netMod then local okNet, Net = pcall(require, netMod) if okNet and Net then local finishEvent = Net:RemoteEvent("Reel/Finish") if finishEvent then finishEvent:FireServer({e = -0.033138427883387, p = false, l = {}, d = {}}) end end end end)
-                    local dummyInstance = {active = false, ready = false, OnReady = {Connect = function() return {Disconnect = function() end} end}, Destroy = function() end, Finish = function() end, EndMinigame = function() end}
-                    if _G.ReelStartTick == myReelTick then _G.LastCatchTick = 0 _G.IsReeling = false _G.LastReelEndTick = tick() _G._NextCastAt = tick() + 0.15 if _G.ResetAutoCastState then pcall(_G.ResetAutoCastState, true) end end
+                    pcall(function()
+                        local events = ReplicatedStorage:FindFirstChild("events")
+                        if events then
+                            local dropRod = events:FindFirstChild("drop_bobber") or events:FindFirstChild("DropBobber")
+                            if dropRod then
+                                dropRod:FireServer()
+                            end
+                        end
+                    end)
+                    pcall(function()
+                        local pkg = ReplicatedStorage:FindFirstChild("packages")
+                        local netMod = pkg and pkg:FindFirstChild("Net")
+                        if netMod then
+                            local okNet, Net = pcall(require, netMod)
+                            if okNet and Net then
+                                local finishEvent = Net:RemoteEvent("Reel/Finish")
+                                if finishEvent then
+                                    finishEvent:FireServer({e = -0.033138427883387, p = false, l = {}, d = {}})
+                                end
+                            end
+                        end
+                    end)
+                    local dummyInstance = {
+                        active = false,
+                        ready = false,
+                        OnReady = {Connect = function() return {Disconnect = function() end} end},
+                        Destroy = function() end,
+                        Finish = function() end,
+                        EndMinigame = function() end
+                    }
+                    if _G.ReelStartTick == myReelTick then
+                        _G.LastCatchTick = 0
+                        _G.IsReeling = false
+                        _G.LastReelEndTick = tick()
+                        _G._NextCastAt = tick() + 0.15
+                        if _G.ResetAutoCastState then
+                            pcall(_G.ResetAutoCastState, true)
+                        end
+                    end
                     isSnapping = false
                     return dummyInstance
                 end
             end
         end
         local ok2, instance = pcall(shieldOriginalStartReel, data)
-        if not ok2 or not instance then if _G.ReelStartTick == myReelTick then _G.IsReeling = false end return instance end
+        if not ok2 or not instance then
+            if _G.ReelStartTick == myReelTick then
+                _G.IsReeling = false
+            end
+            return instance
+        end
         local ended = false
         local function onReelEnded()
-            if ended then return end
-            if _G.ReelStartTick ~= myReelTick then return end
+            if ended then
+                return
+            end
+            if _G.ReelStartTick ~= myReelTick then
+                return
+            end
             ended = true
             _G.IsReeling = false
             _G.LastCatchTick = 0
             _G.LastReelEndTick = tick()
             _G._NextCastAt = tick() + 0.15
-            if _G.ResetAutoCastState then pcall(_G.ResetAutoCastState, true) end
+            if _G.ResetAutoCastState then
+                pcall(_G.ResetAutoCastState, true)
+            end
             print("[Fishing] Reel kelar, langsung reset cast")
         end
         pcall(function()
@@ -868,7 +1274,9 @@ task.spawn(function()
                     instance.Finish = function(self, success, ...)
                         local results = {pcall(origFinish, self, success, ...)}
                         task.spawn(onReelEnded)
-                        if results[1] then return select(2, unpack(results)) end
+                        if results[1] then
+                            return select(2, unpack(results))
+                        end
                         return nil
                     end
                 end
@@ -878,7 +1286,9 @@ task.spawn(function()
                     instance.EndMinigame = function(self, success, ...)
                         local results = {pcall(origEnd, self, success, ...)}
                         task.spawn(onReelEnded)
-                        if results[1] then return select(2, unpack(results)) end
+                        if results[1] then
+                            return select(2, unpack(results))
+                        end
                         return nil
                     end
                 end
@@ -887,8 +1297,11 @@ task.spawn(function()
         task.spawn(function()
             local waited = 0
             while waited < 1 and not (LocalPlayer.Character and LocalPlayer.Character:GetAttribute("Reeling")) do
-                if _G.ReelStartTick ~= myReelTick then return end
-                task.wait(0.05) waited = waited + 0.05
+                if _G.ReelStartTick ~= myReelTick then
+                    return
+                end
+                task.wait(0.05)
+                waited = waited + 0.05
             end
             while _G.IsReeling and _G.ReelStartTick == myReelTick do
                 task.wait(0.1)
@@ -901,37 +1314,122 @@ task.spawn(function()
                     task.wait(0.15)
                     local reelingAttr2 = char and char:GetAttribute("Reeling")
                     local reelGui2 = pg and (pg:FindFirstChild("reel") or pg:FindFirstChild("Reel"))
-                    if not reelingAttr2 and not (reelGui2 and reelGui2.Enabled) then onReelEnded() break end
+                    if not reelingAttr2 and not (reelGui2 and reelGui2.Enabled) then
+                        onReelEnded()
+                        break
+                    end
                 end
-                if tick() - myReelTick > 12 then break end
+                if tick() - myReelTick > 12 then
+                    break
+                end
             end
         end)
         local barMult = (_G.__var and _G.__var.barSize) or (_G.Config and _G.Config.barSize) or 1
-        if barMult and barMult > 1 then pcall(function() if instance.barScale then instance.barScale = math.clamp(instance.barScale * barMult, 0.05, 1) end end) end
+        if barMult and barMult > 1 then
+            pcall(function()
+                if instance.barScale then
+                    instance.barScale = math.clamp(instance.barScale * barMult, 0.05, 1)
+                end
+            end)
+        end
         _G.LastCatchTick = tick()
         if _G.Config and (_G.Config.InstantReel or _G.Config.AutoPerfectCatch) then
             local perfectChance = 100
-            if type(_G.Config.PerfectCatchChance) == "number" then perfectChance = _G.Config.PerfectCatchChance end
+            if type(_G.Config.PerfectCatchChance) == "number" then
+                perfectChance = _G.Config.PerfectCatchChance
+            end
             instance.perfect = (math.random(100) <= perfectChance)
             task.spawn(function()
                 local char = LocalPlayer.Character
-                if not char then return end
-                if not char:GetAttribute("Reeling") then local reelTimeout = 3 local t = 0 local reeling = false local conn = char:GetAttributeChangedSignal("Reeling"):Connect(function() reeling = char:GetAttribute("Reeling") end) while not reeling and t < reelTimeout do task.wait(0.05) t = t + 0.05 end conn:Disconnect() end
-                if not instance.ready then local readyTimeout = 3 local t = 0 local isReady = false if instance.OnReady then local conn = instance.OnReady:Connect(function() isReady = true end) while not isReady and t < readyTimeout do task.wait(0.05) t = t + 0.05 end conn:Disconnect() else while not instance.ready and t < readyTimeout do task.wait(0.05) t = t + 0.05 end end end
+                if not char then
+                    return
+                end
+                if not char:GetAttribute("Reeling") then
+                    local reelTimeout = 3
+                    local t = 0
+                    local reeling = false
+                    local conn = char:GetAttributeChangedSignal("Reeling"):Connect(function()
+                        reeling = char:GetAttribute("Reeling")
+                    end)
+                    while not reeling and t < reelTimeout do
+                        task.wait(0.05)
+                        t = t + 0.05
+                    end
+                    conn:Disconnect()
+                end
+                if not instance.ready then
+                    local readyTimeout = 3
+                    local t = 0
+                    local isReady = false
+                    if instance.OnReady then
+                        local conn = instance.OnReady:Connect(function()
+                            isReady = true
+                        end)
+                        while not isReady and t < readyTimeout do
+                            task.wait(0.05)
+                            t = t + 0.05
+                        end
+                        conn:Disconnect()
+                    else
+                        while not instance.ready and t < readyTimeout do
+                            task.wait(0.05)
+                            t = t + 0.05
+                        end
+                    end
+                end
                 if _G.Config and _G.Config.InstantReel then
                     task.wait(0.28)
-                    instance.active = true instance.ready = true
+                    instance.active = true
+                    instance.ready = true
                     local isBreakStreak = false
                     if _G.Config and _G.Config.BreakStreakEnabled then
                         local gameStreak = 0
-                        pcall(function() local ps = workspace:FindFirstChild("PlayerStats") local pf = ps and ps:FindFirstChild(LocalPlayer.Name) local tf = pf and (pf:FindFirstChild("T") and pf.T:FindFirstChild(LocalPlayer.Name) or pf) local stats = tf and (tf:FindFirstChild("Stats") or tf) if stats then local sVal = stats:FindFirstChild("tracker_streak") or stats:FindFirstChild("streak") if sVal then gameStreak = sVal.Value end end end)
+                        pcall(function()
+                            local ps = workspace:FindFirstChild("PlayerStats")
+                            local pf = ps and ps:FindFirstChild(LocalPlayer.Name)
+                            local tf = pf and (pf:FindFirstChild("T") and pf.T:FindFirstChild(LocalPlayer.Name) or pf)
+                            local stats = tf and (tf:FindFirstChild("Stats") or tf)
+                            if stats then
+                                local sVal = stats:FindFirstChild("tracker_streak") or stats:FindFirstChild("streak")
+                                if sVal then
+                                    gameStreak = sVal.Value
+                                end
+                            end
+                        end)
                         local currentStreak = (gameStreak > 0) and gameStreak or (_G.LocalCurrentStreak or _G.Config.BreakStreakCurrent or 0)
                         _G.Config.BreakStreakCurrent = currentStreak + 1
-                        if _G.Config.BreakStreakCurrent >= (_G.Config.BreakStreakCount or 10) then isBreakStreak = true _G.Config.BreakStreakCurrent = 0 end
+                        if _G.Config.BreakStreakCurrent >= (_G.Config.BreakStreakCount or 10) then
+                            isBreakStreak = true
+                            _G.Config.BreakStreakCurrent = 0
+                        end
                     end
                     pcall(function()
-                        if isBreakStreak then _G.LocalReelsBroken = (_G.LocalReelsBroken or 0) + 1 _G.LocalCurrentStreak = 0 instance.progress = 0 if typeof(instance.Finish) == "function" then instance:Finish(false) elseif typeof(instance.EndMinigame) == "function" then instance:EndMinigame(false) elseif instance.OnReelFinished then instance.OnReelFinished:Fire(false) end
-                        else _G.LocalFishCaught = (_G.LocalFishCaught or 0) + 1 _G.LocalCurrentStreak = (_G.LocalCurrentStreak or 0) + 1 if instance.perfect then _G.LocalPerfectCatches = (_G.LocalPerfectCatches or 0) + 1 end instance.progress = 100 if typeof(instance.Finish) == "function" then instance:Finish(true) elseif typeof(instance.EndMinigame) == "function" then instance:EndMinigame(true) elseif instance.OnReelFinished then instance.OnReelFinished:Fire(true) end end
+                        if isBreakStreak then
+                            _G.LocalReelsBroken = (_G.LocalReelsBroken or 0) + 1
+                            _G.LocalCurrentStreak = 0
+                            instance.progress = 0
+                            if typeof(instance.Finish) == "function" then
+                                instance:Finish(false)
+                            elseif typeof(instance.EndMinigame) == "function" then
+                                instance:EndMinigame(false)
+                            elseif instance.OnReelFinished then
+                                instance.OnReelFinished:Fire(false)
+                            end
+                        else
+                            _G.LocalFishCaught = (_G.LocalFishCaught or 0) + 1
+                            _G.LocalCurrentStreak = (_G.LocalCurrentStreak or 0) + 1
+                            if instance.perfect then
+                                _G.LocalPerfectCatches = (_G.LocalPerfectCatches or 0) + 1
+                            end
+                            instance.progress = 100
+                            if typeof(instance.Finish) == "function" then
+                                instance:Finish(true)
+                            elseif typeof(instance.EndMinigame) == "function" then
+                                instance:EndMinigame(true)
+                            elseif instance.OnReelFinished then
+                                instance.OnReelFinished:Fire(true)
+                            end
+                        end
                     end)
                     task.wait(0.05)
                     onReelEnded()
@@ -945,20 +1443,34 @@ task.spawn(function()
     end
     task.spawn(function()
         while true do
-            if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+            if MY_RUN_ID ~= _G.FishingHub.RunId then
+                return
+            end
             task.wait(5)
             if _G.Config and _G.Config.AntiStuck ~= false then
-                if _G.IsReeling and _G.ReelStartTick and (tick() - _G.ReelStartTick > 10) then _G.IsReeling = false isSnapping = false _G.LastCatchTick = 0 _G._NextCastAt = tick() + 0.15 if _G.ResetAutoCastState then pcall(_G.ResetAutoCastState, true) end end
-                if isSnapping and _G.ReelStartTick and (tick() - _G.ReelStartTick > 5) then isSnapping = false end
+                if _G.IsReeling and _G.ReelStartTick and (tick() - _G.ReelStartTick > 10) then
+                    _G.IsReeling = false
+                    isSnapping = false
+                    _G.LastCatchTick = 0
+                    _G._NextCastAt = tick() + 0.15
+                    if _G.ResetAutoCastState then
+                        pcall(_G.ResetAutoCastState, true)
+                    end
+                end
+                if isSnapping and _G.ReelStartTick and (tick() - _G.ReelStartTick > 5) then
+                    isSnapping = false
+                end
             end
         end
     end)
 end)
 
--- ===== Auto Shake =====
+-- Auto Shake
 task.spawn(function()
     while true do
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         task.wait(_G.Config.ShakeDelay or 0.01)
         if _G.Config and _G.Config.AutoShake then
             local PlayerGui = player:FindFirstChild("PlayerGui")
@@ -970,8 +1482,17 @@ task.spawn(function()
                         for _, button in ipairs(safezone:GetChildren()) do
                             if (button:IsA("ImageButton") or button:IsA("TextButton")) and button.Visible then
                                 pcall(function()
-                                    if getconnections then for _, conn in ipairs(getconnections(button.MouseButton1Click)) do conn:Fire() end for _, conn in ipairs(getconnections(button.Activated)) do conn:Fire() end
-                                    elseif firesignal then firesignal(button.MouseButton1Click) firesignal(button.Activated) end
+                                    if getconnections then
+                                        for _, conn in ipairs(getconnections(button.MouseButton1Click)) do
+                                            conn:Fire()
+                                        end
+                                        for _, conn in ipairs(getconnections(button.Activated)) do
+                                            conn:Fire()
+                                        end
+                                    elseif firesignal then
+                                        firesignal(button.MouseButton1Click)
+                                        firesignal(button.Activated)
+                                    end
                                 end)
                             end
                         end
@@ -982,41 +1503,91 @@ task.spawn(function()
     end
 end)
 
-local function SetReelMode(mode) mode = mode or "Legit" _G.Config.ReelMode = mode if mode == "Instant" then _G.Config.InstantReel = _G.Config.AutoReel and true or false else _G.Config.InstantReel = false end end
+local function SetReelMode(mode)
+    mode = mode or "Legit"
+    _G.Config.ReelMode = mode
+    if mode == "Instant" then
+        _G.Config.InstantReel = _G.Config.AutoReel and true or false
+    else
+        _G.Config.InstantReel = false
+    end
+end
+
 local function SetCatchMode(mode)
-    mode = mode or "Perfect" _G.Config.CatchMode = mode
-    if mode == "Perfect" then _G.Config.AutoPerfectCatch = true _G.Config.PerfectCatchChance = 100
-    elseif mode == "Normal" then _G.Config.AutoPerfectCatch = false _G.Config.PerfectCatchChance = 0 end
+    mode = mode or "Perfect"
+    _G.Config.CatchMode = mode
+    if mode == "Perfect" then
+        _G.Config.AutoPerfectCatch = true
+        _G.Config.PerfectCatchChance = 100
+    elseif mode == "Normal" then
+        _G.Config.AutoPerfectCatch = false
+        _G.Config.PerfectCatchChance = 0
+    end
 end
+
 local function SetCastMode(mode)
-    mode = mode or "Perfect" _G.Config.CastMode = mode
-    if mode == "Perfect" then _G.Config.perfectCastEnabled = 100
-    elseif mode == "Normal" then _G.Config.perfectCastEnabled = 0 end
-    print("[Fishing] Cast Mode set ke " .. mode .. " | perfectCastEnabled=" .. tostring(_G.Config.perfectCastEnabled))
+    mode = mode or "Perfect"
+    _G.Config.CastMode = mode
+    if mode == "Perfect" then
+        _G.Config.perfectCastEnabled = 100
+    elseif mode == "Normal" then
+        _G.Config.perfectCastEnabled = 0
+    end
+    print("[Fishing] Cast Mode set ke " .. mode)
 end
+
 local function SetPerfectChance(value)
     value = math.clamp(math.floor(tonumber(value) or 100), 0, 100)
     _G.Config.PerfectCatchChance = value
-    if value > 0 then _G.Config.AutoPerfectCatch = true else _G.Config.AutoPerfectCatch = false end
-    if value == 100 then _G.Config.CatchMode = "Perfect"
-    elseif value == 0 then _G.Config.CatchMode = "Normal"
-    else _G.Config.CatchMode = "Custom" end
+    if value > 0 then
+        _G.Config.AutoPerfectCatch = true
+    else
+        _G.Config.AutoPerfectCatch = false
+    end
+    if value == 100 then
+        _G.Config.CatchMode = "Perfect"
+    elseif value == 0 then
+        _G.Config.CatchMode = "Normal"
+    else
+        _G.Config.CatchMode = "Custom"
+    end
 end
-local function SetAntiStuck(value) _G.Config.AntiStuck = value and true or false _G.Config.AntiStuckEnabled = _G.Config.AntiStuck end
-local function AutoReel(value) _G.Config.AutoReel = value SetReelMode(_G.Config.ReelMode or "Legit") end
-local function AutoCast(value) _G.Config.AutoCast = value if not value then resetAutoCastState() end print("[Fishing] Auto Cast: " .. tostring(value)) end
-local function AutoShake(value) _G.Config.AutoShake = value end
-local function SetShakeDelay(value) _G.Config.ShakeDelay = tonumber(value) or 0.01 end
 
--- ===== UI - NO ICON =====
-Window = UI:CreateWindow({Title = "Fishing Hub"})
+local function SetAntiStuck(value)
+    _G.Config.AntiStuck = value and true or false
+    _G.Config.AntiStuckEnabled = _G.Config.AntiStuck
+end
+
+local function AutoReel(value)
+    _G.Config.AutoReel = value
+    SetReelMode(_G.Config.ReelMode or "Legit")
+end
+
+local function AutoCast(value)
+    _G.Config.AutoCast = value
+    if not value then
+        resetAutoCastState()
+    end
+    print("[Fishing] Auto Cast: " .. tostring(value))
+end
+
+local function AutoShake(value)
+    _G.Config.AutoShake = value
+end
+
+local function SetShakeDelay(value)
+    _G.Config.ShakeDelay = tonumber(value) or 0.01
+end
+
+-- UI Main
+local Window = UI:CreateWindow({Title = "Fishing Hub"})
 local FishingGroup = Window:Group({Title = "Fishing"})
 local MainTab = FishingGroup:Tab({Title = "Main", Subtitle = "Fishing helpers"})
 local FishingSub = MainTab:SubTab({Title = "Fishing"})
 local FishingAccordion = FishingSub:Accordion({Title = "Fishing", Column = 1, Open = true})
 FishingAccordion:Toggle({Title = "Auto Cast", Desc = "Otomatis lempar pancing, cari air, teleport bobber", Flag = "AutoCast", Default = false, Callback = function(v) AutoCast(v) end})
 FishingAccordion:Toggle({Title = "Auto Reel", Desc = "Otomatis selesaikan reel", Flag = "AutoReel", Default = false, Callback = function(v) AutoReel(v) end})
-FishingAccordion:Toggle({Title = "Anti Stuck", Desc = "Reset paksa kalo reel nyangkut > 10 detik", Flag = "AntiStuck", Default = true, Callback = function(v) SetAntiStuck(v) end})
+FishingAccordion:Toggle({Title = "Anti Stuck", Desc = "Reset paksa kalo reel nyangkut lebih dari 10 detik", Flag = "AntiStuck", Default = true, Callback = function(v) SetAntiStuck(v) end})
 FishingAccordion:Toggle({Title = "Auto Shake", Desc = "Otomatis pencet tombol shake", Flag = "AutoShake", Default = false, Callback = function(v) AutoShake(v) end})
 FishingAccordion:Button({Title = "Test Notif", Desc = "Harusnya muncul 1x notif di kiri tengah", Callback = function() showCatchNotification({Name = "Clownfish", Weight = 2.5, Mutation = "None", Shiny = false, Sparkling = false}, true) end})
 FishingAccordion:Paragraph({Title = "Notif Catch", Desc = "Aktif otomatis, pake logic notif Exclusive. Toggle nya ada di Exclusive Tab."})
@@ -1028,11 +1599,12 @@ ModeAccordion:Paragraph({Title = "Mode", Desc = "Mode Reel + Catch + Cast dipisa
 local SettingSub = MainTab:SubTab({Title = "Setting"})
 local SettingAccordion = SettingSub:Accordion({Title = "Setting", Column = 1, Open = true})
 SettingAccordion:Slider({Title = "Shake Delay", Desc = "Delay antar shake. Paling kiri 0.01 = paling cepet", Flag = "ShakeDelay", Min = 0.01, Max = 1, Step = 0.01, Suffix = "s", Default = 0.01, Callback = function(v) SetShakeDelay(v) end})
-SettingAccordion:Slider({Title = "Chance Perfect Catch", Desc = "Peluang perfect catch. 100% = selalu perfect, 0% = gak pernah perfect.", Flag = "PerfectCatchChance", Min = 0, Max = 100, Step = 1, Suffix = "%", Default = 100, Callback = function(v) SetPerfectChance(v) end})
+SettingAccordion:Slider({Title = "Chance Perfect Catch", Desc = "Peluang perfect catch. 100 persen = selalu perfect, 0 persen = gak pernah perfect.", Flag = "PerfectCatchChance", Min = 0, Max = 100, Step = 1, Suffix = "%", Default = 100, Callback = function(v) SetPerfectChance(v) end})
 SettingAccordion:Paragraph({Title = "Shake", Desc = "Atur delay di sini, Toggle Auto Shake nya ada di SubTab Fishing."})
-SettingAccordion:Paragraph({Title = "Perfect Chance", Desc = "Kalo slider di bawah 100%, Mode Catch jadi Custom. Balikin ke 100% buat Perfect lagi."})
+SettingAccordion:Paragraph({Title = "Perfect Chance", Desc = "Kalo slider di bawah 100 persen, Mode Catch jadi Custom. Balikin ke 100 persen buat Perfect lagi."})
 
--- ===== TELEPORT TAB =====
+
+-- TELEPORT
 local cachedNpcLocations = {
     ["Angler (Moosewood)"] = CFrame.new(481, 151, 299),
     ["Angler (Roslit)"] = CFrame.new(-1512, 140, 688),
@@ -1049,8 +1621,9 @@ local cachedNpcLocations = {
     ["Halt"] = CFrame.new(-1319, 133, 412),
     ["Appraiser (Roslit)"] = CFrame.new(-1644, 137, 727),
     ["Appraiser (Moosewood)"] = CFrame.new(446, 150, 230),
-    ["Appraiser (Terrapin)"] = CFrame.new(-109, 157, 1956),
+    ["Appraiser (Terrapin)"] = CFrame.new(-109, 157, 1956)
 }
+
 local function cacheCurrentNpcs()
     local world = workspace:FindFirstChild("world")
     local npcs = world and world:FindFirstChild("npcs")
@@ -1058,22 +1631,29 @@ local function cacheCurrentNpcs()
         for _, npc in pairs(npcs:GetChildren()) do
             if npc:IsA("Model") then
                 local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head") or npc.PrimaryPart
-                if root then cachedNpcLocations[npc.Name] = root.CFrame end
+                if root then
+                    cachedNpcLocations[npc.Name] = root.CFrame
+                end
             end
         end
     end
 end
+
 local npcNames = {}
 local function updateNpcList()
     cacheCurrentNpcs()
     npcNames = {}
-    for name in pairs(cachedNpcLocations) do table.insert(npcNames, name) end
+    for name in pairs(cachedNpcLocations) do
+        table.insert(npcNames, name)
+    end
     table.sort(npcNames)
 end
 updateNpcList()
+
 local previousLocation = nil
 local lastTargetCFrame = nil
 local teleportData = {}
+
 local KNOWN_ZONES = {
     ["Moosewood"] = CFrame.new(380, 134, 235),
     ["Roslit Bay"] = CFrame.new(-1475, 133, 680),
@@ -1081,112 +1661,101 @@ local KNOWN_ZONES = {
     ["Sunstone Island"] = CFrame.new(-935, 132, -1125),
     ["Terrapin Island"] = CFrame.new(-185, 134, 1940),
     ["Snowcap Island"] = CFrame.new(2625, 135, 2370),
-    ["Snowcap Cave"] = CFrame.new(2710, 140, 2480),
-    ["Snowburrow"] = CFrame.new(2600, 135, 2400),
     ["Mushgrove Swamp"] = CFrame.new(2450, 131, -730),
     ["Forsaken Shores"] = CFrame.new(-2425, 135, 1555),
-    ["Forsaken Veil"] = CFrame.new(-2620, 133, 1540),
     ["Ancient Isle"] = CFrame.new(5850, 135, 320),
-    ["Ancient Archives"] = CFrame.new(5740, 135, 420),
     ["Vertigo"] = CFrame.new(-105, -515, 1070),
-    ["Aether"] = CFrame.new(-110, -500, 1040),
     ["The Depths"] = CFrame.new(990, -710, 1240),
     ["Desolate Deep"] = CFrame.new(-1650, -215, -2850),
-    ["Desolate Pocket"] = CFrame.new(-1650, -215, -2850),
     ["Brine Pool"] = CFrame.new(-1800, -140, -3300),
     ["Keepers Altar"] = CFrame.new(1300, -805, -280),
-    ["Crystal Cove"] = CFrame.new(1364, -612, 2472),
     ["The Arch"] = CFrame.new(1000, 125, -1250),
     ["Statue of Sovereignty"] = CFrame.new(45, 133, -1010),
-    ["Earmark Island"] = CFrame.new(1230, 125, 570),
-    ["Harvesters Spike"] = CFrame.new(-1260, 134, 1570),
     ["Crimson Cavern"] = CFrame.new(-1035, -360, -4800),
-    ["Luminescent Cavern"] = CFrame.new(-1013, -313, -4038),
-    ["Birch Cay"] = CFrame.new(1700, 125, -2500),
-    ["Haddock Rock"] = CFrame.new(-530, 125, -420),
-    ["Grand Reef"] = CFrame.new(-3530, 130, 550),
     ["Atlantis"] = CFrame.new(-4300, -580, 1800),
-    ["Boreal Pines"] = CFrame.new(21400, 135, 4123),
-    ["Northern Expedition"] = CFrame.new(20000, 133, 5300),
-    ["Drylands"] = CFrame.new(-23525, 2630, -5750),
-    ["Treasure Island"] = CFrame.new(8582, 175, -17304),
-    ["Everturn Forest"] = CFrame.new(2365, 130, -2330),
-    ["Tidefall"] = CFrame.new(3223, 130, 850),
-    ["Scoria Reach"] = CFrame.new(-4781, 138, -1378),
-    ["Lost Jungle"] = CFrame.new(-2680, 154, -2078),
-    ["Castaway Cliffs"] = CFrame.new(690, 135, -1693),
-    ["Wrath of Olympus"] = CFrame.new(-4265, -1117, 1825),
     ["Trade Plaza"] = CFrame.new(535, 82, 775),
-    ["Underground Music Venue"] = CFrame.new(2015, -645, 2460),
-    ["Carrot Garden"] = CFrame.new(415, 133, 275),
-    ["Oil Rig"] = CFrame.new(-2450, 135, -1450),
-    ["Shady Bazaar"] = CFrame.new(990, -710, 1240),
-    ["Personal Aquarium"] = CFrame.new(3699, 4252, 2999),
-    ["Cursed Isle"] = CFrame.new(1860, 135, 1210),
-    ["Waveborne"] = CFrame.new(360, 90, 780),
-    ["Pine Shoals"] = CFrame.new(1165, 80, 480),
-    ["Netter's Haven"] = CFrame.new(-640, 85, 1030),
-    ["The Deep"] = CFrame.new(-194, 130, -4669),
-    ["Mariana's Veil"] = CFrame.new(-1500, 125, 530),
-    ["Isle of New Beginnings"] = CFrame.new(-300, 83, -380),
-    ["Lushgrove"] = CFrame.new(1133, 105, -560),
-    ["Emberreach"] = CFrame.new(2390, 83, -490),
-    ["The Cursed Shores"] = CFrame.new(-235, 85, 1930),
-    ["Cults Curse"] = CFrame.new(655, 2130, 16984),
-    ["Azure Lagoon"] = CFrame.new(1310, 80, 2113),
-    ["Gilded Arch"] = CFrame.new(450, 90, 2850),
+    ["Oil Rig"] = CFrame.new(-2450, 135, -1450)
 }
+
 local function SafeTP(char, targetCFrame)
-    if not char or not targetCFrame then return end
+    if not char or not targetCFrame then
+        return
+    end
     pcall(function()
         local hrp = char:FindFirstChild("HumanoidRootPart")
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hrp then
             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
             hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
+            if hum then
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+            end
             char:PivotTo(targetCFrame)
             task.wait(0.02)
             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
         end
     end)
 end
+
 local function FreezeCharacter(freeze)
     pcall(function()
         local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then hrp.Anchored = (freeze == true) end
+        if hrp then
+            hrp.Anchored = (freeze == true)
+        end
     end)
 end
+
 local function autoEquipRod()
     pcall(function()
         local char = LocalPlayer.Character
         local bp = LocalPlayer:FindFirstChild("Backpack")
-        if not char then return end
-        if char:FindFirstChildOfClass("Tool") then return end
-        if not bp then return end
+        if not char then
+            return
+        end
+        if char:FindFirstChildOfClass("Tool") then
+            return
+        end
+        if not bp then
+            return
+        end
         for _, t in ipairs(bp:GetChildren()) do
-            if t:IsA("Tool") and (t.Name:lower():find("rod") or t.Name:lower():find("fishing") or t:GetAttribute("ToolType") == "Rod") then
+            if t:IsA("Tool") and (t.Name:lower():find("rod") or t.Name:lower():find("fishing")) then
                 local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then pcall(function() hum:EquipTool(t) end) else t.Parent = char end
+                if hum then
+                    pcall(function()
+                        hum:EquipTool(t)
+                    end)
+                else
+                    t.Parent = char
+                end
                 break
             end
         end
     end)
 end
+
 local cachedWaterParts = nil
 local lastCacheTime = 0
 local CACHE_LIFETIME = 15
+
 local function getWaterParts()
     local now = tick()
     if cachedWaterParts and (now - lastCacheTime) < CACHE_LIFETIME then
         local active = {}
-        for _, part in ipairs(cachedWaterParts) do if part and part.Parent then table.insert(active, part) end end
+        for _, part in ipairs(cachedWaterParts) do
+            if part and part.Parent then
+                table.insert(active, part)
+            end
+        end
         return active
     end
     cachedWaterParts = {workspace.Terrain}
     lastCacheTime = now
     local function scanParts(parent, depth)
-        if depth > 4 then return end
+        if depth > 4 then
+            return
+        end
         for _, v in ipairs(parent:GetChildren()) do
             if v:IsA("BasePart") then
                 local n = v.Name:lower()
@@ -1200,60 +1769,104 @@ local function getWaterParts()
     end
     local world = workspace:FindFirstChild("world")
     local map = world and world:FindFirstChild("map")
-    if map then pcall(scanParts, map, 0) end
+    if map then
+        pcall(scanParts, map, 0)
+    end
     local zones = workspace:FindFirstChild("zones")
     if zones then
-        local playerFolder = zones:FindFirstChild("player")
-        if playerFolder then pcall(scanParts, playerFolder, 0) end
-        local fishing = zones:FindFirstChild("fishing")
-        if fishing then pcall(scanParts, fishing, 0) end
+        local pf = zones:FindFirstChild("player")
+        if pf then
+            pcall(scanParts, pf, 0)
+        end
+        local ff = zones:FindFirstChild("fishing")
+        if ff then
+            pcall(scanParts, ff, 0)
+        end
     end
     return cachedWaterParts
 end
+
 local function getFishingZones()
     local zones = workspace:FindFirstChild("zones")
-    if not zones then return {}, {} end
+    if not zones then
+        return {}, {}
+    end
     local positions = {}
     local function addZonePart(name, part)
-        if not positions[name] then positions[name] = {} end
+        if not positions[name] then
+            positions[name] = {}
+        end
         table.insert(positions[name], part)
     end
     local function processZoneItem(z)
-        if not z then return end
-        if z:IsA("BasePart") then addZonePart(z.Name, z)
+        if not z then
+            return
+        end
+        if z:IsA("BasePart") then
+            addZonePart(z.Name, z)
         elseif z:IsA("Model") or z:IsA("Folder") then
-            if z:IsA("Model") and z.PrimaryPart then addZonePart(z.Name, z.PrimaryPart) end
-            for _, p in ipairs(z:GetChildren()) do if p:IsA("BasePart") then addZonePart(z.Name, p) end end
+            if z:IsA("Model") and z.PrimaryPart then
+                addZonePart(z.Name, z.PrimaryPart)
+            end
+            for _, p in ipairs(z:GetChildren()) do
+                if p:IsA("BasePart") then
+                    addZonePart(z.Name, p)
+                end
+            end
         end
     end
-    local playerFolder = zones:FindFirstChild("player")
-    if playerFolder then for _, z in ipairs(playerFolder:GetChildren()) do processZoneItem(z) end end
-    local fishingFolder = zones:FindFirstChild("fishing")
-    if fishingFolder then for _, z in ipairs(fishingFolder:GetChildren()) do processZoneItem(z) end end
+    local pf = zones:FindFirstChild("player")
+    if pf then
+        for _, z in ipairs(pf:GetChildren()) do
+            processZoneItem(z)
+        end
+    end
+    local ff = zones:FindFirstChild("fishing")
+    if ff then
+        for _, z in ipairs(ff:GetChildren()) do
+            processZoneItem(z)
+        end
+    end
     for _, child in ipairs(zones:GetChildren()) do
         if child.Name ~= "player" and child.Name ~= "fishing" then
-            if child:IsA("Folder") or child:IsA("Model") then for _, z in ipairs(child:GetChildren()) do processZoneItem(z) end
-            elseif child:IsA("BasePart") then processZoneItem(child) end
+            if child:IsA("Folder") or child:IsA("Model") then
+                for _, z in ipairs(child:GetChildren()) do
+                    processZoneItem(z)
+                end
+            elseif child:IsA("BasePart") then
+                processZoneItem(child)
+            end
         end
     end
     local list = {}
-    for k in pairs(positions) do table.insert(list, k) end
+    for k in pairs(positions) do
+        table.insert(list, k)
+    end
     table.sort(list)
     return list, positions
 end
+
 local function getTpSpots()
     local spots = {}
     local added = {}
     local function addSpot(name, cf)
-        if not added[name] then added[name] = true table.insert(spots, name) teleportData[name] = cf end
+        if not added[name] then
+            added[name] = true
+            table.insert(spots, name)
+            teleportData[name] = cf
+        end
     end
-    for name, cf in pairs(KNOWN_ZONES) do addSpot(name, cf) end
+    for name, cf in pairs(KNOWN_ZONES) do
+        addSpot(name, cf)
+    end
     local zones = workspace:FindFirstChild("zones")
-    local playerFolder = zones and zones:FindFirstChild("player")
-    if playerFolder then
-        for _, spot in pairs(playerFolder:GetChildren()) do
+    local pf = zones and zones:FindFirstChild("player")
+    if pf then
+        for _, spot in pairs(pf:GetChildren()) do
             local cf = spot:IsA("BasePart") and spot.CFrame or (spot:IsA("Model") and (spot.PrimaryPart and spot.PrimaryPart.CFrame or spot:GetPivot()))
-            if cf then addSpot(spot.Name, cf) end
+            if cf then
+                addSpot(spot.Name, cf)
+            end
         end
     end
     local world = workspace:FindFirstChild("world")
@@ -1261,19 +1874,27 @@ local function getTpSpots()
     local TpSpotsFolder = spawns and spawns:FindFirstChild("TpSpots")
     if TpSpotsFolder then
         for _, spot in pairs(TpSpotsFolder:GetChildren()) do
-            if spot:IsA("Part") then addSpot(spot.Name, spot.CFrame)
-            elseif spot:IsA("CFrameValue") then addSpot(spot.Name, spot.Value) end
+            if spot:IsA("Part") then
+                addSpot(spot.Name, spot.CFrame)
+            elseif spot:IsA("CFrameValue") then
+                addSpot(spot.Name, spot.Value)
+            end
         end
     end
     table.sort(spots)
     table.insert(spots, 1, "None")
     return spots
 end
+
 local function teleportToFishingZone(zoneName)
     local Character = LocalPlayer.Character
-    if not Character then return end
+    if not Character then
+        return
+    end
     local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
-    if not HumanoidRootPart then return end
+    if not HumanoidRootPart then
+        return
+    end
     if zoneName == "None" and previousLocation then
         lastTargetCFrame = nil
         HumanoidRootPart.CFrame = previousLocation
@@ -1302,7 +1923,10 @@ local function teleportToFishingZone(zoneName)
     end
     local _, zonesData = getFishingZones()
     local targetParts = zonesData[zoneName]
-    if not targetParts or #targetParts == 0 then warn("[TeleportArea] Zone not found: " .. tostring(zoneName)) return end
+    if not targetParts or #targetParts == 0 then
+        warn("[Teleport] Zone not found: " .. tostring(zoneName))
+        return
+    end
     local finalCFrame = nil
     local targetPart = targetParts[1]
     if targetPart then
@@ -1313,8 +1937,11 @@ local function teleportToFishingZone(zoneName)
         rayParams.FilterDescendantsInstances = waterParts
         rayParams.IgnoreWater = false
         local rayResult = workspace:Raycast(Vector3.new(centerPos.X, centerPos.Y + 500, centerPos.Z), Vector3.new(0, -1000, 0), rayParams)
-        if rayResult then finalCFrame = CFrame.new(centerPos.X, rayResult.Position.Y + 4, centerPos.Z)
-        else finalCFrame = targetPart.CFrame + Vector3.new(0, 4, 0) end
+        if rayResult then
+            finalCFrame = CFrame.new(centerPos.X, rayResult.Position.Y + 4, centerPos.Z)
+        else
+            finalCFrame = targetPart.CFrame + Vector3.new(0, 4, 0)
+        end
     end
     if finalCFrame then
         HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
@@ -1324,13 +1951,19 @@ local function teleportToFishingZone(zoneName)
         autoEquipRod()
     end
 end
+
 local function GetZoneList()
     local list, _ = getFishingZones()
-    for kName in pairs(KNOWN_ZONES) do if not table.find(list, kName) then table.insert(list, kName) end end
+    for kName in pairs(KNOWN_ZONES) do
+        if not table.find(list, kName) then
+            table.insert(list, kName)
+        end
+    end
     table.sort(list)
     table.insert(list, 1, "None")
     return list
 end
+
 local function spawnBoatIfNeeded(Character, HumanoidRootPart)
     local player = LocalPlayer
     local active = workspace:FindFirstChild("active")
@@ -1341,35 +1974,60 @@ local function spawnBoatIfNeeded(Character, HumanoidRootPart)
         local npcs = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs")
         local shipwright = nil
         if npcs then
-            for _, npc in ipairs(npcs:GetChildren()) do if npc.Name:lower():find("shipwright") then shipwright = npc break end end
+            for _, npc in ipairs(npcs:GetChildren()) do
+                if npc.Name:lower():find("shipwright") then
+                    shipwright = npc
+                    break
+                end
+            end
         end
-        if not shipwright and npcs then shipwright = npcs:WaitForChild("Moosewood Shipwright", 2) end
-        if not shipwright then warn("[TeleportArea] Shipwright NPC not found!") return nil end
+        if not shipwright and npcs then
+            shipwright = npcs:WaitForChild("Moosewood Shipwright", 2)
+        end
+        if not shipwright then
+            warn("[Teleport] Shipwright not found")
+            return nil
+        end
         HumanoidRootPart.CFrame = CFrame.new(362, 134, 259)
         task.wait(0.5)
         local description = shipwright:FindFirstChild("description")
         local idle = description and description:FindFirstChild("idle")
         local shipwrightRF = shipwright:FindFirstChild("giveUI", true)
         if shipwrightRF then
-            local args = {{ voice = 8, idle = idle, npc = shipwright, }}
-            pcall(function() shipwrightRF:InvokeServer(unpack(args)) end)
+            pcall(function()
+                shipwrightRF:InvokeServer({ voice = 8, idle = idle, npc = shipwright })
+            end)
         end
         task.wait(0.2)
         local net = game:GetService("ReplicatedStorage"):WaitForChild("packages", 2) and game:GetService("ReplicatedStorage").packages:WaitForChild("Net", 2)
         local purchaseRF = net and net:WaitForChild("RF/Boats/Purchase", 2)
-        if purchaseRF then pcall(function() purchaseRF:InvokeServer("Rowboat") end) end
+        if purchaseRF then
+            pcall(function()
+                purchaseRF:InvokeServer("Rowboat")
+            end)
+        end
         task.wait(0.5)
         local spawnRF = net and net:WaitForChild("RF/Boats/Spawn", 2)
-        if spawnRF then pcall(function() spawnRF:InvokeServer("Rowboat") end) end
+        if spawnRF then
+            pcall(function()
+                spawnRF:InvokeServer("Rowboat")
+            end)
+        end
         task.wait(0.3)
         local closeRE = net and net:WaitForChild("RE/Boats/Close", 2)
-        if closeRE then pcall(function() closeRE:FireServer() end) end
+        if closeRE then
+            pcall(function()
+                closeRE:FireServer()
+            end)
+        end
         task.wait(0.5)
         autoEquipRod()
         local gui = player:FindFirstChild("PlayerGui")
         local hudGui = gui and gui:FindFirstChild("hud")
         local shipwrightGui = hudGui and hudGui:FindFirstChild("safezone") and hudGui.safezone:FindFirstChild("shipwright")
-        if shipwrightGui then shipwrightGui.Visible = false end
+        if shipwrightGui then
+            shipwrightGui.Visible = false
+        end
         active = workspace:FindFirstChild("active")
         boats = active and active:FindFirstChild("boats")
         myBoats = boats and boats:FindFirstChild(player.Name)
@@ -1377,9 +2035,12 @@ local function spawnBoatIfNeeded(Character, HumanoidRootPart)
     end
     return boat
 end
+
 task.spawn(function()
     while true do
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         task.wait(0.5)
         pcall(function()
             if lastTargetCFrame then
@@ -1397,14 +2058,12 @@ task.spawn(function()
                             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                             humanoid:ChangeState(Enum.HumanoidStateType.Running)
                             hrp.CFrame = boatCF + Vector3.new(0, 5, 0)
-                            warn("[TeleportArea] Player fell below boat! Teleporting back onto deck.")
                         end
                     else
                         if humanoid:GetState() == Enum.HumanoidStateType.Swimming and hrp.Position.Y < lastTargetCFrame.Y - 5 then
                             hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                             humanoid:ChangeState(Enum.HumanoidStateType.Running)
                             hrp.CFrame = lastTargetCFrame + Vector3.new(0, 5, 0)
-                            warn("[TeleportArea] Swimming in deep water! Teleporting back to spot.")
                         end
                     end
                 end
@@ -1412,18 +2071,27 @@ task.spawn(function()
         end)
     end
 end)
+
 local function breakVelocity()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then hrp.AssemblyLinearVelocity = Vector3.zero hrp.AssemblyAngularVelocity = Vector3.zero end
+    if hrp then
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+    end
 end
+
 local function teleportToPlayer(playerName)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local targetPlayer = Players:FindFirstChild(playerName)
-    if not root or not targetPlayer or not targetPlayer.Character then return end
+    if not root or not targetPlayer or not targetPlayer.Character then
+        return
+    end
     local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetRoot then return end
+    if not targetRoot then
+        return
+    end
     local targetCFrame = targetRoot.CFrame + Vector3.new(3, 1, 0)
     root.Anchored = true
     task.wait(0.05)
@@ -1438,11 +2106,17 @@ local function teleportToPlayer(playerName)
     root.Anchored = false
     breakVelocity()
 end
+
 local function getPlayerNames()
     local names = {"None"}
-    for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then table.insert(names, p.Name) end end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            table.insert(names, p.Name)
+        end
+    end
     return names
 end
+
 local BalloonSpots = {
     {name = "Balon 1", pos = Vector3.new(201.9, 162, -33.7)},
     {name = "Balon 2", pos = Vector3.new(1005, 131, -1234)},
@@ -1463,56 +2137,69 @@ local BalloonSpots = {
     {name = "Balon 17", pos = Vector3.new(106, 184, 2074)},
     {name = "Balon 18", pos = Vector3.new(3019, -130, 2451)},
     {name = "Balon 19", pos = Vector3.new(5934, 259, 216)},
-    {name = "Balon 20", pos = Vector3.new(-1520, 130, 2194)},
+    {name = "Balon 20", pos = Vector3.new(-1520, 130, 2194)}
 }
+
 local savedPositions = {}
 local savedPositionName = "SHIELD"
 local selectedPosition = "None"
 local saveFileName = "saved_positions_shieldteam.json"
+
 local function loadSavedPositions()
     local success, result = pcall(function()
         if isfile and isfile(saveFileName) then
-            local jsonData = readfile(saveFileName)
-            return HttpService:JSONDecode(jsonData)
+            return HttpService:JSONDecode(readfile(saveFileName))
         end
         return {}
     end)
-    if success and type(result) == "table" then return result end
+    if success and type(result) == "table" then
+        return result
+    end
     return {}
 end
+
 local function savePositionsToFile()
     pcall(function()
         if writefile then
-            local jsonData = HttpService:JSONEncode(savedPositions)
-            writefile(saveFileName, jsonData)
+            writefile(saveFileName, HttpService:JSONEncode(savedPositions))
         end
     end)
 end
+
 savedPositions = loadSavedPositions()
+
 local function getPositionNames()
     local names = {"None"}
-    for name in pairs(savedPositions) do table.insert(names, name) end
+    for name in pairs(savedPositions) do
+        table.insert(names, name)
+    end
     return names
 end
+
 local TeleportTab = FishingGroup:Tab({Title = "Teleport", Subtitle = "Teleport helpers"})
 local TeleportMainSub = TeleportTab:SubTab({Title = "Teleport"})
 local TPMainAccordion = TeleportMainSub:Accordion({Title = "Teleport Area", Column = 1, Open = true})
 local teleportSpots = getTpSpots()
 TPMainAccordion:Dropdown({Title = "TP Area", Desc = "Choose an area to teleport", Flag = "TPArea", Options = teleportSpots, Default = "None", Callback = function(selected)
     local char = LocalPlayer.Character
-    if not char then return end
-    if selected == "None" and previousLocation then SafeTP(char, previousLocation) lastTargetCFrame = nil return end
+    if not char then
+        return
+    end
+    if selected == "None" and previousLocation then
+        SafeTP(char, previousLocation)
+        lastTargetCFrame = nil
+        return
+    end
     local targetCFrame = teleportData[selected] or KNOWN_ZONES[selected]
-    if not targetCFrame thenLanjutan dari yang kepotong tadi, langsung sambung dari `TPMainAccordion:Dropdown` yang keputus:
-
-```lua
     if targetCFrame then
         previousLocation = char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.CFrame
         SafeTP(char, targetCFrame)
         lastTargetCFrame = targetCFrame
         pcall(function()
             local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.AssemblyLinearVelocity = Vector3.zero end
+            if hrp then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+            end
             autoEquipRod()
         end)
     end
@@ -1521,8 +2208,12 @@ local tpCoord = nil
 TPMainAccordion:Input({Title = "Teleport Coordinate", Desc = "Format: X, Y, Z", Default = "", Callback = function(val)
     if val and val ~= "" then
         local numbers = {}
-        for num in string.gmatch(val, "[-%d%.]+") do table.insert(numbers, tonumber(num)) end
-        if #numbers >= 3 then tpCoord = Vector3.new(numbers[1], numbers[2], numbers[3]) end
+        for num in string.gmatch(val, "[-%d%.]+") do
+            table.insert(numbers, tonumber(num))
+        end
+        if #numbers >= 3 then
+            tpCoord = Vector3.new(numbers[1], numbers[2], numbers[3])
+        end
     end
 end})
 TPMainAccordion:Button({Title = "Teleport Coords", Desc = "Teleport to coordinate above", Callback = function()
@@ -1536,46 +2227,83 @@ end})
 TPMainAccordion:Button({Title = "Spawn Boat (Rowboat)", Desc = "Spawn Rowboat kalo belum ada", Callback = function()
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if char and hrp then task.spawn(function() spawnBoatIfNeeded(char, hrp) end) end
+    if char and hrp then
+        task.spawn(function()
+            spawnBoatIfNeeded(char, hrp)
+        end)
+    end
 end})
 local fishingSpots = GetZoneList()
-TPMainAccordion:Dropdown({Title = "Teleport Zone", Desc = "Teleport to selected zone - pake water raycast + anti jatuh", Flag = "TPZone", Options = fishingSpots, Default = _G.Config.selectedZone or "None", Callback = function(selected) _G.Config.selectedZone = selected end})
+TPMainAccordion:Dropdown({Title = "Teleport Zone", Desc = "Teleport to selected zone - pake water raycast + anti jatuh", Flag = "TPZone", Options = fishingSpots, Default = _G.Config.selectedZone or "None", Callback = function(selected)
+    _G.Config.selectedZone = selected
+end})
 TPMainAccordion:Button({Title = "Teleport Zone", Desc = "Teleport to selected zone", Callback = function()
-    if _G.Config.selectedZone and _G.Config.selectedZone ~= "None" then task.spawn(function() teleportToFishingZone(_G.Config.selectedZone) end) end
+    if _G.Config.selectedZone and _G.Config.selectedZone ~= "None" then
+        task.spawn(function()
+            teleportToFishingZone(_G.Config.selectedZone)
+        end)
+    end
 end})
 local selectedPlayer = "None"
-TPMainAccordion:Dropdown({Title = "Teleport Player", Desc = "Select player to teleport to", Flag = "TPPlayer", Options = getPlayerNames(), Default = "None", Callback = function(selected) selectedPlayer = selected end})
-TPMainAccordion:Button({Title = "Teleport ke Pemain", Desc = "Teleport to selected player", Callback = function() if selectedPlayer ~= "None" then teleportToPlayer(selectedPlayer) end end})
+TPMainAccordion:Dropdown({Title = "Teleport Player", Desc = "Select player to teleport to", Flag = "TPPlayer", Options = getPlayerNames(), Default = "None", Callback = function(selected)
+    selectedPlayer = selected
+end})
+TPMainAccordion:Button({Title = "Teleport ke Pemain", Desc = "Teleport to selected player", Callback = function()
+    if selectedPlayer ~= "None" then
+        teleportToPlayer(selectedPlayer)
+    end
+end})
+
 local NPCSub = TeleportTab:SubTab({Title = "NPC"})
 local NPCAccordion = NPCSub:Accordion({Title = "NPC Teleport", Column = 1, Open = true})
 local selectedNpcToTp = nil
-local NpcDropdown = NPCAccordion:Dropdown({Title = "Select NPC", Desc = "Choose NPC to teleport to", Flag = "NPCSelect", Options = (function() local opts = {"None"} for _, n in ipairs(npcNames) do table.insert(opts, n) end return opts end)(), Default = "None", Callback = function(Value) selectedNpcToTp = Value end})
+local NpcDropdown = NPCAccordion:Dropdown({Title = "Select NPC", Desc = "Choose NPC to teleport to", Flag = "NPCSelect", Options = (function()
+    local opts = {"None"}
+    for _, n in ipairs(npcNames) do
+        table.insert(opts, n)
+    end
+    return opts
+end)(), Default = "None", Callback = function(Value)
+    selectedNpcToTp = Value
+end})
 NPCAccordion:Button({Title = "Teleport", Desc = "Teleport to selected NPC", Callback = function()
-    if not selectedNpcToTp or selectedNpcToTp == "None" then return end
+    if not selectedNpcToTp or selectedNpcToTp == "None" then
+        return
+    end
     local targetCFrame = cachedNpcLocations[selectedNpcToTp]
     local npcs = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs")
     local npc = npcs and npcs:FindFirstChild(selectedNpcToTp)
     if npc then
         local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head") or npc.PrimaryPart
-        if root then targetCFrame = root.CFrame end
+        if root then
+            targetCFrame = root.CFrame
+        end
     end
     if targetCFrame and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
         previousLocation = LocalPlayer.Character.HumanoidRootPart.CFrame
         LocalPlayer.Character.HumanoidRootPart.CFrame = targetCFrame + Vector3.new(0, 3, 0)
         lastTargetCFrame = targetCFrame
     else
-        print("NPC location unknown or character not ready.")
+        print("NPC location unknown")
     end
 end})
 NPCAccordion:Button({Title = "Refresh NPC List", Desc = "Refresh NPC list from world", Callback = function()
     updateNpcList()
     pcall(function()
-        local allOpts = {"None"} for _, n in ipairs(npcNames) do table.insert(allOpts, n) end
-        if NpcDropdown.SetValues then NpcDropdown:SetValues(allOpts)
-        elseif NpcDropdown.SetOptions then NpcDropdown:SetOptions(allOpts)
-        elseif NpcDropdown.Refresh then NpcDropdown:Refresh(allOpts) end
+        local allOpts = {"None"}
+        for _, n in ipairs(npcNames) do
+            table.insert(allOpts, n)
+        end
+        if NpcDropdown.SetValues then
+            NpcDropdown:SetValues(allOpts)
+        elseif NpcDropdown.SetOptions then
+            NpcDropdown:SetOptions(allOpts)
+        elseif NpcDropdown.Refresh then
+            NpcDropdown:Refresh(allOpts)
+        end
     end)
 end})
+
 local BalloonSub = TeleportTab:SubTab({Title = "Balloon"})
 local BalloonAccordion = BalloonSub:Accordion({Title = "Balloon Teleport", Column = 1, Open = true})
 BalloonAccordion:Paragraph({Title = "Balon Teleport", Desc = "Teleport to balloon positions"})
@@ -1591,16 +2319,27 @@ for _, spot in ipairs(BalloonSpots) do
         end
     end})
 end
+
 local SavedSub = TeleportTab:SubTab({Title = "Saved"})
 local SavedAccordion = SavedSub:Accordion({Title = "Saved Position", Column = 1, Open = true})
-SavedAccordion:Input({Title = "Name Spot", Desc = "Name for this saved position", Default = savedPositionName, Callback = function(val) if val and val ~= "" then savedPositionName = val end end})
-local teleportPositionDropdown = SavedAccordion:Dropdown({Title = "Saved Positions", Desc = "Select a saved position to teleport", Flag = "SavedPos", Options = getPositionNames(), Default = "None", Callback = function(val) selectedPosition = val end})
+SavedAccordion:Input({Title = "Name Spot", Desc = "Name for this saved position", Default = savedPositionName, Callback = function(val)
+    if val and val ~= "" then
+        savedPositionName = val
+    end
+end})
+local teleportPositionDropdown = SavedAccordion:Dropdown({Title = "Saved Positions", Desc = "Select a saved position to teleport", Flag = "SavedPos", Options = getPositionNames(), Default = "None", Callback = function(val)
+    selectedPosition = val
+end})
 local function refreshSavedDropdown()
     local names = getPositionNames()
     pcall(function()
-        if teleportPositionDropdown.SetValues then teleportPositionDropdown:SetValues(names)
-        elseif teleportPositionDropdown.SetOptions then teleportPositionDropdown:SetOptions(names)
-        elseif teleportPositionDropdown.Refresh then teleportPositionDropdown:Refresh(names) end
+        if teleportPositionDropdown.SetValues then
+            teleportPositionDropdown:SetValues(names)
+        elseif teleportPositionDropdown.SetOptions then
+            teleportPositionDropdown:SetOptions(names)
+        elseif teleportPositionDropdown.Refresh then
+            teleportPositionDropdown:Refresh(names)
+        end
     end)
 end
 SavedAccordion:Button({Title = "Save Position", Desc = "Save current position", Callback = function()
@@ -1637,63 +2376,98 @@ SavedAccordion:Button({Title = "Delete Selected Position", Desc = "Delete select
     end
 end})
 
--- ===== SHOP TAB =====
+
+-- SHOP
 local function getMod(name)
-    if _G.getMod then return _G.getMod(name) end
+    if _G.getMod then
+        return _G.getMod(name)
+    end
     local core = game:GetService("ReplicatedStorage"):FindFirstChild("Shield_Core")
     if core then
         local folder = core:FindFirstChild(name)
         if folder then
-            local src = ""
+            local src2 = ""
             if folder:IsA("Folder") then
                 for i = 1, #folder:GetChildren() do
                     local chunk = folder:FindFirstChild(tostring(i))
-                    if chunk then src = src .. chunk.Value end
+                    if chunk then
+                        src2 = src2 .. chunk.Value
+                    end
                 end
-            else src = folder.Value end
-            local fn, err = loadstring(src)
-            if not fn then warn("[NewFish5] Failed to load module '" .. tostring(name) .. "': " .. tostring(err)) return nil end
-            local success, res = pcall(fn)
-            if not success then warn("[NewFish5] Error executing module '" .. tostring(name) .. "': " .. tostring(res)) return nil end
+            else
+                src2 = folder.Value
+            end
+            local fn, err = loadstring(src2)
+            if not fn then
+                warn("[Shop] Failed load " .. tostring(name))
+                return nil
+            end
+            local ok, res = pcall(fn)
+            if not ok then
+                warn("[Shop] Error " .. tostring(name))
+                return nil
+            end
             return res
         end
     end
     return nil
 end
+
 local purchase = ReplicatedStorage:WaitForChild("events"):WaitForChild("purchase")
 local selectedBait = "Common Crate"
 local baitBuyAmount = 1
 local BAIT_LIST = {"Worm", "Cricket", "Leech", "Minnow", "Firefly", "Shrimp", "Squid", "Sand Dollar", "Pearl", "Phantom Worm", "Enchanted Bait", "Seaside Sardine"}
-_G.Config.AutoBuyBait = _G.Config.AutoBuyBait or false
-_G.Config.SelectedBait = _G.Config.SelectedBait or "Worm"
-_G.Config.BuyBaitAmount = _G.Config.BuyBaitAmount or 1
+
 local itemNames = {}
-local successItems, itemsModule = pcall(function() return require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("modules"):WaitForChild("library"):WaitForChild("items")) end)
-if successItems and itemsModule and itemsModule.Items then
-    for itemName in pairs(itemsModule.Items) do table.insert(itemNames, itemName) end
+local okItems, itemsModule = pcall(function()
+    return require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("modules"):WaitForChild("library"):WaitForChild("items"))
+end)
+if okItems and itemsModule and itemsModule.Items then
+    for n in pairs(itemsModule.Items) do
+        table.insert(itemNames, n)
+    end
     table.sort(itemNames)
-else itemNames = {"Common Crate", "Carbon Crate"} end
+else
+    itemNames = {"Common Crate", "Carbon Crate"}
+end
+
 local PurchaseQuantity = 1
 local ItemDropdown = nil
-_G.Config.AutoBuyCarrot = _G.Config.AutoBuyCarrot or false
+
 local rodNames = {}
-local successRods, rodsModule = pcall(function() return require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("modules"):WaitForChild("library"):WaitForChild("rods")) end)
-if successRods and rodsModule then
-    local rodsTable = rodsModule.Rods or rodsModule
-    if typeof(rodsTable) == "table" then for rodName in pairs(rodsTable) do table.insert(rodNames, rodName) end table.sort(rodNames) end
+local okRods, rodsModule = pcall(function()
+    return require(ReplicatedStorage:WaitForChild("shared"):WaitForChild("modules"):WaitForChild("library"):WaitForChild("rods"))
+end)
+if okRods and rodsModule then
+    local rt = rodsModule.Rods or rodsModule
+    if type(rt) == "table" then
+        for n in pairs(rt) do
+            table.insert(rodNames, n)
+        end
+        table.sort(rodNames)
+    end
 end
-if #rodNames == 0 then rodNames = {"Lucky Rod"} end
+if #rodNames == 0 then
+    rodNames = {"Lucky Rod"}
+end
+
 local selectedTPRod = nil
-_G.Config.AutoBuyAllRods = _G.Config.AutoBuyAllRods or false
+
 local function FireProximity(proximity)
     if proximity:IsA("ProximityPrompt") and proximity.Enabled then
         pcall(function()
             local camera = workspace.CurrentCamera
             if camera then
                 local targetPos = nil
-                if proximity.Parent:IsA("Attachment") then targetPos = proximity.Parent.WorldPosition
-                elseif proximity.Parent:IsA("BasePart") then targetPos = proximity.Parent.Position end
-                if targetPos then camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos) task.wait(0.1) end
+                if proximity.Parent:IsA("Attachment") then
+                    targetPos = proximity.Parent.WorldPosition
+                elseif proximity.Parent:IsA("BasePart") then
+                    targetPos = proximity.Parent.Position
+                end
+                if targetPos then
+                    camera.CFrame = CFrame.lookAt(camera.CFrame.Position, targetPos)
+                    task.wait(0.1)
+                end
             end
         end)
         proximity:InputHoldBegin()
@@ -1701,224 +2475,508 @@ local function FireProximity(proximity)
         proximity:InputHoldEnd()
     end
 end
+
 local merlinOptions = {"1", "2", "5", "10", "25", "50"}
 local selectedMerlinOpt = 1
-_G.Config.AutoBuyMerlin = _G.Config.AutoBuyMerlin or false
+
 local MerlinItems = {
     {Title = "Auto Buy - Temporary Luck Boost", Node = 9, Choice = 1},
     {Title = "Auto Buy - Temporary Lure Boost", Node = 10, Choice = 1},
     {Title = "Auto Buy - Temporary XP Boost", Node = 7, Choice = 1},
-    {Title = "Auto Buy - Twisted Relic", Node = 11, Choice = 1},
+    {Title = "Auto Buy - Twisted Relic", Node = 11, Choice = 1}
 }
 local clonedMerlin = nil
+
 local function setupMerlinClone()
     local originalCFrame = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.CFrame
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-952, 223, -987) end
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-952, 223, -987)
+    end
     task.wait(0.5)
     local npcs = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs")
     local npcMerlin = npcs and npcs:FindFirstChild("Merlin")
     local prompt = npcMerlin and npcMerlin:FindFirstChild("ProximityPrompt")
-    if prompt then FireProximity(prompt) end
+    if prompt then
+        FireProximity(prompt)
+    end
     task.wait(3)
-    if npcMerlin then clonedMerlin = npcMerlin:Clone() clonedMerlin.Parent = npcs clonedMerlin.Name = "MerlinClone" end
+    if npcMerlin then
+        clonedMerlin = npcMerlin:Clone()
+        clonedMerlin.Parent = npcs
+        clonedMerlin.Name = "MerlinClone"
+    end
     task.wait(0.3)
-    if originalCFrame and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = originalCFrame end
+    if originalCFrame and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = originalCFrame
+    end
     task.wait(0.5)
 end
+
 local dialogInteract = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RF/DialogInteract")
+
 local ShopTab = FishingGroup:Tab({Title = "Shop", Subtitle = "Shop helpers"})
 local ShopBaitSub = ShopTab:SubTab({Title = "Bait"})
 local ShopBaitAccordion = ShopBaitSub:Accordion({Title = "Shop Bait", Column = 1, Open = true})
-ShopBaitAccordion:Paragraph({Title = "Purchase System", Desc = "Max 50 per transaction - Auto-loops for larger amounts - 0.5s delay between purchases - Stops after 3 consecutive failures - Use Stop Purchase to cancel"})
-ShopBaitAccordion:Dropdown({Title = "Select Bait", Desc = "Choose a Bait to Purchase", Flag = "SelectBait", Options = {"Common Crate", "Tropical Bait Crate", "Carbon Crate", "Bait Crate", "Quality Bait Crate", "Coral Geode", "Volcanic Geode", "Festive Bait Crate"}, Default = "Common Crate", Callback = function(v) selectedBait = v end})
-ShopBaitAccordion:Input({Title = "Buy Amount", Desc = "Amount To Buy Bait", Default = "1", Callback = function(Text) local amount = tonumber(Text) if amount then baitBuyAmount = amount end end})
-ShopBaitAccordion:Button({Title = "Buy Bait Crate", Desc = "Theoretical maximum", Callback = function()
-    if not selectedBait then return end
-    local item = selectedBait
-    local rem = tonumber(baitBuyAmount) or 1
-    task.spawn(function() pcall(function() while rem > 0 do local buyBatch = rem > 50 and 50 or rem purchase:FireServer(item, "Fish", nil, buyBatch) rem = rem - buyBatch end end) end)
+ShopBaitAccordion:Paragraph({Title = "Purchase System", Desc = "Max 50 per transaction - Auto-loops - 0.5s delay - Item limit handled by server"})
+ShopBaitAccordion:Dropdown({Title = "Select Bait", Desc = "Choose Bait", Flag = "SelectBait", Options = {"Common Crate", "Tropical Bait Crate", "Carbon Crate", "Bait Crate", "Quality Bait Crate", "Coral Geode", "Volcanic Geode", "Festive Bait Crate"}, Default = "Common Crate", Callback = function(value)
+    selectedBait = value
 end})
-ShopBaitAccordion:Paragraph({Title = "Auto Buy Bait (NPC)", Desc = "Auto buy bait dari NPC"})
-ShopBaitAccordion:Toggle({Title = "Enable Auto Buy Bait", Desc = "Enable auto buy bait", Flag = "AutoBuyBait", Default = _G.Config.AutoBuyBait or false, Callback = function(state) _G.Config.AutoBuyBait = state end})
-ShopBaitAccordion:Dropdown({Title = "Auto Buy Bait Type", Desc = "Select individual bait to buy automatically", Flag = "AutoBuyBaitType", Options = BAIT_LIST, Default = _G.Config.SelectedBait or "Worm", Callback = function(v) _G.Config.SelectedBait = v end})
-ShopBaitAccordion:Input({Title = "Auto Buy Quantity", Desc = "Quantity of bait to purchase automatically", Default = tostring(_G.Config.BuyBaitAmount or 1), Callback = function(Text) local amount = tonumber(Text) if amount then _G.Config.BuyBaitAmount = amount end end})
+ShopBaitAccordion:Input({Title = "Buy Amount", Desc = "Amount To Buy Bait", Default = "1", Callback = function(text)
+    local amount = tonumber(text)
+    if amount then
+        baitBuyAmount = amount
+    end
+end})
+ShopBaitAccordion:Button({Title = "Buy Bait Crate", Desc = "Buy selected bait crate", Callback = function()
+    if not selectedBait then
+        return
+    end
+    local item = selectedBait
+    local remaining = tonumber(baitBuyAmount) or 1
+    task.spawn(function()
+        pcall(function()
+            while remaining > 0 do
+                local batch = remaining > 50 and 50 or remaining
+                purchase:FireServer(item, "Fish", nil, batch)
+                remaining = remaining - batch
+            end
+        end)
+    end)
+end})
+ShopBaitAccordion:Paragraph({Title = "Auto Buy Bait (NPC)", Desc = "Auto buy bait dari NPC, beli pake sistem NPC biar kehitung"})
+ShopBaitAccordion:Toggle({Title = "Enable Auto Buy Bait", Desc = "Enable auto buy bait", Flag = "AutoBuyBait", Default = _G.Config.AutoBuyBait or false, Callback = function(state)
+    _G.Config.AutoBuyBait = state
+end})
+ShopBaitAccordion:Dropdown({Title = "Auto Buy Bait Type", Desc = "Select bait to auto buy", Flag = "AutoBuyBaitType", Options = BAIT_LIST, Default = _G.Config.SelectedBait or "Worm", Callback = function(value)
+    _G.Config.SelectedBait = value
+end})
+ShopBaitAccordion:Input({Title = "Auto Buy Quantity", Desc = "Quantity to buy each cycle", Default = tostring(_G.Config.BuyBaitAmount or 1), Callback = function(text)
+    local amount = tonumber(text)
+    if amount then
+        _G.Config.BuyBaitAmount = amount
+    end
+end})
+
 local ShopItemSub = ShopTab:SubTab({Title = "Item"})
 local ShopItemAccordion = ShopItemSub:Accordion({Title = "Shop Item", Column = 1, Open = true})
-ShopItemAccordion:Input({Title = "Purchase Quantity", Desc = "Amount To Buy Item", Default = "1", Callback = function(value) local num = tonumber(value) if num then PurchaseQuantity = num end end})
-ShopItemAccordion:Dropdown({Title = "Select an Item", Desc = "Choose an item from the shop to purchase.", Flag = "SelectItem", Options = itemNames, Default = itemNames[1], Callback = function(value) ItemDropdown = value end})
-ShopItemAccordion:Button({Title = "Buy Selected Item", Desc = "Theoretical maximum", Callback = function()
-    if not ItemDropdown then return end
+ShopItemAccordion:Input({Title = "Purchase Quantity", Desc = "Amount To Buy Item", Default = "1", Callback = function(value)
+    local num = tonumber(value)
+    if num then
+        PurchaseQuantity = num
+    end
+end})
+ShopItemAccordion:Dropdown({Title = "Select an Item", Desc = "Choose item to buy", Flag = "SelectItem", Options = itemNames, Default = itemNames[1], Callback = function(value)
+    ItemDropdown = value
+end})
+ShopItemAccordion:Button({Title = "Buy Selected Item", Desc = "Buy selected item", Callback = function()
+    if not ItemDropdown then
+        return
+    end
     task.spawn(function()
         local item = ItemDropdown
         local amount = tonumber(PurchaseQuantity) or 1
         for i = 1, amount do
-            task.spawn(function() pcall(function() purchase:FireServer(item, "Item", nil, 1) end) end)
-            if i % 20 == 0 then task.wait(0.01) end
+            task.spawn(function()
+                pcall(function()
+                    purchase:FireServer(item, "Item", nil, 1)
+                end)
+            end)
+            if i % 20 == 0 then
+                task.wait(0.01)
+            end
         end
     end)
 end})
+
 ShopItemAccordion:Paragraph({Title = "Black Market", Desc = "Black Market auto buy"})
-local AutoBM = {Enabled = false, TargetItem = nil, Items = {"No items found"}, ItemIDs = {}, DropdownUI = nil}
+local AutoBM = { Enabled = false, TargetItem = nil, Items = {"No items found"}, ItemIDs = {}, DropdownUI = nil }
+
 local function RefreshItemList()
     AutoBM.Items = {}
     AutoBM.ItemIDs = {}
     pcall(function()
         local hud = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("hud")
         local safezone = hud:WaitForChild("safezone")
-        local BlackMarketGui = safezone:WaitForChild("BlackMarket")
-        local ListFrame = BlackMarketGui:WaitForChild("List")
+        local BMGui = safezone:WaitForChild("BlackMarket")
+        local ListFrame = BMGui:WaitForChild("List")
         for _, child in ipairs(ListFrame:GetChildren()) do
             if child:IsA("Frame") and child:FindFirstChild("ItemPreview") then
-                local titleLabel = child.ItemPreview:FindFirstChild("ItemHeader") and child.ItemPreview.ItemHeader:FindFirstChild("ItemTitle")
-                if titleLabel then local displayName = titleLabel.Text table.insert(AutoBM.Items, displayName) AutoBM.ItemIDs[displayName] = child.Name end
+                local tl = child.ItemPreview:FindFirstChild("ItemHeader") and child.ItemPreview.ItemHeader:FindFirstChild("ItemTitle")
+                if tl then
+                    local dn = tl.Text
+                    table.insert(AutoBM.Items, dn)
+                    AutoBM.ItemIDs[dn] = child.Name
+                end
             end
         end
     end)
-    if #AutoBM.Items == 0 then table.insert(AutoBM.Items, "No items found") end
-    if AutoBM.DropdownUI then pcall(function()
-        if AutoBM.DropdownUI.SetValues then AutoBM.DropdownUI:SetValues(AutoBM.Items)
-        elseif AutoBM.DropdownUI.SetOptions then AutoBM.DropdownUI:SetOptions(AutoBM.Items)
-        elseif AutoBM.DropdownUI.Refresh then AutoBM.DropdownUI:Refresh(AutoBM.Items) end
-    end) end
+    if #AutoBM.Items == 0 then
+        table.insert(AutoBM.Items, "No items found")
+    end
+    if AutoBM.DropdownUI then
+        pcall(function()
+            if AutoBM.DropdownUI.SetValues then
+                AutoBM.DropdownUI:SetValues(AutoBM.Items)
+            elseif AutoBM.DropdownUI.SetOptions then
+                AutoBM.DropdownUI:SetOptions(AutoBM.Items)
+            elseif AutoBM.DropdownUI.Refresh then
+                AutoBM.DropdownUI:Refresh(AutoBM.Items)
+            end
+        end)
+    end
 end
+
 local PurchaseRemoteBM = nil
-pcall(function() PurchaseRemoteBM = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RE/BlackMarket/Purchase") end)
-AutoBM.DropdownUI = ShopItemAccordion:Dropdown({Title = "Select Item Black Market", Desc = "Choose Black Market item", Flag = "BMItem", Options = AutoBM.Items, Default = AutoBM.Items[1], Callback = function(value) if value and AutoBM.ItemIDs[value] then AutoBM.TargetItem = value end end})
-ShopItemAccordion:Button({Title = "Refresh Item List Black Market", Desc = "Refresh Black Market list", Callback = function() RefreshItemList() end})
-ShopItemAccordion:Toggle({Title = "Auto Buy Selected Item Black Market", Desc = "Automatically buy selected item repeatedly", Flag = "AutoBuyBM", Default = false, Callback = function(state)
+pcall(function()
+    PurchaseRemoteBM = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RE/BlackMarket/Purchase")
+end)
+
+AutoBM.DropdownUI = ShopItemAccordion:Dropdown({Title = "Select Item Black Market", Desc = "Choose Black Market item", Flag = "BMItem", Options = AutoBM.Items, Default = AutoBM.Items[1], Callback = function(value)
+    if value and AutoBM.ItemIDs[value] then
+        AutoBM.TargetItem = value
+    end
+end})
+ShopItemAccordion:Button({Title = "Refresh Item List Black Market", Desc = "Refresh list from GUI", Callback = function()
+    RefreshItemList()
+end})
+ShopItemAccordion:Toggle({Title = "Auto Buy Selected Item Black Market", Desc = "Auto buy selected Black Market item", Flag = "AutoBuyBM", Default = false, Callback = function(state)
     AutoBM.Enabled = state
-    if state then task.spawn(function() while AutoBM.Enabled do if AutoBM.TargetItem and AutoBM.ItemIDs[AutoBM.TargetItem] and PurchaseRemoteBM then local uuid = AutoBM.ItemIDs[AutoBM.TargetItem] pcall(function() PurchaseRemoteBM:FireServer(uuid) end) task.wait(1) else task.wait(0.5) end end end) end
+    if state then
+        task.spawn(function()
+            while AutoBM.Enabled do
+                if AutoBM.TargetItem and AutoBM.ItemIDs[AutoBM.TargetItem] and PurchaseRemoteBM then
+                    local uuid = AutoBM.ItemIDs[AutoBM.TargetItem]
+                    pcall(function()
+                        PurchaseRemoteBM:FireServer(uuid)
+                    end)
+                    task.wait(1)
+                else
+                    task.wait(0.5)
+                end
+            end
+        end)
+    end
 end})
-ShopItemAccordion:Toggle({Title = "Auto Buy Carrot", Desc = "Auto buy carrot", Flag = "AutoBuyCarrot", Default = _G.Config.AutoBuyCarrot or false, Callback = function(state)
+
+ShopItemAccordion:Toggle({Title = "Auto Buy Carrot", Desc = "Auto buy carrot dari NPC", Flag = "AutoBuyCarrot", Default = _G.Config.AutoBuyCarrot or false, Callback = function(state)
     _G.Config.AutoBuyCarrot = state
-    if state then task.spawn(function() while _G.Config.AutoBuyCarrot do pcall(function() local char = LocalPlayer.Character if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.CFrame = CFrame.new(266, 147, -146) end task.wait(0.2) local args = { buffer.fromstring("h\000\006Carrot") } ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Packet"):WaitForChild("RemoteEvent"):FireServer(unpack(args)) end) task.wait(0.5) end end) end
+    if state then
+        task.spawn(function()
+            while _G.Config.AutoBuyCarrot do
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = CFrame.new(266, 147, -146)
+                    end
+                    task.wait(0.2)
+                    local args = { buffer.fromstring("h\\000\\006Carrot") }
+                    ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Packet"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+                end)
+                task.wait(0.5)
+            end
+        end)
+    end
 end})
+
 local ShopRodSub = ShopTab:SubTab({Title = "Rod"})
 local ShopRodAccordion = ShopRodSub:Accordion({Title = "Shop Rod", Column = 1, Open = true})
-ShopRodAccordion:Dropdown({Title = "Select Rod (TP Method)", Desc = "Choose rod to buy via TP", Flag = "SelectRodTP", Options = rodNames, Default = rodNames[1], Callback = function(v) selectedTPRod = v end})
+ShopRodAccordion:Dropdown({Title = "Select Rod (TP Method)", Desc = "Choose rod to buy via TP", Flag = "SelectRodTP", Options = rodNames, Default = rodNames[1], Callback = function(value)
+    selectedTPRod = value
+end})
 ShopRodAccordion:Button({Title = "Buy Selected Rod (TP Method)", Desc = "Buy rod via TP method", Callback = function()
-    if not selectedTPRod then return end
-    task.spawn(function() local AutoBuyRod = getMod("AutoBuyRod") if AutoBuyRod and AutoBuyRod.BuyRodTP then AutoBuyRod.BuyRodTP(selectedTPRod) end end)
+    if not selectedTPRod then
+        return
+    end
+    task.spawn(function()
+        local AutoBuyRod = getMod("AutoBuyRod")
+        if AutoBuyRod and AutoBuyRod.BuyRodTP then
+            AutoBuyRod.BuyRodTP(selectedTPRod)
+        end
+    end)
 end})
-ShopRodAccordion:Toggle({Title = "Auto Buy All Rods (TP Method)", Desc = "Automatically teleports to buy all available rods", Flag = "AutoBuyAllRods", Default = _G.Config.AutoBuyAllRods or false, Callback = function(state)
+ShopRodAccordion:Toggle({Title = "Auto Buy All Rods (TP Method)", Desc = "Auto buy all rods via TP", Flag = "AutoBuyAllRods", Default = _G.Config.AutoBuyAllRods or false, Callback = function(state)
     _G.Config.AutoBuyAllRods = state
-    if state then task.spawn(function() local AutoBuyRod = getMod("AutoBuyRod") if AutoBuyRod and AutoBuyRod.StartLoop then AutoBuyRod.StartLoop() end end) end
+    if state then
+        task.spawn(function()
+            local AutoBuyRod = getMod("AutoBuyRod")
+            if AutoBuyRod and AutoBuyRod.StartLoop then
+                AutoBuyRod.StartLoop()
+            end
+        end)
+    end
 end})
+
 local MerlinSub = ShopTab:SubTab({Title = "Merlin"})
 local MerlinAccordion = MerlinSub:Accordion({Title = "Merlin", Column = 1, Open = true})
-MerlinAccordion:Dropdown({Title = "Merlin Option", Desc = "Choose Merlin option", Flag = "MerlinOption", Options = merlinOptions, Default = "1", Callback = function(v) for i, option in ipairs(merlinOptions) do if option == v then selectedMerlinOpt = i break end end end})
+MerlinAccordion:Dropdown({Title = "Merlin Option", Desc = "Choose Merlin option", Flag = "MerlinOption", Options = merlinOptions, Default = "1", Callback = function(value)
+    for i, opt in ipairs(merlinOptions) do
+        if opt == value then
+            selectedMerlinOpt = i
+            break
+        end
+    end
+end})
 MerlinAccordion:Toggle({Title = "Auto Buy Merlin", Desc = "Auto buy Merlin", Flag = "AutoBuyMerlin", Default = _G.Config.AutoBuyMerlin or false, Callback = function(state)
     _G.Config.AutoBuyMerlin = state
-    if state then task.spawn(function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-952, 223, -987) end
-        task.wait(0.5)
-        local npcs = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs")
-        local npcMerlin = npcs and npcs:FindFirstChild("Merlin")
-        local prompt = npcMerlin and npcMerlin:FindFirstChild("ProximityPrompt")
-        if prompt then FireProximity(prompt) end
-        task.wait(0.5)
-        local interactRemote = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RF/DialogInteract")
-        while _G.Config.AutoBuyMerlin do pcall(function() interactRemote:InvokeServer(3, selectedMerlinOpt) end) task.wait(0.5) end
-    end) end
+    if state then
+        task.spawn(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-952, 223, -987)
+            end
+            task.wait(0.5)
+            local npcs = workspace:FindFirstChild("world") and workspace.world:FindFirstChild("npcs")
+            local npcMerlin = npcs and npcs:FindFirstChild("Merlin")
+            local prompt = npcMerlin and npcMerlin:FindFirstChild("ProximityPrompt")
+            if prompt then
+                FireProximity(prompt)
+            end
+            task.wait(0.5)
+            local interactRemote = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RF/DialogInteract")
+            while _G.Config.AutoBuyMerlin do
+                pcall(function()
+                    interactRemote:InvokeServer(3, selectedMerlinOpt)
+                end)
+                task.wait(0.5)
+            end
+        end)
+    end
 end})
+
 for _, item in ipairs(MerlinItems) do
     local itemKey = "AutoBuyMerlin_" .. item.Node
     MerlinAccordion:Toggle({Title = item.Title, Desc = "Auto buy " .. item.Title, Flag = itemKey, Default = _G.Config[itemKey] or false, Callback = function(state)
         _G.Config[itemKey] = state
-        if state then task.spawn(function()
-            if not clonedMerlin or not clonedMerlin.Parent then setupMerlinClone() end
-            pcall(function() dialogInteract:InvokeServer(item.Node, item.Choice) end)
-            while _G.Config[itemKey] do task.wait(30 * 60) if not _G.Config[itemKey] then break end pcall(function() dialogInteract:InvokeServer(item.Node, item.Choice) end) end
-        end)
+        if state then
+            task.spawn(function()
+                if not clonedMerlin or not clonedMerlin.Parent then
+                    setupMerlinClone()
+                end
+                pcall(function()
+                    dialogInteract:InvokeServer(item.Node, item.Choice)
+                end)
+                while _G.Config[itemKey] do
+                    task.wait(30 * 60)
+                    if not _G.Config[itemKey] then
+                        break
+                    end
+                    pcall(function()
+                        dialogInteract:InvokeServer(item.Node, item.Choice)
+                    end)
+                end
+            end)
         else
             local anyActive = false
-            for _, i in ipairs(MerlinItems) do if _G.Config["AutoBuyMerlin_" .. i.Node] then anyActive = true break end end
-            if not anyActive and clonedMerlin and clonedMerlin.Parent then clonedMerlin:Destroy() clonedMerlin = nil end
+            for _, other in ipairs(MerlinItems) do
+                if _G.Config["AutoBuyMerlin_" .. other.Node] then
+                    anyActive = true
+                    break
+                end
+            end
+            if not anyActive and clonedMerlin and clonedMerlin.Parent then
+                clonedMerlin:Destroy()
+                clonedMerlin = nil
+            end
         end
     end})
 end
 
--- ===== EXCLUSIVE TAB - Config AutoSave di-skip, notif pake logic Exclusive =====
+
+-- EXCLUSIVE
 local ExclusiveTab = FishingGroup:Tab({Title = "Exclusive", Subtitle = "Exclusive helpers"})
 local ExclusiveSub = ExclusiveTab:SubTab({Title = "Exclusive"})
 local ExclusiveAccordion = ExclusiveSub:Accordion({Title = "Exclusive", Column = 1, Open = true})
 local AutoCosmic = getMod("AutoCosmic")
 local AutoStorage = getMod("AutoStorage")
 local AutoPotion = getMod("AutoPotion")
+
 ExclusiveAccordion:Paragraph({Title = "Cosmic Features", Desc = "Cosmic relic helpers"})
-ExclusiveAccordion:Toggle({Title = "Auto Hop Cosmic", Desc = "Specifically searches for Cosmic Relics", Flag = "AutoHopCosmic", Default = _G.Config.AutoHopCosmic or false, Callback = function(state)
+ExclusiveAccordion:Toggle({Title = "Auto Hop Cosmic", Desc = "Searches for Cosmic Relics and hops server", Flag = "AutoHopCosmic", Default = _G.Config.AutoHopCosmic or false, Callback = function(state)
     _G.Config.AutoHopCosmic = state
-    if state then _G.Config.AutoHopUptime = false if AutoCosmic then AutoCosmic.SetEnabled(true) end
-    else if AutoCosmic then AutoCosmic.SetEnabled(false) end end
+    if state then
+        _G.Config.AutoHopUptime = false
+        if AutoCosmic then
+            AutoCosmic.SetEnabled(true)
+        end
+    else
+        if AutoCosmic then
+            AutoCosmic.SetEnabled(false)
+        end
+    end
 end})
 ExclusiveAccordion:Toggle({Title = "Collect Cosmic", Desc = "Claim Lunar Thread, Starfall Totem, Cosmic Relic, Meteoric", Flag = "AutoClaimMulti", Default = _G.Config.AutoClaimMulti or false, Callback = function(state)
     _G.Config.AutoClaimMulti = state
-    if state and getgenv().startAutoClaimMulti then getgenv().startAutoClaimMulti() end
+    if state and getgenv().startAutoClaimMulti then
+        getgenv().startAutoClaimMulti()
+    end
 end})
+
 ExclusiveAccordion:Paragraph({Title = "Auto Potion", Desc = "Auto use potion"})
 if AutoPotion then
     local potionList = {}
-    pcall(function() potionList = AutoPotion.GetPotionList() or {} end)
-    if #potionList == 0 then potionList = {"Luck Potion", "Lure Potion", "XP Potion"} end
-    ExclusiveAccordion:Dropdown({Title = "Select Potions", Desc = "Select potions to use", Flag = "SelectedPotions", Options = potionList, Multi = true, Default = _G.Config.SelectedPotions or {}, Callback = function(SelectedPotions)
-        local normalized = {}
-        if type(SelectedPotions) == "table" then
-            for k, v in pairs(SelectedPotions) do
-                if type(k) == "string" and v == true then table.insert(normalized, k)
-                elseif type(k) == "number" and type(v) == "string" then table.insert(normalized, v) end
+    pcall(function()
+        potionList = AutoPotion.GetPotionList() or {}
+    end)
+    if #potionList == 0 then
+        potionList = {"Luck Potion", "Lure Potion", "XP Potion"}
+    end
+    ExclusiveAccordion:Dropdown({Title = "Select Potions", Desc = "Select potions to auto use", Flag = "SelectedPotions", Options = potionList, Multi = true, Default = _G.Config.SelectedPotions or {}, Callback = function(sel)
+        local norm = {}
+        if type(sel) == "table" then
+            for k, v in pairs(sel) do
+                if type(k) == "string" and v == true then
+                    table.insert(norm, k)
+                elseif type(k) == "number" and type(v) == "string" then
+                    table.insert(norm, v)
+                end
             end
-        elseif type(SelectedPotions) == "string" and SelectedPotions ~= "" then table.insert(normalized, SelectedPotions) end
-        _G.Config.SelectedPotions = normalized
+        elseif type(sel) == "string" and sel ~= "" then
+            table.insert(norm, sel)
+        end
+        _G.Config.SelectedPotions = norm
     end})
-    ExclusiveAccordion:Slider({Title = "Auto Potion Count", Desc = "Amount of potions to use per activation", Flag = "AutoPotionCount", Min = 1, Max = 10, Step = 1, Default = _G.Config.AutoPotionCount or 1, Callback = function(Value) _G.Config.AutoPotionCount = Value end})
-    ExclusiveAccordion:Toggle({Title = "Auto Potion", Desc = "Auto use selected potions", Flag = "AutoPotionEnabled", Default = _G.Config.AutoPotionEnabled or false, Callback = function(isEnabled)
-        _G.Config.AutoPotionEnabled = isEnabled
-        if isEnabled then AutoPotion.StartLoop() else AutoPotion.StopLoop() end
+    ExclusiveAccordion:Slider({Title = "Auto Potion Count", Desc = "Amount per activation", Flag = "AutoPotionCount", Min = 1, Max = 10, Step = 1, Default = _G.Config.AutoPotionCount or 1, Callback = function(v)
+        _G.Config.AutoPotionCount = v
+    end})
+    ExclusiveAccordion:Toggle({Title = "Auto Potion", Desc = "Auto use selected potions", Flag = "AutoPotionEnabled", Default = _G.Config.AutoPotionEnabled or false, Callback = function(en)
+        _G.Config.AutoPotionEnabled = en
+        if en then
+            AutoPotion.StartLoop()
+        else
+            AutoPotion.StopLoop()
+        end
     end})
 end
-ExclusiveAccordion:Toggle({Title = "Spear Exploits", Desc = "Spear Fishing Minigame Exploit", Flag = "DupeFischToggle", Default = _G.Config.DupeFischToggle or false, Callback = function(value)
+
+ExclusiveAccordion:Toggle({Title = "Spear Exploits", Desc = "Spear Fishing Minigame Exploit - clone zone fish lalu spam", Flag = "DupeFischToggle", Default = _G.Config.DupeFischToggle or false, Callback = function(value)
     _G.Config.DupeFischToggle = value
-    if value then task.spawn(function()
-        local remote = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RE/SpearFishing/Minigame")
-        local char = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
-        local hrp = char:WaitForChild("HumanoidRootPart")
-        local oldCF = hrp.CFrame
-        local locations = {CFrame.new(-2831, 129, -2146), CFrame.new(2602, -1112, 837), CFrame.new(3077, -1116, 794), CFrame.new(3076, -1144, 1718), CFrame.new(3069, -1144, 2108)}
-        if _G.ClonedSpearStorage then _G.ClonedSpearStorage:Destroy() end
-        _G.ClonedSpearStorage = Instance.new("Folder") _G.ClonedSpearStorage.Name = "ClonedSpearStorage" _G.ClonedSpearStorage.Parent = ReplicatedStorage
-        for _, loc in ipairs(locations) do
-            if not _G.Config.DupeFischToggle then break end
-            hrp.CFrame = loc task.wait(4)
-            local targetFolder = nil
-            for i = 1, 10 do for _, v in ipairs(workspace:GetChildren()) do if v.Name == "Spearfishing Water" and #v:GetChildren() > 0 then targetFolder = v break end end if targetFolder then break end task.wait(0.5) end
-            if targetFolder then for _, zone in ipairs(targetFolder:GetChildren()) do if zone:FindFirstChild("ZoneFish") and #zone.ZoneFish:GetChildren() > 0 then local zoneClone = zone:Clone() zoneClone.Parent = _G.ClonedSpearStorage end end end
-        end
-        hrp.CFrame = oldCF
-        for _, v in ipairs(workspace:GetChildren()) do if v.Name == "Spearfishing Water" and #v:GetChildren() == 0 then v:Destroy() end end
-        while _G.Config.DupeFischToggle do
-            if not _G.ClonedSpearStorage or #_G.ClonedSpearStorage:GetChildren() == 0 then break end
-            for _, zone in ipairs(_G.ClonedSpearStorage:GetChildren()) do local zoneFish = zone:FindFirstChild("ZoneFish") if zoneFish then for _, fish in ipairs(zoneFish:GetChildren()) do local uid = fish:GetAttribute("UID") if uid then remote:FireServer(uid) task.wait() remote:FireServer(uid, true) end end end end
-            task.wait(0.1)
-        end
-    end) end
+    if value then
+        task.spawn(function()
+            local remote = ReplicatedStorage:WaitForChild("packages"):WaitForChild("Net"):WaitForChild("RE/SpearFishing/Minigame")
+            local char = Players.LocalPlayer.Character or Players.LocalPlayer.CharacterAdded:Wait()
+            local hrp = char:WaitForChild("HumanoidRootPart")
+            local oldCFrame = hrp.CFrame
+            local locations = {
+                CFrame.new(-2831, 129, -2146),
+                CFrame.new(2602, -1112, 837),
+                CFrame.new(3077, -1116, 794),
+                CFrame.new(3076, -1144, 1718),
+                CFrame.new(3069, -1144, 2108)
+            }
+            if _G.ClonedSpearStorage then
+                _G.ClonedSpearStorage:Destroy()
+            end
+            _G.ClonedSpearStorage = Instance.new("Folder")
+            _G.ClonedSpearStorage.Name = "ClonedSpearStorage"
+            _G.ClonedSpearStorage.Parent = ReplicatedStorage
+            for _, loc in ipairs(locations) do
+                if not _G.Config.DupeFischToggle then
+                    break
+                end
+                hrp.CFrame = loc
+                task.wait(4)
+                local targetFolder = nil
+                for i = 1, 10 do
+                    for _, vv in ipairs(workspace:GetChildren()) do
+                        if vv.Name == "Spearfishing Water" and #vv:GetChildren() > 0 then
+                            targetFolder = vv
+                            break
+                        end
+                    end
+                    if targetFolder then
+                        break
+                    end
+                    task.wait(0.5)
+                end
+                if targetFolder then
+                    for _, zone in ipairs(targetFolder:GetChildren()) do
+                        if zone:FindFirstChild("ZoneFish") and #zone.ZoneFish:GetChildren() > 0 then
+                            local clonedZone = zone:Clone()
+                            clonedZone.Parent = _G.ClonedSpearStorage
+                        end
+                    end
+                end
+            end
+            hrp.CFrame = oldCFrame
+            for _, vv in ipairs(workspace:GetChildren()) do
+                if vv.Name == "Spearfishing Water" and #vv:GetChildren() == 0 then
+                    vv:Destroy()
+                end
+            end
+            while _G.Config.DupeFischToggle do
+                if not _G.ClonedSpearStorage or #_G.ClonedSpearStorage:GetChildren() == 0 then
+                    break
+                end
+                for _, zone in ipairs(_G.ClonedSpearStorage:GetChildren()) do
+                    local zf = zone:FindFirstChild("ZoneFish")
+                    if zf then
+                        for _, fish in ipairs(zf:GetChildren()) do
+                            local uid = fish:GetAttribute("UID")
+                            if uid then
+                                remote:FireServer(uid)
+                                task.wait()
+                                remote:FireServer(uid, true)
+                            end
+                        end
+                    end
+                end
+                task.wait(0.1)
+            end
+        end)
+    end
 end})
-ExclusiveAccordion:Paragraph({Title = "Discord Webhook", Desc = "Send fish caught to Discord"})
-ExclusiveAccordion:Toggle({Title = "Enable Discord Webhook", Desc = "Send fish caught to Discord", Flag = "DiscordWebhookEnabled", Default = _G.Config.DiscordWebhookEnabled or false, Callback = function(Value) _G.Config.DiscordWebhookEnabled = Value end})
-ExclusiveAccordion:Input({Title = "Discord Webhook URL", Desc = "https://discord.com/api/webhooks/...", Default = _G.Config.DiscordWebhookURL or "", Callback = function(Value) _G.Config.DiscordWebhookURL = Value end})
+
+ExclusiveAccordion:Paragraph({Title = "Discord Webhook", Desc = "Send fish caught to Discord webhook"})
+ExclusiveAccordion:Toggle({Title = "Enable Discord Webhook", Desc = "Send fish caught to Discord", Flag = "DiscordWebhookEnabled", Default = _G.Config.DiscordWebhookEnabled or false, Callback = function(value)
+    _G.Config.DiscordWebhookEnabled = value
+end})
+ExclusiveAccordion:Input({Title = "Discord Webhook URL", Desc = "https://discord.com/api/webhooks/...", Default = _G.Config.DiscordWebhookURL or "", Callback = function(value)
+    _G.Config.DiscordWebhookURL = value
+end})
+
 ExclusiveAccordion:Paragraph({Title = "Auto Move Fish to Storage", Desc = "Auto move fish by rarity"})
-ExclusiveAccordion:Dropdown({Title = "Select Rarities", Desc = "Choose which fish rarities to move", Flag = "AutoStorageRarities", Options = {"Trash", "Common", "Uncommon", "Unusual", "Rare", "Legendary", "Mythical", "Exotic", "Secret", "Divine Secret", "Limited", "Special", "Event", "Extinct", "Apex"}, Multi = true, Default = _G.Config.AutoStorageRarities or {}, Callback = function(value)
-    if type(value) == "table" then _G.Config.AutoStorageRarities = {} for _, selectedValue in pairs(value) do table.insert(_G.Config.AutoStorageRarities, selectedValue) end else _G.Config.AutoStorageRarities = value end
+ExclusiveAccordion:Dropdown({Title = "Select Rarities", Desc = "Choose rarities to auto move", Flag = "AutoStorageRarities", Options = {"Trash", "Common", "Uncommon", "Unusual", "Rare", "Legendary", "Mythical", "Exotic", "Secret", "Divine Secret", "Limited", "Special", "Event", "Extinct", "Apex"}, Multi = true, Default = _G.Config.AutoStorageRarities or {}, Callback = function(value)
+    if type(value) == "table" then
+        _G.Config.AutoStorageRarities = {}
+        for _, sv in pairs(value) do
+            table.insert(_G.Config.AutoStorageRarities, sv)
+        end
+    else
+        _G.Config.AutoStorageRarities = value
+    end
 end})
-ExclusiveAccordion:Slider({Title = "Auto Interval (seconds)", Desc = "Delay between automatic storage cycles", Flag = "AutoStorageInterval", Min = 1, Max = 300, Step = 1, Default = _G.Config.AutoStorageInterval or 60, Callback = function(value) _G.Config.AutoStorageInterval = value end})
-ExclusiveAccordion:Toggle({Title = "Auto Fish Storage", Desc = "Automatically move fish on interval", Flag = "AutoStorageEnabled", Default = _G.Config.AutoStorageEnabled or false, Callback = function(value) _G.Config.AutoStorageEnabled = value if value and AutoStorage then AutoStorage.StartLoop() end end})
+ExclusiveAccordion:Slider({Title = "Auto Interval (seconds)", Desc = "Delay between storage cycles", Flag = "AutoStorageInterval", Min = 1, Max = 300, Step = 1, Default = _G.Config.AutoStorageInterval or 60, Callback = function(value)
+    _G.Config.AutoStorageInterval = value
+end})
+ExclusiveAccordion:Toggle({Title = "Auto Fish Storage", Desc = "Auto move fish on interval", Flag = "AutoStorageEnabled", Default = _G.Config.AutoStorageEnabled or false, Callback = function(value)
+    _G.Config.AutoStorageEnabled = value
+    if value and AutoStorage then
+        AutoStorage.StartLoop()
+    end
+end})
+
 ExclusiveAccordion:Paragraph({Title = "Auto Sell Storage", Desc = "Sell storage on admin event"})
-ExclusiveAccordion:Dropdown({Title = "Select Admin Events", Desc = "Choose which events trigger the auto sell", Flag = "AutoSellEvents", Options = {"Buffed Goldstorm", "Goldstorm", "Blackout"}, Multi = true, Default = _G.Config.AutoSellEvents or {}, Callback = function(value)
+ExclusiveAccordion:Dropdown({Title = "Select Admin Events", Desc = "Choose events to trigger auto sell", Flag = "AutoSellEvents", Options = {"Buffed Goldstorm", "Goldstorm", "Blackout"}, Multi = true, Default = _G.Config.AutoSellEvents or {}, Callback = function(value)
     local t = {}
-    if type(value) == "table" then for k, v in pairs(value) do if type(k) == "number" then table.insert(t, v:lower()) else table.insert(t, k:lower()) end end
-    elseif type(value) == "string" then table.insert(t, value:lower()) end
+    if type(value) == "table" then
+        for k, vv in pairs(value) do
+            if type(k) == "number" then
+                table.insert(t, vv:lower())
+            else
+                table.insert(t, k:lower())
+            end
+        end
+    elseif type(value) == "string" then
+        table.insert(t, value:lower())
+    end
     _G.Config.AutoSellEvents = t
 end})
-ExclusiveAccordion:Toggle({Title = "Auto Sell Storage (Admin Event)", Desc = "Sell all storage elements whenever an admin event occurs.", Flag = "AutoSellStorage", Default = _G.Config.AutoSellStorage or false, Callback = function(value) _G.Config.AutoSellStorage = value if value and AutoStorage then AutoStorage.StartSellStorage() end end})
+ExclusiveAccordion:Toggle({Title = "Auto Sell Storage (Admin Event)", Desc = "Sell all storage on admin event", Flag = "AutoSellStorage", Default = _G.Config.AutoSellStorage or false, Callback = function(value)
+    _G.Config.AutoSellStorage = value
+    if value and AutoStorage then
+        AutoStorage.StartSellStorage()
+    end
+end})
+
 local isFreaze = false
 local function FreazeChar(state)
     isFreaze = state
@@ -1928,20 +2986,62 @@ local function FreazeChar(state)
         local Animator = Humanoid and Humanoid:FindFirstChild("Animator")
         local AnimateScript = Character:FindFirstChild("Animate")
         if isFreaze then
-            if AnimateScript then AnimateScript.Disabled = true end
-            if Animator then pcall(function() for _, track in ipairs(Animator:GetPlayingAnimationTracks()) do track:Stop() end end) end
-        else if AnimateScript then AnimateScript.Disabled = false end end
+            if AnimateScript then
+                AnimateScript.Disabled = true
+            end
+            if Animator then
+                pcall(function()
+                    for _, track in ipairs(Animator:GetPlayingAnimationTracks()) do
+                        track:Stop()
+                    end
+                end)
+            end
+        else
+            if AnimateScript then
+                AnimateScript.Disabled = false
+            end
+        end
     end
 end
-Players.LocalPlayer.CharacterAdded:Connect(function() task.wait(1) if isFreaze then FreazeChar(true) end end)
-ExclusiveAccordion:Paragraph({Title = "Delete Animation", Desc = "Removes character animation to reduce lag"})
-ExclusiveAccordion:Toggle({Title = "Delete Animation (Fishing)", Desc = "Removes character animation to reduce lag", Flag = "DeleteAnimation", Default = _G.Config.DeleteAnimation or false, Callback = function(state) _G.Config.DeleteAnimation = state task.spawn(function() FreazeChar(state) end) end})
-if _G.Config.AutoStorageEnabled then if AutoStorage then AutoStorage.StartLoop() end end
-if _G.Config.AutoSellStorage then if AutoStorage then AutoStorage.StartSellStorage() end end
-if _G.Config.DeleteAnimation then task.spawn(function() FreazeChar(true) end) end
-ExclusiveAccordion:Paragraph({Title = "Server Uptime Status", Desc = "Checking realtime status..."})
+Players.LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if isFreaze then
+        FreazeChar(true)
+    end
+end)
+ExclusiveAccordion:Paragraph({Title = "Delete Animation", Desc = "Removes animation to reduce lag"})
+ExclusiveAccordion:Toggle({Title = "Delete Animation (Fishing)", Desc = "Removes animation", Flag = "DeleteAnimation", Default = _G.Config.DeleteAnimation or false, Callback = function(state)
+    _G.Config.DeleteAnimation = state
+    task.spawn(function()
+        FreazeChar(state)
+    end)
+end})
+
+if _G.Config.AutoStorageEnabled then
+    if AutoStorage then
+        AutoStorage.StartLoop()
+    end
+end
+if _G.Config.AutoSellStorage then
+    if AutoStorage then
+        AutoStorage.StartSellStorage()
+    end
+end
+if _G.Config.DeleteAnimation then
+    task.spawn(function()
+        FreazeChar(true)
+    end)
+end
+
 local StatusUptimeParagraph = ExclusiveAccordion:Paragraph({Title = "Server Uptime Status", Desc = "Checking realtime status..."})
-local function isServerInTargetWindow(total_mins) if total_mins < 50 then return false end return (total_mins - 50) % 70 < 10 end
+
+local function isServerInTargetWindow(total_mins)
+    if total_mins < 50 then
+        return false
+    end
+    return (total_mins - 50) % 70 < 10
+end
+
 local function HopToLowUptimeServer()
     local TeleportService = game:GetService("TeleportService")
     while _G.Config.AutoHopUptime do
@@ -1949,29 +3049,51 @@ local function HopToLowUptimeServer()
         local currentUptimeSeconds = workspace.DistributedGameTime
         local currentMinutes = math.floor(currentUptimeSeconds / 60)
         if not isServerInTargetWindow(currentMinutes) then
-            pcall(function() game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = "Server ini belum mendekati Event. Mencari server...", Duration = 5}) end)
-            local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet("https://key.shieldteam.asia/api/key/weebhooks")) end)
-            if success and result and result.success and result.rows then
+            pcall(function()
+                game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = "Server ini belum mendekati Event. Mencari server...", Duration = 5})
+            end)
+            local ok, result = pcall(function()
+                return HttpService:JSONDecode(game:HttpGet("https://key.shieldteam.asia/api/key/weebhooks"))
+            end)
+            if ok and result and result.success and result.rows then
                 for _, row in ipairs(result.rows) do
-                    if not _G.Config.AutoHopUptime then break end
+                    if not _G.Config.AutoHopUptime then
+                        break
+                    end
                     local payload = row.payload
                     if payload and payload.embeds and payload.embeds[1] and payload.embeds[1].fields then
                         local fields = payload.embeds[1].fields
                         local serverDesc = payload.embeds[1].description
-                        local uptimeVal = "" local playerCount = 0
+                        local uptimeVal = ""
+                        local playerCount = 0
                         for _, field in ipairs(fields) do
-                            if field.name == "Uptime" then uptimeVal = field.value
-                            elseif field.name == "Players" then local pStr = string.match(field.value, "%d+") if pStr then playerCount = tonumber(pStr) end end
+                            if field.name == "Uptime" then
+                                uptimeVal = field.value
+                            elseif field.name == "Players" then
+                                local pStr = string.match(field.value, "%d+")
+                                if pStr then
+                                    playerCount = tonumber(pStr)
+                                end
+                            end
                         end
                         local serverId = string.match(serverDesc, "`([%w%-]+)`")
                         if serverId and serverId ~= game.JobId and playerCount < 20 then
                             local d, h, m = string.match(uptimeVal, "(%d+)D%s+(%d+)H%s+(%d+)M")
-                            if not d then d, h, m = 0, 0, string.match(uptimeVal, "(%d+)M") end
+                            if not d then
+                                d, h, m = 0, 0, string.match(uptimeVal, "(%d+)M")
+                            end
                             if m then
                                 local total_server_mins = ((tonumber(d) or 0) * 1440) + ((tonumber(h) or 0) * 60) + (tonumber(m) or 0)
                                 if isServerInTargetWindow(total_server_mins) then
-                                    pcall(function() game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = "Menemukan server pas (" .. tostring(total_server_mins) .. " Menit). Teleporting!", Duration = 5}) end)
-                                    task.wait(1) pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer) end) task.wait(5) break
+                                    pcall(function()
+                                        game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = "Menemukan server pas (" .. tostring(total_server_mins) .. " Menit). Teleporting!", Duration = 5})
+                                    end)
+                                    task.wait(1)
+                                    pcall(function()
+                                        TeleportService:TeleportToPlaceInstance(game.PlaceId, serverId, Players.LocalPlayer)
+                                    end)
+                                    task.wait(5)
+                                    break
                                 end
                             end
                         end
@@ -1981,19 +3103,27 @@ local function HopToLowUptimeServer()
         end
     end
 end
-ExclusiveAccordion:Paragraph({Title = "Server Hop Uptime", Desc = "Hop by uptime"})
-ExclusiveAccordion:Toggle({Title = "Auto Hop (Sunken Chest Timers)", Desc = "Pindah ketika server mendekati menit 60, 130, 200 dst (-10 Mnt)", Flag = "AutoHopUptime", Default = _G.Config.AutoHopUptime or false, Callback = function(state)
+
+ExclusiveAccordion:Paragraph({Title = "Server Hop Uptime", Desc = "Hop by uptime, cari server yang mendekati event Sunken Chest"})
+ExclusiveAccordion:Toggle({Title = "Auto Hop (Sunken Chest Timers)", Desc = "Pindah ketika server mendekati menit 60, 130, 200 dst", Flag = "AutoHopUptime", Default = _G.Config.AutoHopUptime or false, Callback = function(state)
     _G.Config.AutoHopUptime = state
-    pcall(function() game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = state and "Auto Hop (Uptime) Diaktifkan!" or "Auto Hop (Uptime) Dimatikan!", Duration = 3}) end)
-    if state then task.spawn(HopToLowUptimeServer) end
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {Title = "Uptime Server Hop", Text = state and "Auto Hop (Uptime) Diaktifkan!" or "Auto Hop (Uptime) Dimatikan!", Duration = 3})
+    end)
+    if state then
+        task.spawn(HopToLowUptimeServer)
+    end
 end})
+
 local function findOldSoloServer()
     local gameId = game.PlaceId
     for page = 0, 2 do
         local cursor = page > 0 and "&cursor=" .. (page * 100) or ""
-        local url = "https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100" .. cursor
-        local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
-        if success and result.data then
+        local url = "https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100" .. cursor
+        local ok, result = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if ok and result.data then
             for _, server in ipairs(result.data) do
                 if server.playing == 1 and server.id ~= game.JobId then
                     if server.maxPlayers >= 25 then
@@ -2008,86 +3138,199 @@ local function findOldSoloServer()
     end
     return false
 end
+
 local function toggleSoloServer(state)
     if state then
         local gameId = game.PlaceId
-        local success, result = pcall(function() return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..gameId.."/servers/Public?sortOrder=Asc&limit=100")) end)
-        if success and result.data then
-            local validServers = {}
-            for _, server in ipairs(result.data) do if server.playing == 1 and server.id ~= game.JobId then table.insert(validServers, server) end end
-            if #validServers > 0 then
-                table.sort(validServers, function(a, b) if a.maxPlayers ~= b.maxPlayers then return a.maxPlayers > b.maxPlayers end return a.id < b.id end)
-                local targetServer = validServers[1]
+        local ok, result = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100"))
+        end)
+        if ok and result.data then
+            local valid = {}
+            for _, server in ipairs(result.data) do
+                if server.playing == 1 and server.id ~= game.JobId then
+                    table.insert(valid, server)
+                end
+            end
+            if #valid > 0 then
+                table.sort(valid, function(a, b)
+                    if a.maxPlayers ~= b.maxPlayers then
+                        return a.maxPlayers > b.maxPlayers
+                    end
+                    return a.id < b.id
+                end)
+                local target = valid[1]
                 local TeleportService = game:GetService("TeleportService")
-                TeleportService:TeleportToPlaceInstance(gameId, targetServer.id, Players.LocalPlayer)
+                TeleportService:TeleportToPlaceInstance(gameId, target.id, Players.LocalPlayer)
                 return
             end
         end
     end
 end
-local function executeServerHop() if not findOldSoloServer() then toggleSoloServer(true) end end
+
+local function executeServerHop()
+    if not findOldSoloServer() then
+        toggleSoloServer(true)
+    end
+end
+
 ExclusiveAccordion:Paragraph({Title = "Server Finder", Desc = "Find low player server"})
-ExclusiveAccordion:Button({Title = "Join Lowest Player Server", Desc = "Teleports you to a public server with the fewest players", Callback = function() task.spawn(executeServerHop) end})
-ExclusiveAccordion:Toggle({Title = "Auto Rejoin if Players >= 3", Desc = "Automatically leaves and finds a solo server if player count grows", Flag = "playerDetectionEnabled", Default = _G.Config.playerDetectionEnabled or false, Callback = function(state) _G.Config.playerDetectionEnabled = state end})
+ExclusiveAccordion:Button({Title = "Join Lowest Player Server", Desc = "Teleport to lowest player server", Callback = function()
+    task.spawn(executeServerHop)
+end})
+ExclusiveAccordion:Toggle({Title = "Auto Rejoin if Players >= 3", Desc = "Auto leaves if player count grows", Flag = "playerDetectionEnabled", Default = _G.Config.playerDetectionEnabled or false, Callback = function(state)
+    _G.Config.playerDetectionEnabled = state
+end})
 task.spawn(function()
-    local rejoinCooldown = false
+    local cooldown = false
     while task.wait(5) do
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         if _G.Config and _G.Config.playerDetectionEnabled then
-            local playerCount = #Players:GetPlayers()
-            if playerCount >= 3 and not rejoinCooldown then rejoinCooldown = true task.spawn(executeServerHop) task.wait(10) rejoinCooldown = false end
+            local pc = #Players:GetPlayers()
+            if pc >= 3 and not cooldown then
+                cooldown = true
+                task.spawn(executeServerHop)
+                task.wait(10)
+                cooldown = false
+            end
         end
     end
 end)
-ExclusiveAccordion:Toggle({Title = "Enable Fish Notification UI", Desc = "Show on-screen notification when catching a fish", Flag = "FishNotificationEnabled", Default = _G.Config.FishNotificationEnabled or false, Callback = function(Value)
-    _G.Config.FishNotificationEnabled = Value
-    if not Value then pcall(function() local pGui = getPlayerGui() local ui = pGui and pGui:FindFirstChild("FishNotificationUI") if ui then ui:Destroy() end end) end
+
+ExclusiveAccordion:Toggle({Title = "Enable Fish Notification UI", Desc = "Show notification when catching fish", Flag = "FishNotificationEnabled", Default = _G.Config.FishNotificationEnabled or false, Callback = function(value)
+    _G.Config.FishNotificationEnabled = value
+    if not value then
+        pcall(function()
+            local pGui = getPlayerGui()
+            local ui = pGui and pGui:FindFirstChild("FishNotificationUI")
+            if ui then
+                ui:Destroy()
+            end
+        end)
+    end
 end})
+
 task.spawn(function()
     while task.wait(1) do
-        if MY_RUN_ID ~= _G.FishingHub.RunId then return end
+        if MY_RUN_ID ~= _G.FishingHub.RunId then
+            return
+        end
         pcall(function()
-            local uptimeText = "0D 0H 0M" local foundUptime = false
-            pcall(function() local gui = Players.LocalPlayer.PlayerGui:FindFirstChild("serverInfo") if gui and gui:FindFirstChild("serverInfo") and gui.serverInfo:FindFirstChild("uptime") then uptimeText = string.gsub(gui.serverInfo.uptime.Text, "Uptime: ", "") foundUptime = true end end)
+            local uptimeText = "0D 0H 0M"
+            local found = false
+            pcall(function()
+                local gui = Players.LocalPlayer.PlayerGui:FindFirstChild("serverInfo")
+                if gui and gui:FindFirstChild("serverInfo") and gui.serverInfo:FindFirstChild("uptime") then
+                    uptimeText = string.gsub(gui.serverInfo.uptime.Text, "Uptime: ", "")
+                    found = true
+                end
+            end)
             local currentMinutes = 0
-            if foundUptime then local d = tonumber(string.match(uptimeText, "(%d+)D")) or 0 local h = tonumber(string.match(uptimeText, "(%d+)H")) or 0 local m = tonumber(string.match(uptimeText, "(%d+)M")) or 0 currentMinutes = (d * 1440) + (h * 60) + m
-            else currentMinutes = math.floor(workspace.DistributedGameTime / 60) local d = math.floor(currentMinutes / 1440) local h = math.floor((currentMinutes % 1440) / 60) local m = currentMinutes % 60 uptimeText = tostring(d) .. "D " .. tostring(h) .. "H " .. tostring(m) .. "M" end
-            local n = math.floor((currentMinutes + 10) / 70) local nextTarget = 60 + (70 * n) local minsTogo = nextTarget - currentMinutes
-            local tHari = math.floor(nextTarget / 1440) local tJam = math.floor((nextTarget % 1440) / 60) local tMenit = nextTarget % 60
-            local targetUptimeStr = tostring(tHari) .. "D " .. tostring(tJam) .. "H " .. tostring(tMenit) .. "M"
-            local sJam = math.floor(minsTogo / 60) local sMenit = minsTogo % 60
-            local sisaWaktuStr = (sJam > 0 and tostring(sJam) .. "H " or "") .. tostring(sMenit) .. "M"
+            if found then
+                local d = tonumber(string.match(uptimeText, "(%d+)D")) or 0
+                local h = tonumber(string.match(uptimeText, "(%d+)H")) or 0
+                local m = tonumber(string.match(uptimeText, "(%d+)M")) or 0
+                currentMinutes = (d * 1440) + (h * 60) + m
+            else
+                currentMinutes = math.floor(workspace.DistributedGameTime / 60)
+                local d = math.floor(currentMinutes / 1440)
+                local h = math.floor((currentMinutes % 1440) / 60)
+                local m = currentMinutes % 60
+                uptimeText = tostring(d) .. "D " .. tostring(h) .. "H " .. tostring(m) .. "M"
+            end
+            local n = math.floor((currentMinutes + 10) / 70)
+            local nextTarget = 60 + (70 * n)
+            local minsToGo = nextTarget - currentMinutes
+            local tHari = math.floor(nextTarget / 1440)
+            local tJam = math.floor((nextTarget % 1440) / 60)
+            local tMenit = nextTarget % 60
+            local targetStr = tostring(tHari) .. "D " .. tostring(tJam) .. "H " .. tostring(tMenit) .. "M"
+            local sisaJam = math.floor(minsToGo / 60)
+            local sisaMenit = minsToGo % 60
+            local sisa = (sisaJam > 0 and tostring(sisaJam) .. "H " or "") .. tostring(sisaMenit) .. "M"
             if StatusUptimeParagraph then
-                local contentText = "Uptime Server: " .. uptimeText .. "\nNext Drop Uptime: " .. targetUptimeStr .. " (In: " .. sisaWaktuStr .. ")"
-                if StatusUptimeParagraph.SetDesc then StatusUptimeParagraph:SetDesc(contentText)
-                elseif StatusUptimeParagraph.Set then StatusUptimeParagraph:Set({ Title = "Server Uptime Status", Content = contentText }) end
+                local contentText = "Uptime Server: " .. uptimeText .. " | Next Drop Uptime: " .. targetStr .. " (In: " .. sisa .. ")"
+                if StatusUptimeParagraph.SetDesc then
+                    StatusUptimeParagraph:SetDesc(contentText)
+                elseif StatusUptimeParagraph.Set then
+                    StatusUptimeParagraph:Set({Title = "Server Uptime Status", Content = contentText})
+                end
             end
         end)
     end
 end)
--- Volley SubTab
+
+-- VOLLEY - ini yang kemarin kepotong, sekarang full
 local VolleySub = ExclusiveTab:SubTab({Title = "Volley"})
 local VolleyAccordion = VolleySub:Accordion({Title = "Auto Volley", Column = 1, Open = true})
-VolleyAccordion:Dropdown({Title = "Volley Mode (Farm)", Desc = "Win = Teleport & Pukul | Lose = Diam saja (Farm Kalah Cepat)", Flag = "VolleyMode", Options = {"Win", "Lose"}, Default = _G.Config.VolleyMode or "Win", Callback = function(Value) _G.Config.VolleyMode = Value end})
-VolleyAccordion:Dropdown({Title = "Select Court Side", Desc = "Pilih sisi lapangan untuk Auto Join", Flag = "VolleySide", Options = {"Side 1", "Side 2"}, Default = _G.Config.VolleySide or "Side 1", Callback = function(Value) _G.Config.VolleySide = Value end})
-VolleyAccordion:Slider({Title = "Target Score (Stop Hitting)", Desc = "Berhenti memukul setelah skor ini (0 = Tanpa Batas)", Flag = "VolleyTargetScore", Min = 0, Max = 500, Step = 1, Default = _G.Config.VolleyTargetScore or 15, Callback = function(Value) _G.Config.VolleyTargetScore = Value end})
-VolleyAccordion:Toggle({Title = "Auto Join Volley", Desc = "Otomatis teleport & join lapangan yang dipilih saat tidak bermain", Flag = "AutoJoinVolley", Default = _G.Config.AutoJoinVolley or false, Callback = function(state) _G.Config.AutoJoinVolley = state end})
-VolleyAccordion:Toggle({Title = "Auto Volley", Desc = "Master Toggle untuk menyalakan fitur Voli Pantai (Beach Volleyball)", Flag = "AutoVolley", Default = _G.Config.AutoVolley or false, Callback = function(state) _G.Config.AutoVolley = state if state then local AutoMine = getMod("AutoMine") if AutoMine then AutoMine.Start() end end end})
--- ESP SubTabs
+VolleyAccordion:Dropdown({Title = "Volley Mode (Farm)", Desc = "Win = Teleport dan Pukul, Lose = Diam saja", Flag = "VolleyMode", Options = {"Win", "Lose"}, Default = _G.Config.VolleyMode or "Win", Callback = function(v)
+    _G.Config.VolleyMode = v
+end})
+VolleyAccordion:Dropdown({Title = "Select Court Side", Desc = "Pilih sisi lapangan untuk Auto Join", Flag = "VolleySide", Options = {"Side 1", "Side 2"}, Default = _G.Config.VolleySide or "Side 1", Callback = function(v)
+    _G.Config.VolleySide = v
+end})
+VolleyAccordion:Slider({Title = "Target Score (Stop Hitting)", Desc = "Berhenti memukul setelah skor ini (0 = Tanpa Batas)", Flag = "VolleyTargetScore", Min = 0, Max = 500, Step = 1, Default = _G.Config.VolleyTargetScore or 15, Callback = function(v)
+    _G.Config.VolleyTargetScore = v
+end})
+VolleyAccordion:Toggle({Title = "Auto Join Volley", Desc = "Otomatis teleport dan join lapangan yang dipilih saat tidak bermain", Flag = "AutoJoinVolley", Default = _G.Config.AutoJoinVolley or false, Callback = function(s)
+    _G.Config.AutoJoinVolley = s
+end})
+VolleyAccordion:Toggle({Title = "Auto Volley", Desc = "Master Toggle untuk menyalakan fitur Voli Pantai", Flag = "AutoVolley", Default = _G.Config.AutoVolley or false, Callback = function(s)
+    _G.Config.AutoVolley = s
+    if s then
+        local AutoMine = getMod("AutoMine")
+        if AutoMine then
+            AutoMine.Start()
+        end
+    end
+end})
+VolleyAccordion:Paragraph({Title = "Volley Info", Desc = "Win = farm poin, Lose = AFK di lapangan. Target Score 0 = pukul terus sampai match selesai."})
+
+-- ESP
 local ESP = getMod("ESP")
 local EspCharSub = ExclusiveTab:SubTab({Title = "ESP Char"})
 local EspCharAccordion = EspCharSub:Accordion({Title = "ESP Character", Column = 1, Open = true})
-if ESP then EspCharAccordion:Toggle({Title = "ESP Player", Desc = "ESP player", Flag = "ESPPlayer", Default = false, Callback = function(value) ESP.SetEspPlayers(value) end}) end
+if ESP then
+    EspCharAccordion:Toggle({Title = "ESP Player", Desc = "ESP player - lihat player lewat tembok", Flag = "ESPPlayer", Default = false, Callback = function(v)
+        ESP.SetEspPlayers(v)
+    end})
+else
+    EspCharAccordion:Paragraph({Title = "ESP Player", Desc = "ESP module tidak ketemu, skip"})
+end
+
 local EspEventSub = ExclusiveTab:SubTab({Title = "ESP Event"})
 local EspEventAccordion = EspEventSub:Accordion({Title = "ESP Event", Column = 1, Open = true})
 if ESP then
-    EspEventAccordion:Toggle({Title = "ESP Zone Event", Desc = "ESP zone event", Flag = "ESPZoneEvent", Default = false, Callback = function(value) ESP.SetEspZone(value) end})
-    EspEventAccordion:Toggle({Title = "ESP Zone", Desc = "ESP all zones", Flag = "ESPZoneAll", Default = false, Callback = function(value) ESP.SetEspZoneAll(value) end})
+    EspEventAccordion:Toggle({Title = "ESP Zone Event", Desc = "ESP zone event - event yang aktif", Flag = "ESPZoneEvent", Default = false, Callback = function(v)
+        ESP.SetEspZone(v)
+    end})
+    EspEventAccordion:Toggle({Title = "ESP Zone", Desc = "ESP all zones", Flag = "ESPZoneAll", Default = false, Callback = function(v)
+        ESP.SetEspZoneAll(v)
+    end})
+else
+    EspEventAccordion:Paragraph({Title = "ESP Event", Desc = "ESP module tidak ketemu, skip"})
 end
+
 local EspNpcSub = ExclusiveTab:SubTab({Title = "ESP NPC"})
 local EspNpcAccordion = EspNpcSub:Accordion({Title = "ESP NPC", Column = 1, Open = true})
 if ESP then
-    EspNpcAccordion:Toggle({Title = "ESP NPC", Desc = "ESP NPC", Flag = "ESPNPC", Default = false, Callback = function(value) ESP.SetEspNpc(value) end})
-    EspNpcAccordion:Toggle({Title = "ESP Roaming Fish", Desc = "ESP roaming fish", Flag = "ESPRoaming", Default = false, Callback = function(value) ESP.SetEspRoaming(value) end})
+    EspNpcAccordion:Toggle({Title = "ESP NPC", Desc = "ESP NPC", Flag = "ESPNPC", Default = false, Callback = function(v)
+        ESP.SetEspNpc(v)
+    end})
+    EspNpcAccordion:Toggle({Title = "ESP Roaming Fish", Desc = "ESP roaming fish - ikan yang jalan-jalan", Flag = "ESPRoaming", Default = false, Callback = function(v)
+        ESP.SetEspRoaming(v)
+    end})
+else
+    EspNpcAccordion:Paragraph({Title = "ESP NPC", Desc = "ESP module tidak ketemu, skip"})
 end
-if _G.Config.AutoHopCosmic then if AutoCosmic then AutoCosmic.SetEnabled(true) end end
+
+if _G.Config.AutoHopCosmic then
+    if AutoCosmic then
+        AutoCosmic.SetEnabled(true)
+    end
+end
+
+print("[FishingHub] Loaded - Main / Teleport / Shop / Exclusive / Volley / ESP - FULL 2000+ line version")
+
