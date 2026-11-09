@@ -2,6 +2,8 @@
 -- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
 -- Dashboard OTOMATIS: grup "Loaded" > tab "Dashboard" langsung ada begitu CreateWindow jalan (tidak perlu dipanggil). Akses isinya lewat Window.Dashboard.
 --   Opsi: AutoDashboard = false (matikan), DashboardGroup = "Nama Grup" (ganti nama grup, default "Loaded").
+-- INTRO: saat script dijalankan muncul intro logo S + teks "Welcome To Soru" (klik / tap = skip), setelah itu window terbuka.
+--   Opsi CreateWindow: Intro = false (matikan), IntroText = "teks lain", IntroColor = Color3.fromRGB(...) (default ikut aksen tema), IntroLogo = "rbxassetid://ID".
 local SORU = {Version = "1.2.1"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
@@ -36,6 +38,8 @@ local CHAT_URL = "https://chatting-soru-hub-default-rtdb.asia-southeast1.firebas
 -- Dibuat dari 2 lapis PNG (base64 di PALING BAWAH file): BANNER_B64 = lapisan bayangan yang di-tint warna aksen tema, BANNER_B64S = highlight putih + tulisan "SORU" (tetap).
 -- Dipakai otomatis kalau C.Logo / C.LogoUrl kosong. Opsi: CreateWindow({Banner = false}) matikan, CreateWindow({Banner = "rbxassetid://ID"}) pakai gambar sendiri (warna tidak ikut tema).
 local BANNER, BANNER2, BANNER_B64, BANNER_B64S = "", "", "", ""
+-- INTRO: gambar logo S saja (lapisan highlight, 240x160) untuk intro. Lapisan warna memakai BANNER_B64 yang sama (dipotong). Base64 ada di PALING BAWAH file.
+local INTRO_B64S = ""
 local BN_HSHIFT, BN_SBOOST = -0.009577, 1.4552 -- hasil fitting: aksen tema -> warna tint banner (di tema Nemesis hasilnya = warna logo asli)
 local function bannerTint(c)
     local h, s = c:ToHSV()
@@ -2403,7 +2407,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
 
             ---------------- BARIS 4b: Join Small Server (cari server game ini yang paling sepi + ping rendah) ----------------
             do
-                local PAGES, W_PLAYER = 3, 15 -- PAGES = berapa halaman server (x100) yang dicek | W_PLAYER = 1 pemain dianggap setara berapa ms ping
+                local PAGES, W_PLAYER, MAX_PING = 6, 10, 150 -- PAGES = maks halaman server (x100), lanjut ke halaman berikut hanya kalau belum ada yang lolos | W_PLAYER = 1 pemain setara berapa ms ping | MAX_PING = batas ping (ms), server di atas ini atau tanpa data ping dilewati
                 local TeleportService = game:GetService("TeleportService")
                 local httpReq = (syn and syn.request) or (http and http.request) or http_request or request or (fluxus and fluxus.request)
                 local tried, busy = {}, false -- tried = server yang sudah pernah dicoba, supaya klik berikutnya pindah ke kandidat lain
@@ -2440,14 +2444,14 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                         local ok, res = pcall(function() return Http:JSONDecode(body) end)
                         if not (ok and type(res) == "table" and type(res.data) == "table") then break end
                         for _, s in ipairs(res.data) do
-                            local pl, mx = tonumber(s.playing) or 0, tonumber(s.maxPlayers) or 0
-                            if s.id ~= game.JobId and pl < mx and not tried[s.id] then
-                                local score = pl * W_PLAYER + (tonumber(s.ping) or 999)
+                            local pl, mx, pg = tonumber(s.playing) or 0, tonumber(s.maxPlayers) or 0, tonumber(s.ping)
+                            if s.id ~= game.JobId and pl < mx and pg and pg <= MAX_PING and not tried[s.id] then
+                                local score = pl * W_PLAYER + pg
                                 if not bestScore or score < bestScore then best, bestScore = s, score end
                             end
                         end
                         cursor = res.nextPageCursor
-                        if type(cursor) ~= "string" then break end
+                        if best or type(cursor) ~= "string" then break end -- sudah ada yang lolos / halaman habis
                         task.wait(0.4) -- jeda kecil supaya tidak kena rate limit
                     end
                     return best
@@ -2465,8 +2469,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                         local best = findServer()
                         if not best then
                             busy = false
-                            setStatus("No server found, tap to retry", T.bad)
-                            Window.Notify("Join Small Server", "No server found", T.bad, 3)
+                            setStatus(("No server under %d ms, tap to retry"):format(MAX_PING), T.bad)
+                            Window.Notify("Join Small Server", ("No server under %d ms found"):format(MAX_PING), T.bad, 3)
                             return
                         end
                         tried[best.id] = true
@@ -3434,8 +3438,224 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         })
     end
 
-    openA()
-    notify(LOGONAME .. " v" .. VERSION, "Loaded successfully", T.accent, 3)
+    ------------------------------------------------------------------
+    -- INTRO (logo reveal): logo S berputar masuk lalu mendarat dengan kilau -> teks muncul huruf per huruf -> memudar, baru window terbuka.
+    -- Klik / tap layar = skip. Opsi CreateWindow: Intro = false (matikan), IntroText = "Welcome To Soru", IntroColor = Color3 (default ikut aksen tema),
+    -- IntroLogo = "rbxassetid://ID" (gambar sendiri; default logo S SORU). NoAnim = true otomatis melewati intro.
+    ------------------------------------------------------------------
+    do
+        local shown = false
+        local function showWindow()
+            if shown then return end
+            shown = true
+            openA()
+            notify(LOGONAME .. " v" .. VERSION, "Loaded successfully", T.accent, 3)
+        end
+
+        local function startIntro()
+            local txt = tostring(C.IntroText or "Welcome To Soru")
+            local col = (typeof(C.IntroColor) == "Color3") and C.IntroColor or T.accent
+            local hiCol = col:Lerp(WHITE, 0.42)
+            local kp = NumberSequenceKeypoint.new
+
+            -- logo: IntroLogo / C.Logo (gambar sendiri) > logo S SORU (2 lapis, ikut warna) > huruf "S" dari teks
+            local own = C.IntroLogo and tostring(C.IntroLogo) or ((LOGO ~= "") and LOGO or nil)
+            if own and own:match("^%d+$") then own = "rbxassetid://" .. own end
+            local imgA, imgB = "", ""
+            if not own and isfile and getcustomasset and writefile then
+                local a, b = loadB64(BANNER_B64, "tint"), loadB64(INTRO_B64S, "introshine")
+                if a ~= "" and b ~= "" then imgA, imgB = a, b end
+            end
+
+            -- layar penuh (gelap kebiruan ikut warna), di atas semua elemen lain
+            local ov = new("Frame", {Name = "Intro", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(3, 5, 14):Lerp(col, 0.07),
+                BorderSizePixel = 0, Active = true, ClipsDescendants = true, ZIndex = 9000}, root)
+            local function mid(dy) return UDim2.new(0.5, 0, 0.5, -34 + dy) end
+
+            -- cahaya lembut di belakang logo (lingkaran bertumpuk = gradasi radial)
+            local glow = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = mid(0), Size = UDim2.fromOffset(4, 4), BackgroundTransparency = 1, ZIndex = 1}, ov)
+            local rings = {}
+            for i = 1, 12 do
+                local d = 480 * (1 - (i - 1) / 12 * 0.88)
+                rings[i] = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(d, d),
+                    BackgroundColor3 = col, BackgroundTransparency = 1, BorderSizePixel = 0}, glow)
+                corner(rings[i], "full")
+            end
+            local function glowTo(tr, t) for _, r in ipairs(rings) do play(r, {BackgroundTransparency = tr}, t) end end
+
+            -- debu cahaya yang melayang pelan
+            for _ = 1, 14 do
+                local sz, x0, y0 = math.random(2, 4), math.random(8, 92) / 100, math.random(30, 88) / 100
+                local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x0, y0), Size = UDim2.fromOffset(sz, sz),
+                    BackgroundColor3 = hiCol, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, ov)
+                corner(p, "full")
+                task.delay(math.random() * 1.4, function()
+                    if p.Parent == nil then return end
+                    play(p, {BackgroundTransparency = 0.5}, 0.6)
+                    play(p, {Position = UDim2.fromScale(x0, y0 - 0.2)}, 3.4, Enum.EasingStyle.Sine)
+                    task.delay(1.9, function() if p.Parent then play(p, {BackgroundTransparency = 1}, 1) end end)
+                end)
+            end
+
+            -- garis kilau horizontal (muncul saat logo mendarat) + kilat putih tipis
+            local fl = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = mid(0), Size = UDim2.fromOffset(0, 3), BackgroundColor3 = col:Lerp(WHITE, 0.65),
+                BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, ov)
+            new("UIGradient", {Transparency = NumberSequence.new({kp(0, 1), kp(0.5, 0), kp(1, 1)})}, fl)
+            local fx = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = col:Lerp(WHITE, 0.8), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 6}, ov)
+
+            -- LOGO: grup yang dilebarkan/disempitkan = efek berputar 3D
+            local SW, SH = 210, 140
+            local sg = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = mid(0), Size = UDim2.fromOffset(SW, SH), BackgroundTransparency = 1, ZIndex = 4}, ov)
+            local sgScale = new("UIScale", {Scale = 2.6}, sg)
+            local function layer(class, props)
+                props.BackgroundTransparency, props.BorderSizePixel = 1, 0
+                props.AnchorPoint, props.Position, props.Size = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), UDim2.fromScale(1, 1)
+                return new(class, props, sg)
+            end
+            local P = "ImageTransparency"
+            local base, shine, sweep
+            if own then
+                base = layer("ImageLabel", {Image = own, ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1, ZIndex = 1})
+            elseif imgA ~= "" then
+                local ro, rs = Vector2.new(0, 0), Vector2.new(240, 160) -- bagian logo S di gambar banner (tanpa tulisan)
+                base = layer("ImageLabel", {Image = imgA, ImageColor3 = bannerTint(col), ImageRectOffset = ro, ImageRectSize = rs, ImageTransparency = 1, ZIndex = 1})
+                shine = layer("ImageLabel", {Image = imgB, ImageTransparency = 1, ZIndex = 2})
+                sweep = layer("ImageLabel", {Image = imgA, ImageColor3 = WHITE, ImageRectOffset = ro, ImageRectSize = rs, ZIndex = 3})
+            else
+                P = "TextTransparency"
+                local function glyph(props)
+                    props.Text, props.FontFace, props.TextSize = LOGOCHAR, FONT_I, 150
+                    props.TextXAlignment, props.TextYAlignment, props.TextTruncate = XC, YC, NOTRUNC
+                    return layer("TextLabel", props)
+                end
+                base = glyph({TextColor3 = WHITE, TextTransparency = 1, ZIndex = 1})
+                new("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, hiCol), ColorSequenceKeypoint.new(1, col)})}, base)
+                sweep = glyph({TextColor3 = WHITE, ZIndex = 3})
+            end
+            -- kilau yang menyapu logo (pita terang diagonal, hanya tampak di bentuk huruf S)
+            local sweepG = sweep and new("UIGradient", {Rotation = 25, Offset = Vector2.new(-1, 0),
+                Transparency = NumberSequence.new({kp(0, 1), kp(0.4, 1), kp(0.5, 0.1), kp(0.6, 1), kp(1, 1)})}, sweep)
+            local function sweepGo()
+                if not sweepG or ov.Parent == nil then return end
+                sweepG.Offset = Vector2.new(-1, 0)
+                play(sweepG, {Offset = Vector2.new(1, 0)}, 0.85, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            end
+            local function setSpin(p) -- p 0 -> 1: berputar 1,5 putaran sambil mengecil dari besar, lalu berhenti
+                sg.Size = UDim2.fromOffset(math.max(2, SW * math.abs(math.cos(math.rad(540 * (1 - p))))), SH)
+                sgScale.Scale = 1 + 1.6 * (1 - p) ^ 2
+                sg.Rotation = -18 * (1 - p)
+            end
+            setSpin(0)
+
+            -- TEKS: huruf per huruf (kata terakhir berwarna aksen)
+            local tw = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = mid(96), Size = UDim2.new(1, -40, 0, 36), BackgroundTransparency = 1, ZIndex = 5}, ov)
+            new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                VerticalAlignment = Enum.VerticalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 2)}, tw)
+            local chars = {}
+            if not pcall(function() for _, cp in utf8.codes(txt) do chars[#chars + 1] = utf8.char(cp) end end) or #chars == 0 then
+                chars = {}
+                for i = 1, #txt do chars[i] = txt:sub(i, i) end
+            end
+            local hiFrom = math.huge
+            for i = #chars, 1, -1 do
+                if chars[i] == " " then hiFrom = i + 1 break end
+            end
+            local letters = {}
+            for i, ch in ipairs(chars) do
+                if ch:match("^%s$") then
+                    new("Frame", {Size = UDim2.fromOffset(10, 4), BackgroundTransparency = 1, LayoutOrder = i}, tw)
+                else
+                    local holder = new("Frame", {Size = UDim2.fromOffset(0, 36), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, LayoutOrder = i}, tw)
+                    letters[#letters + 1] = text(holder, {Text = ch, W = 4, TextSize = 28, TextColor3 = (i >= hiFrom) and hiCol or WHITE, TextTransparency = 1,
+                        TextXAlignment = XC, TextYAlignment = YC, TextTruncate = NOTRUNC, AutomaticSize = Enum.AutomaticSize.X,
+                        Size = UDim2.fromOffset(0, 36), Position = UDim2.fromOffset(0, 14)})
+                end
+            end
+            local ln = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = mid(130), Size = UDim2.fromOffset(0, 2), BackgroundColor3 = hiCol,
+                BackgroundTransparency = 0.15, BorderSizePixel = 0, ZIndex = 5}, ov)
+            new("UIGradient", {Transparency = NumberSequence.new({kp(0, 1), kp(0.5, 0), kp(1, 1)})}, ln)
+
+            -- KONTROL: skip, selesai, jadwal animasi
+            local alive, done, conn = true, false, nil
+            local function live() return alive and ov.Parent ~= nil end
+            local function pause(s)
+                local e = os.clock() + s
+                while live() and os.clock() < e do task.wait() end
+                return live()
+            end
+            local function finish()
+                if done then return end
+                done, alive = true, false
+                if conn then conn:Disconnect() end
+                if ov.Parent == nil then return end
+                showWindow() -- window keluar dari pill sambil intro memudar
+                setSpin(1)
+                play(sgScale, {Scale = 1.12}, 0.5)
+                for _, d in ipairs(ov:GetDescendants()) do
+                    if d:IsA("ImageLabel") then play(d, {ImageTransparency = 1}, 0.45)
+                    elseif d:IsA("TextLabel") then play(d, {TextTransparency = 1}, 0.45)
+                    elseif d:IsA("Frame") and d.BackgroundTransparency < 1 then play(d, {BackgroundTransparency = 1}, 0.45) end
+                end
+                play(ov, {BackgroundTransparency = 1}, 0.5)
+                ov.Active = false
+                task.delay(0.6, function() if ov.Parent then ov:Destroy() end end)
+            end
+            ov.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then finish() end
+            end)
+
+            local function seq()
+                -- 1) logo berputar masuk
+                local t0 = os.clock()
+                play(base, {[P] = 0}, 0.3)
+                if shine then play(shine, {ImageTransparency = 0}, 0.3) end
+                glowTo(0.975, 1.1)
+                conn = bind(RunService.RenderStepped, function()
+                    local a = math.clamp((os.clock() - t0) / 1.15, 0, 1)
+                    setSpin(TweenService:GetValue(a, Enum.EasingStyle.Cubic, Enum.EasingDirection.Out))
+                    if a >= 1 and conn then conn:Disconnect() end
+                end)
+                if not pause(1.15) then return end
+                -- 2) mendarat: kilat, garis kilau, cahaya membesar, kilau menyapu logo
+                fx.BackgroundTransparency = 0.8
+                play(fx, {BackgroundTransparency = 1}, 0.5)
+                fl.BackgroundTransparency = 0.05
+                play(fl, {Size = UDim2.fromOffset(820, 3)}, 0.55)
+                task.delay(0.3, function() if live() then play(fl, {BackgroundTransparency = 1}, 0.5) end end)
+                glowTo(0.945, 0.3)
+                task.delay(0.35, function() if live() then glowTo(0.968, 1.2) end end)
+                sweepGo()
+                if not pause(0.25) then return end
+                -- 3) teks "Welcome To Soru" huruf per huruf + garis
+                for i, l in ipairs(letters) do
+                    task.delay((i - 1) * 0.05, function()
+                        if live() then play(l, {TextTransparency = 0, Position = UDim2.fromOffset(0, 0)}, 0.5) end
+                    end)
+                end
+                play(ln, {Size = UDim2.fromOffset(190, 2)}, 0.8)
+                if not pause(#letters * 0.05 + 0.6) then return end
+                sweepGo()
+                pause(1.2)
+            end
+            task.spawn(function()
+                local ok, err = pcall(seq)
+                if not ok then warn("[SORU] intro: " .. tostring(err)) end
+                finish()
+            end)
+        end
+
+        if C.Intro == false or NOANIM then
+            showWindow()
+        else
+            local ok, err = pcall(startIntro)
+            if not ok then
+                warn("[SORU] intro: " .. tostring(err))
+                local o = gui:FindFirstChild("Intro", true)
+                if o then o:Destroy() end
+                showWindow()
+            end
+        end
+    end
     return Window
 end
 
@@ -4726,6 +4946,120 @@ XsCFL1+9oPYqB+2LgnzIK0LUJpiavoIsVc+E18xxLjLvMZXVHWIpYkCrb8Gdt9CMH2LiA9ocNjnGAraJ
 6ovOYTkOU2zMtJkOZ994jzk1VWI+h/iuZEoVJWcHKCS72ATAamjHqok8Xwg8thFCasDsLmEIXA4SrP3A+9lnVEN9KhTHn1OfYBJp2ybCiIeYc9+JCQkfpPqDr1ITW1cbwonDoVCtVM5Lk3CmJ8QVcCAcoRByalPYQPvNiOmQmFDuV5Xosz5hpcz+RQP4dVfpioxRL6C9
 OB19AKLv99zqdPMsomSeN6cASErObF6wmbpGmziuCfwcyz2oM0BMSBo05RTVGSxpDliMPXeOsxUD3U0Gi99mvq+++55X1YZEfy8TYbEr3erA/FSzf/G7w8CcnMonIZM0STnjMYAcAsE580dKNKLNcBZiTnuMqOkrlkiEcIrN930ODIQFE3L7VpUxX4eciske4Z1rrlJt
 Ae3FDqPTsaijkqPiUCcGfs4W/mQOoBhj1ULAf56BOMgA36VwTrFixXY7v85jZb65evtEe8j63jXb1/5/VfQkBxYMYtUAAAAASUVORK5CYII=
+]]
+
+-- DATA INTRO (1 lapis PNG transparan 240x160, base64: logo S + cincin + kilau, tanpa tulisan). Jangan diedit.
+INTRO_B64S = [[
+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
 ]]
 
 return SORU
