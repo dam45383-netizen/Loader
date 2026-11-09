@@ -1002,7 +1002,7 @@ local KEYSYSTEM_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader
 local SORU_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
 
 -- GANTI KEY DISINI, KALO LU GANTI OTOMATIS DISURUH INPUT LAGI
-local CURRENT_KEY = "apantat"
+local CURRENT_KEY = "NewGame"
 local SAVE_FILE = "SORU_HUB/soru.key"
 
 -- =====================================================
@@ -1027,8 +1027,8 @@ local GAMES = {
     [134314141048307] = VBL,
     [96802054849934]  = VBL,
     [74193805629461]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Mine%20per%20click.lua",
-    [16732694052] = ""
-    [131716211654599] = ""
+    [16732694052] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Fisch",
+    [131716211654599] = Fisch,
     [85738654635245]  = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Climb%20For%20Animal%20Egg",
     [111543903102439] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/%2B1%20Throw%20Coin",
     [119271610514030] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Break%20egg%20for%20brainrot",
