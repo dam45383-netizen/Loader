@@ -1002,7 +1002,7 @@ local KEYSYSTEM_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader
 local SORU_URL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"
 
 -- GANTI KEY DISINI, KALO LU GANTI OTOMATIS DISURUH INPUT LAGI
-local CURRENT_KEY = "NewGame"
+local CURRENT_KEY = "BornToLead"
 local SAVE_FILE = "SORU_HUB/soru.key"
 
 -- =====================================================
