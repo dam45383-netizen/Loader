@@ -1,8 +1,11 @@
 --[[
-    SORU KEY SYSTEM v2.0 "CRAFT"   (pasangan untuk SORU HUB UI v4.x)
+    SORU KEY SYSTEM v3.0 "KEY MANAGER"   (pasangan untuk SORU HUB UI v4.x)
 
-    Didesain ulang dengan prinsip dua skill: Emil Kowalski (motion + design engineering)
-    dan Taste Skill (anti-slop). API sama dengan v1.3, kode lama langsung jalan.
+    Visual disamakan dengan desain "Soru Hub | Key Manager":
+    panel kaca gelap + border ungu menyala, header logo + wordmark, satu kartu status
+    (Idle / Typing a key / Wrong key / Key accepted), input kapsul dengan gembok,
+    tombol Redeem gradasi ungu, dan baris chip (Get key / Discord / Close).
+    API sama dengan v2.0, kode lama langsung jalan.
 
     PAKAI
       local KS = loadstring(game:HttpGet("URL_FILE_INI"))()
@@ -10,8 +13,8 @@
           Keys        = {"SORU-FREE-1234"},                  -- key statis (opsional)
           KeyUrl      = "https://pastebin.com/raw/XXXXXXXX",  -- daftar key online, 1 key per baris (opsional)
           Validate    = function(key) return key == "abc" end, -- cek sendiri (opsional): true / false, "pesan"
-          GetKeyLink  = "https://link-key-kamu",             -- opsional
-          DiscordLink = "https://discord.gg/xxxx",           -- opsional
+          GetKeyLink  = "https://link-key-kamu",             -- opsional (chip "Get key")
+          DiscordLink = "https://discord.gg/xxxx",           -- opsional (chip "Discord")
           SaveKey     = true,                                -- ingat key di device -> auto verify
           OnSuccess   = function(key)
               local SORU = loadstring(game:HttpGet("https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/UI.lua"))()
@@ -21,39 +24,17 @@
       })
 
     OPSI LAIN
-      ButtonText = "Redeem", Placeholder = "Enter your key", Closable = false (sembunyikan link Close),
+      ButtonText = "Redeem", Placeholder = "Enter your key", Closable = false (sembunyikan chip Close),
       Scale = 1 (0.85 lebih kecil), Theme, Sound = false, Blur, Dim, CaseSensitive = false,
       MaxAttempts = 5 (0 = tanpa batas), Cooldown = 20 (detik), AutoLogin = false, KeyFile,
       OnCancel, Wait = true (Run menunggu sampai selesai, return true/false)
-      Quality = "Max" (default) atau "Low" (tanpa shadow & pulse, untuk device lemah)
-      Width = 290, Height = 25 (coba 34 kalau mau bar lebih besar)
-      BARU: ReducedMotion = true (tanpa gerak posisi/ukuran, hanya fade),
-            Confetti = true (opt-in, percikan kecil saat key pertama kali diterima)
+      Quality = "Max" (default) atau "Low" (tanpa glow & sheen, untuk device lemah)
+      Width = 380 (min 340), Height = 46 (tinggi kapsul input, 38 sampai 64)
+      ReducedMotion = true (tanpa gerak posisi/ukuran, hanya fade),
+      Confetti = true (opt-in, percikan kecil saat key pertama kali diterima)
+      BARU: Brand = "Soru Hub" (kata terakhir diberi warna ungu), Tagline = "Key Manager",
+            Logo = "rbxassetid://ID" atau angka ID (ganti logo buatan-kode dengan gambar logo aslimu)
       (Title, Subtitle, Description, Footer, Icon dari versi lama diabaikan, tidak error.)
-
-    YANG DITERAPKAN DARI SKILL (ringkas)
-      MOTION
-        1. Frekuensi dulu: redeem pertama = momen langka (boleh ada delight). Auto-login dari key
-           tersimpan = sering, jadi cepat, tenang, tanpa suara dan tanpa pulse.
-        2. Easing kuat, tidak pernah ease-in: Quint Out (setara cubic-bezier .23,1,.32,1) untuk
-           masuk/keluar, Exponential Out untuk gembok, Sine untuk warna, Linear untuk progress.
-        3. Durasi UI di bawah 300 ms: press 100, hover 140, chip 220. Intro 460 (momen langka).
-        4. Feedback di pointer-down (scale .97), lepas lebih lambat dari tekan.
-        5. Satu entrance per container: bar membuka dari kapsul pendek, isinya ter-reveal
-           (tidak ada stagger anak). Link di bawah menyusul 140 ms, hanya fade + naik 4px.
-        6. Semua tween retarget dari nilai saat ini (bisa di-interrupt), tidak ada input yang dikunci.
-        7. Drag 1:1, rubber-band di tepi layar, spring critically damped saat dilepas.
-        8. Render loop hanya hidup saat ada gerak, tidur saat diam. Tanpa loop dekoratif apa pun.
-        9. Hover hanya untuk perangkat mouse (tidak ada hover nyangkut di layar sentuh).
-       10. Suara hanya untuk momen penting: tekan Redeem, salah, sukses. Tanpa suara ketik/hover.
-      VISUAL
-        1. Satu ground, satu ink, satu aksen (ikut tema hub). Netral diwarnai dari aksen.
-        2. Tanpa gradien, glow neon, glass, starfield, aurora, ring berputar, spotlight, orbit.
-        3. Shadow hanya karena bar memang melayang. Garis hanya sebagai state (fokus/salah/sukses).
-        4. Tombol datar berbentuk pill, label dicek kontras WCAG AA otomatis terhadap warna tema.
-        5. Teks 11px ke atas, teks utama ink penuh; warna status hanya di titik kecil.
-        6. Pesan status wrap sampai 2 baris (pesan server yang panjang tidak memotong layout).
-        7. Hit area tombol diperluas, bar naik otomatis saat keyboard layar muncul (layar sentuh).
 
     CATATAN
       Pengecekan key di sisi client bisa dibypass. Untuk proteksi serius, validasi lewat server/API
@@ -61,18 +42,14 @@
 ]]
 
 local KeySystem = {}
-KeySystem.Version = "2.0"
+KeySystem.Version = "3.0"
 KeySystem.Changelog = {
-    "Redesign: satu ground, satu ink, satu aksen. Tanpa gradien, neon, starfield, aurora, spotlight",
-    "Motion token: Quint Out masuk/keluar, durasi UI di bawah 300 ms, tanpa ease-in",
-    "Intro satu gerakan: bar membuka dari kapsul pendek menjadi pill, isi ter-reveal",
-    "Press feedback instan (scale .97), hover hanya untuk perangkat mouse",
-    "Tombol menyala hanya kalau ada teks, kontras label dicek WCAG AA",
-    "Salah: shake teredam + ring merah + pesan. Sukses: gembok terbuka + ring hijau + satu pulse",
-    "Auto-login dari key tersimpan jalan cepat dan tenang (tanpa suara dan pulse)",
-    "Drag 1:1 + rubber-band + spring, render loop tidur saat diam",
-    "Keyboard avoidance layar sentuh, pesan status wrap 2 baris, hit area tombol diperluas",
-    "Opsi baru: ReducedMotion, Confetti (opt-in). Suara cuma klik / salah / sukses",
+    "Redesign total mengikuti desain Soru Hub Key Manager (kaca gelap, border ungu menyala, glow)",
+    "Header: logo + wordmark Soru Hub + garis pemisah + Key Manager + sparkle",
+    "Satu kartu dengan 4 state: Idle, Typing a key, Wrong key, Key accepted (warna ungu / merah / hijau)",
+    "Tombol Redeem gradasi ungu dengan ikon enter, berubah jadi Invalid (merah) dan Accepted (hijau)",
+    "Chip Get key / Discord / Close dengan ikon, chip pesan 2 baris (error) dan Key accepted",
+    "Opsi baru: Brand, Tagline, Logo. Semua ikon digambar dari Frame, tanpa asset",
 }
 
 local Players = game:GetService("Players")
@@ -147,13 +124,13 @@ local function buildSfx(sink)
 end
 
 ----------------------------------------------------------------------
--- THEME: satu aksen dari hub, netral diturunkan dari aksen itu
+-- THEME: aksen dari hub, semua warna lain diturunkan dari aksen itu
 ----------------------------------------------------------------------
 local WHITE = Color3.new(1, 1, 1)
 local FULL = UDim.new(1, 0)
-local SHADOW_ID = "6014261993" -- kosongkan ("") kalau shadow tidak muncul
+local SHADOW_ID = "6014261993" -- soft shadow untuk glow. Kosongkan ("") kalau glow tidak muncul
 
--- preset warna hub: {accent, accent2, cyan, pink}. Key system hanya memakai accent.
+-- preset warna hub: {accent, accent2, cyan, pink}
 local THEMES = {
     Violet  = {Color3.fromRGB(145, 96, 255), Color3.fromRGB(94, 106, 255), Color3.fromRGB(56, 200, 255), Color3.fromRGB(245, 80, 165)},
     Ocean   = {Color3.fromRGB(40, 160, 255), Color3.fromRGB(56, 112, 255), Color3.fromRGB(45, 230, 205), Color3.fromRGB(120, 130, 255)},
@@ -163,56 +140,46 @@ local THEMES = {
 }
 
 local T = {
-    ok   = Color3.fromRGB(74, 222, 128),
+    ok   = Color3.fromRGB(52, 224, 110),
     warn = Color3.fromRGB(250, 204, 21),
-    bad  = Color3.fromRGB(248, 113, 113),
+    bad  = Color3.fromRGB(255, 82, 108),
 }
-
--- kontras WCAG
-local function lin(c)
-    if c <= 0.03928 then return c / 12.92 end
-    return ((c + 0.055) / 1.055) ^ 2.4
-end
-local function lum(col) return 0.2126 * lin(col.R) + 0.7152 * lin(col.G) + 0.0722 * lin(col.B) end
-local function contrast(a, b)
-    local la, lb = lum(a), lum(b)
-    if la < lb then la, lb = lb, la end
-    return (la + 0.05) / (lb + 0.05)
-end
 
 local function applyPalette(name)
     local p = THEMES[name] or THEMES.Violet
     T.accent, T.accent2, T.cyan, T.pink = p[1], p[2], p[3], p[4]
     local h = T.accent:ToHSV()
-    T.ground   = Color3.fromHSV(h, 0.30, 0.085) -- isi bar
-    T.raised   = Color3.fromHSV(h, 0.26, 0.150) -- chip dan baris link (satu tangga tone di atas ground)
-    T.raisedHi = Color3.fromHSV(h, 0.24, 0.210) -- tombol saat belum siap
-    T.text     = Color3.fromHSV(h, 0.06, 0.970) -- ink penuh
-    T.dim      = Color3.fromHSV(h, 0.12, 0.680) -- teks sekunder dan ikon diam
-    T.faint    = Color3.fromHSV(h, 0.14, 0.560) -- placeholder
-    -- tombol: label putih kalau bisa lulus AA, kalau tidak gelapkan fill sedikit, kalau masih tidak, pakai label gelap
-    local fill, ink = T.accent, WHITE
-    if contrast(WHITE, fill) < 4.5 then
-        local darker = fill
-        for _ = 1, 6 do
-            darker = darker:Lerp(Color3.new(0, 0, 0), 0.07)
-            if contrast(WHITE, darker) >= 4.5 then break end
-        end
-        if contrast(WHITE, darker) >= 4.5 then fill = darker else ink = T.ground end
-    end
-    T.btnFill, T.btnText = fill, ink
+    local h2 = math.min(h + 0.015, 1)
+    T.bgTop    = Color3.fromHSV(h, 0.62, 0.060) -- badan panel (atas)
+    T.bgBot    = Color3.fromHSV(h, 0.55, 0.140) -- badan panel (bawah)
+    T.card     = Color3.fromHSV(h, 0.45, 0.210) -- kartu kaca
+    T.input    = Color3.fromHSV(h, 0.60, 0.045) -- isi kapsul input
+    T.inputBad = Color3.fromRGB(30, 7, 16)
+    T.inputOk  = Color3.fromRGB(6, 24, 13)
+    T.chipFill = Color3.fromHSV(h, 0.60, 0.075)
+    T.text     = Color3.fromHSV(h, 0.05, 0.975)
+    T.chipText = Color3.fromHSV(h, 0.12, 0.960)
+    T.sub      = Color3.fromHSV(h, 0.22, 0.950) -- "Key Manager"
+    T.dim      = Color3.fromHSV(h, 0.34, 0.900) -- gembok dan ikon (lavender)
+    T.faint    = Color3.fromHSV(h, 0.30, 0.680) -- placeholder
+    T.edge     = T.accent:Lerp(WHITE, 0.50)     -- border terang
+    T.edgeDim  = T.accent:Lerp(WHITE, 0.10)
+    T.ico2     = T.accent2:Lerp(WHITE, 0.38)    -- ikon Discord dan X
+    T.btnL     = Color3.fromHSV(h, 0.86, 0.92)  -- gradasi tombol (kiri)
+    T.btnR     = Color3.fromHSV(h2, 0.68, 1.00) -- gradasi tombol (kanan)
+    T.hub      = Color3.fromHSV(h, 0.74, 1.00)  -- kata "Hub"
 end
 
 ----------------------------------------------------------------------
--- MOTION TOKENS (padanan Roblox untuk kurva Emil)
+-- MOTION TOKENS
 ----------------------------------------------------------------------
 local ES, ED = Enum.EasingStyle, Enum.EasingDirection
 local EASE = {
-    out    = {ES.Quint, ED.Out},       -- ~ cubic-bezier(.23, 1, .32, 1): masuk / keluar / press
-    inOut  = {ES.Quart, ED.InOut},     -- ~ cubic-bezier(.77, 0, .175, 1): gerak di dalam layar
-    drawer = {ES.Exponential, ED.Out}, -- ~ kurva drawer iOS: gembok
-    ease   = {ES.Sine, ED.Out},        -- warna / opacity / hover
-    linear = {ES.Linear, ED.InOut},    -- gerak konstan (progress)
+    out    = {ES.Quint, ED.Out},
+    inOut  = {ES.Quart, ED.InOut},
+    drawer = {ES.Exponential, ED.Out},
+    ease   = {ES.Sine, ED.Out},
+    linear = {ES.Linear, ED.InOut},
 }
 
 ----------------------------------------------------------------------
@@ -251,16 +218,35 @@ local function copy(s)
 end
 local function trim(s) return (tostring(s or ""):match("^%s*(.-)%s*$")) end
 local function rand(a, b) return a + math.random() * (b - a) end
+local function hex(c)
+    return string.format("#%02X%02X%02X", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5))
+end
+local function esc(s)
+    return (tostring(s):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+end
 
 -- ukur teks (lebar, tinggi) dengan wrap di maxW
-local function measure(txt, size, maxW)
+local function measureF(txt, size, font, maxW)
     txt = tostring(txt)
-    local w, h = #txt * size * 0.56, size + 3
+    local w, h = #txt * size * 0.58, size + 3
     pcall(function()
-        local v = TextService:GetTextSize(txt, size, Enum.Font.GothamMedium, Vector2.new(maxW, 1000))
+        local v = TextService:GetTextSize(txt, size, font, Vector2.new(maxW, 1000))
         w, h = v.X, v.Y
     end)
     return math.ceil(w), math.ceil(h)
+end
+local function measure(txt, size, maxW)
+    return measureF(txt, size, Enum.Font.GothamMedium, maxW)
+end
+
+-- font header: Michroma (lebar, techno) kalau ada
+local BRAND_FONT = Enum.Font.GothamBlack
+pcall(function() BRAND_FONT = Enum.Font.Michroma end)
+
+local function italic(lbl)
+    pcall(function()
+        lbl.FontFace = Font.new("rbxasset://fonts/families/Montserrat.json", Enum.FontWeight.Medium, Enum.FontStyle.Italic)
+    end)
 end
 
 -- spring critically damped (response = detik menuju target, damping 1 = tanpa overshoot)
@@ -276,12 +262,125 @@ local function stepSpring(s, target, dt, response, damping)
     end
 end
 
--- rubber-band: makin jauh melewati batas, makin sedikit elemen mengikuti (rumus Apple)
+-- rubber-band: makin jauh melewati batas, makin sedikit elemen mengikuti
 local function rubber(v, lim, dim)
     local over = math.abs(v) - lim
     if over <= 0 then return v end
     local r = (over * dim * 0.55) / (dim + 0.55 * over)
     return (v < 0 and -1 or 1) * (lim + r)
+end
+
+----------------------------------------------------------------------
+-- ICON KIT: semua ikon digambar dari Frame (tanpa asset). Kanvas 40x40, koordinat bulat.
+----------------------------------------------------------------------
+local atan2 = math.atan2 or function(y, x) return math.atan(y, x) end
+local function rnd(v) return math.floor(v + 0.5) end
+
+local function line(parent, x1, y1, x2, y2, th, col, z)
+    local dx, dy = x2 - x1, y2 - y1
+    local f = new("Frame", {
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromOffset(rnd((x1 + x2) / 2), rnd((y1 + y2) / 2)),
+        Size = UDim2.fromOffset(rnd(math.sqrt(dx * dx + dy * dy)), th),
+        Rotation = math.deg(atan2(dy, dx)),
+        BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z or (parent.ZIndex + 1),
+    }, parent)
+    corner(f, FULL)
+    return f
+end
+local function disc(parent, x, y, d, col, z)
+    local f = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(d, d), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z or (parent.ZIndex + 1)}, parent)
+    corner(f, FULL)
+    return f
+end
+-- sel ikon: host (size x size) berisi kanvas 40x40 yang diskalakan
+local function iconCell(parent, size, z)
+    local host = new("Frame", {Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = z or 4}, parent)
+    local cv = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(40, 40), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = z or 4}, host)
+    new("UIScale", {Scale = size / 40}, cv)
+    return host, cv
+end
+
+local function icoEnter(cv, col) -- tanda enter (panah balik)
+    line(cv, 31, 9, 31, 22, 4, col)
+    line(cv, 31, 22, 9, 22, 4, col)
+    line(cv, 9, 22, 17, 14, 4, col)
+    line(cv, 9, 22, 17, 30, 4, col)
+end
+local function icoKey(cv, col)
+    local ring = new("Frame", {Position = UDim2.fromOffset(5, 19), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = cv.ZIndex + 1}, cv)
+    corner(ring, FULL)
+    stroke(ring, col, 3.4, 0)
+    line(cv, 19, 21, 34, 6, 4, col)
+    line(cv, 27, 13, 31, 17, 4, col)
+    line(cv, 32, 8, 36, 12, 4, col)
+end
+local function icoDiscord(cv, col, eye)
+    local z = cv.ZIndex + 1
+    local body = new("Frame", {Position = UDim2.fromOffset(3, 9), Size = UDim2.fromOffset(34, 25), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z}, cv)
+    corner(body, 11)
+    local l = new("Frame", {Position = UDim2.fromOffset(6, 5), Size = UDim2.fromOffset(11, 9), BackgroundColor3 = col, BorderSizePixel = 0, Rotation = -18, ZIndex = z}, cv)
+    corner(l, 4)
+    local r = new("Frame", {Position = UDim2.fromOffset(23, 5), Size = UDim2.fromOffset(11, 9), BackgroundColor3 = col, BorderSizePixel = 0, Rotation = 18, ZIndex = z}, cv)
+    corner(r, 4)
+    for _, x in ipairs({10, 23}) do
+        local e = new("Frame", {Position = UDim2.fromOffset(x, 19), Size = UDim2.fromOffset(7, 9), BackgroundColor3 = eye, BorderSizePixel = 0, ZIndex = z + 1}, cv)
+        corner(e, FULL)
+    end
+end
+local function icoX(cv, col) -- logo X
+    line(cv, 8, 6, 32, 34, 6, col)
+    line(cv, 32, 6, 8, 34, 3, col)
+end
+local function icoXCircle(cv, fill, mark)
+    disc(cv, 2, 2, 36, fill)
+    line(cv, 13, 13, 27, 27, 4, mark, cv.ZIndex + 2)
+    line(cv, 27, 13, 13, 27, 4, mark, cv.ZIndex + 2)
+end
+local function icoCheckCircle(cv, fill, mark)
+    disc(cv, 2, 2, 36, fill)
+    line(cv, 11, 21, 17, 27, 5, mark, cv.ZIndex + 2)
+    line(cv, 17, 27, 29, 14, 5, mark, cv.ZIndex + 2)
+end
+local function icoAlert(cv, fill, mark)
+    disc(cv, 2, 2, 36, fill)
+    local z = cv.ZIndex + 2
+    corner(new("Frame", {Position = UDim2.fromOffset(18, 9), Size = UDim2.fromOffset(4, 14), BackgroundColor3 = mark, BorderSizePixel = 0, ZIndex = z}, cv), FULL)
+    corner(new("Frame", {Position = UDim2.fromOffset(18, 26), Size = UDim2.fromOffset(4, 4), BackgroundColor3 = mark, BorderSizePixel = 0, ZIndex = z}, cv), FULL)
+end
+local function icoInfo(cv, fill, mark)
+    disc(cv, 2, 2, 36, fill)
+    local z = cv.ZIndex + 2
+    corner(new("Frame", {Position = UDim2.fromOffset(18, 9), Size = UDim2.fromOffset(4, 4), BackgroundColor3 = mark, BorderSizePixel = 0, ZIndex = z}, cv), FULL)
+    corner(new("Frame", {Position = UDim2.fromOffset(18, 16), Size = UDim2.fromOffset(4, 14), BackgroundColor3 = mark, BorderSizePixel = 0, ZIndex = z}, cv), FULL)
+end
+
+-- sparkle bintang empat arah: dua batang yang meruncing + inti
+local function sparkle(parent, cx, cy, size, col, z)
+    local host = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(size, size), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = z or 5}, parent)
+    local thick = math.max(2, math.floor(size * 0.16))
+    local taper = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})
+    local function bar(w, h, rot)
+        local b = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(w, h), BackgroundColor3 = col, BorderSizePixel = 0, ZIndex = z or 5}, host)
+        corner(b, FULL)
+        new("UIGradient", {Transparency = taper, Rotation = rot}, b)
+    end
+    bar(size, thick, 0)
+    bar(thick, size, 90)
+    local c = math.max(3, math.floor(size * 0.26))
+    local core = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(c, c), BackgroundColor3 = col, BorderSizePixel = 0, Rotation = 45, ZIndex = (z or 5) + 1}, host)
+    corner(core, 2)
+    return host
+end
+
+-- glow lembut (opsional): gambar shadow diwarnai
+local function soft(parent, col, tr, size, z)
+    if SHADOW_ID == "" then return nil end
+    return new("ImageLabel", {
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = size,
+        BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = col, ImageTransparency = tr,
+        ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = z or 1,
+    }, parent)
 end
 
 ----------------------------------------------------------------------
@@ -320,25 +419,42 @@ function KeySystem.Run(C)
     local RM = (C.ReducedMotion == true)
     local wantConfetti = (C.Confetti == true) and not lowFx and not RM
 
-    -- ukuran bar (px virtual). Semua ukuran turunan mengikuti W dan H.
-    local W = math.clamp(C.Width or 290, 220, 520)
-    local H = math.clamp(C.Height or 25, 22, 56)
-    local PAD = math.max(3, math.floor(H * 0.16))
-    local ICON_S = H - PAD * 2
-    local BTN_W = math.floor(72 + H * 0.64)
-    local GAP = 8
-    local IN_X = PAD + ICON_S + GAP
-    local IN_W = W - IN_X - (BTN_W + PAD + GAP)
-    local BTN_TS = math.clamp(math.floor(ICON_S * 0.6), 11, 14)
-    local IN_TS = math.clamp(math.floor(H * 0.52), 12, 16)
-    local START_W = math.floor(H * 2.6) -- lebar kapsul awal saat intro
-    local ROW_Y, ROW_H = H + 8, 22      -- baris di bawah bar (chip atau link)
+    -- ukuran panel (px virtual). Semua ukuran turunan mengikuti W dan PH.
+    local W = math.clamp(C.Width or 380, 340, 560)
+    local PH = math.clamp(C.Height or 46, 38, 64)       -- tinggi kapsul input
+    local CM = 10                                       -- margin kartu
+    local CW = W - CM * 2                               -- lebar kartu
+    local HEAD_H = 60
+    local PILL_X, PILL_Y = 8, 34
+    local PILL_W = CW - PILL_X * 2
+    local BTN_H = PH - 10
+    local BTN_PAD = 5
+    local ICON_S = math.floor(PH * 0.5)                 -- ukuran gembok
+    local LOCK_CX = math.floor(PH * 0.56)
+    local IN_X = LOCK_CX + math.ceil(ICON_S / 2) + 10
+    local IN_TS = math.clamp(math.floor(PH * 0.37), 14, 19)
+    local BTN_TS = math.clamp(math.floor(BTN_H * 0.4), 12, 15)
+    local BIC = 16                                      -- ikon di dalam tombol
+    local CHIP_H, CHIP_TS = 34, 13
+    local ROW_GAP, CARD_PB, PANEL_PB = 12, 14, 10
+    local ROW_Y = PILL_Y + PH + ROW_GAP
+    local function cardH(rowH) return PILL_Y + PH + ((rowH > 0) and (ROW_GAP + rowH) or 0) + CARD_PB end
+    local function panelH(rowH) return HEAD_H + cardH(rowH) + PANEL_PB end
+    local HP_MAX = panelH(56)
+
+    local function btnW(txt)
+        local tw_ = measureF(txt, BTN_TS, Enum.Font.GothamBold, 300)
+        return tw_ + BIC + 7 + 30
+    end
+    local W_R, W_BUSY, W_LOCK = btnW(BTN_TEXT), btnW("Checking"), btnW("Wait 99s")
+    local W_BAD, W_OK = btnW("Invalid"), btnW("Accepted")
+    local BTN_MAXW = math.max(W_R, W_BUSY, W_LOCK, W_BAD, W_OK)
+    local IN_W = PILL_W - IN_X - (BTN_MAXW + BTN_PAD + 8)
 
     -- state
     local finished, result = false, false
     local isOpen, busy, done, locked, attempts = false, false, false, false, 0
-    local focused, hasText, hovering = false, false, false
-    local ringOverride, lockOverride, btnOverride = nil, nil, nil
+    local focused, hasText, hovering, errState = false, false, false, false
 
     local gui = new("ScreenGui", {Name = "SORU_KEY", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true, DisplayOrder = 200})
     gui.Parent = pg
@@ -389,6 +505,7 @@ function KeySystem.Run(C)
     -- POSISI: target (drag, keyboard) -> spring -> shell. Loop hanya hidup saat ada gerak.
     ------------------------------------------------------------------
     local shell
+    local HP_IDLE = panelH(CHIP_H)
     local tx, ty, kbY = 0, 0, 0
     local P, Q = {x = 0, v = 0}, {x = 0, v = 0}
     local dragging, dragActive = false, false
@@ -404,7 +521,7 @@ function KeySystem.Run(C)
     gui.Destroying:Connect(sleep)
 
     local function limits()
-        return math.max(0, (virt.X - W) / 2 - 8), math.max(0, (virt.Y - (H + 44)) / 2 - 8)
+        return math.max(0, (virt.X - W) / 2 - 8), math.max(0, (virt.Y - HP_MAX) / 2 - 8)
     end
     local function render(sx)
         if shell then shell.Position = UDim2.new(0.5, P.x + sx, 0.5, Q.x) end
@@ -436,7 +553,7 @@ function KeySystem.Run(C)
             local cam = workspace.CurrentCamera
             vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
         end
-        local fit = math.clamp(math.min(vp.X * 0.92 / W, vp.Y * 0.5 / (H + 44)), 0.6, 1)
+        local fit = math.clamp(math.min(vp.X * 0.94 / W, vp.Y * 0.82 / HP_MAX), 0.55, 1)
         local s = fit * userScale
         rootScale.Scale = s
         virt = Vector2.new(vp.X / s, vp.Y / s)
@@ -446,64 +563,133 @@ function KeySystem.Run(C)
         wake()
     end
 
-    ------------------------------------------------------------------
-    -- SHELL + BAR
-    -- win = CanvasGroup yang melebar saat intro (kapsul -> pill).
-    -- content = kanvas tetap W x H di tengah win, jadi isi bar tidak ikut bergeser.
-    ------------------------------------------------------------------
-    shell = new("Frame", {Name = "Shell", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1, Visible = false, ZIndex = 10}, root)
+    -- deklarasi awal (diisi di bawah)
+    local say, clearSay, finish, submit, updateKb, shake, applyState, layout
+    local linksRow, LINK_H = nil, 0
+    local msgTok = 0
 
-    -- shadow: ada karena bar memang melayang di atas game
-    local SHADOW_REST, SHADOW_LIFT = 0.62, 0.5
-    local shadow = nil
-    if SHADOW_ID ~= "" and not lowFx then
-        shadow = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 5), Size = UDim2.new(0, START_W + 34, 1, 34), BackgroundTransparency = 1, Image = "rbxassetid://"..SHADOW_ID, ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 1}, shell)
+    ------------------------------------------------------------------
+    -- SHELL + PANEL
+    -- shell = penanda posisi (drag/shake). win = panel kaca yang tingginya ikut baris bawah.
+    ------------------------------------------------------------------
+    shell = new("Frame", {Name = "Shell", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, HP_IDLE), BackgroundTransparency = 1, Visible = false, ZIndex = 10}, root)
+
+    local GLOW_REST, GLOW_LIFT = 0.62, 0.5
+    local glow = nil
+    if not lowFx then
+        glow = soft(shell, T.accent, 1, UDim2.fromOffset(W + 70, HP_IDLE + 70), 1)
+        if glow then glow.Position = UDim2.fromOffset(W / 2, HP_IDLE / 2) end
     end
 
-    local win = new("CanvasGroup", {Name = "Bar", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(0, START_W, 1, 0), BackgroundColor3 = T.ground, BorderSizePixel = 0, GroupTransparency = 1, Active = true, ZIndex = 2}, shell)
-    corner(win, H / 2)
-    local winStroke = stroke(win, T.text, 1, 0.9) -- tepi tipis saat diam; menjadi ring saat fokus / salah / sukses
+    local win = new("CanvasGroup", {Name = "Panel", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.fromOffset(W, HP_IDLE), BackgroundColor3 = T.bgTop, BorderSizePixel = 0, GroupTransparency = 1, Active = true, ZIndex = 2}, shell)
+    corner(win, 22)
+    -- border ungu menyala: terang di sudut kiri atas dan kanan bawah
+    local winStroke = stroke(win, WHITE, 2, 1)
+    new("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, T.edge),
+            ColorSequenceKeypoint.new(0.35, T.accent),
+            ColorSequenceKeypoint.new(0.65, T.accent2),
+            ColorSequenceKeypoint.new(1, T.edge),
+        }),
+        Rotation = 45,
+    }, winStroke)
     local winScale = new("UIScale", {Scale = 1}, win)
-    local content = new("Frame", {Name = "Content", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1}, win)
 
-    local function setRing(t)
-        local col, th, tr = T.text, 1, 0.9
-        if ringOverride then
-            col, th, tr = ringOverride, 1.5, 0.05
-        elseif busy then
-            col, th, tr = T.accent, 1.5, 0.35
-        elseif focused then
-            col, th, tr = T.accent, 1.5, 0.05
-        end
-        play(winStroke, {Color = col, Thickness = th, Transparency = tr}, t or 0.18, EASE.ease)
+    local bg = new("Frame", {Name = "Bg", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, win)
+    new("UIGradient", {Color = ColorSequence.new(T.bgTop, T.bgBot), Rotation = 90}, bg)
+
+    if not lowFx then -- kilau diagonal di sudut (kaca)
+        local fade = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})
+        local s1 = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 52, 0, 16), Size = UDim2.fromOffset(300, 56), Rotation = -32, BackgroundColor3 = T.edge, BackgroundTransparency = 0.88, BorderSizePixel = 0, ZIndex = 2}, win)
+        new("UIGradient", {Transparency = fade}, s1)
+        local s2 = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -40, 1, -12), Size = UDim2.fromOffset(260, 50), Rotation = -32, BackgroundColor3 = T.accent, BackgroundTransparency = 0.86, BorderSizePixel = 0, ZIndex = 2}, win)
+        new("UIGradient", {Transparency = fade}, s2)
     end
 
-    local submit, updateKb, shake -- diisi di bawah
+    ------------------------------------------------------------------
+    -- HEADER: logo, Soru Hub, garis pemisah, Key Manager, sparkle
+    ------------------------------------------------------------------
+    local hdr = new("Frame", {Name = "Header", Size = UDim2.new(1, 0, 0, HEAD_H), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, win)
+
+    local logoHost = new("Frame", {Name = "Logo", Position = UDim2.fromOffset(16, 9), Size = UDim2.fromOffset(42, 42), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, hdr)
+    if not lowFx then soft(logoHost, T.accent, 0.72, UDim2.fromOffset(72, 72), 1) end
+    if C.Logo then
+        local img = tostring(C.Logo)
+        if not img:find("rbx") and not img:find("://") then img = "rbxassetid://"..img end
+        new("ImageLabel", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Image = img, ScaleType = Enum.ScaleType.Fit, ZIndex = 4}, logoHost)
+    else
+        local ring = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(21, 22), Size = UDim2.fromOffset(46, 22), BackgroundTransparency = 1, BorderSizePixel = 0, Rotation = -28, ZIndex = 3}, logoHost)
+        corner(ring, FULL)
+        local rs = stroke(ring, WHITE, 2, 0.05)
+        new("UIGradient", {Color = ColorSequence.new(T.edge, T.accent)}, rs)
+        local s = label(logoHost, {Text = "S", Font = Enum.Font.GothamBlack, TextSize = 34, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, Size = UDim2.fromScale(1, 1), Position = UDim2.fromOffset(0, -1), Rotation = -6, TextColor3 = WHITE, TextStrokeColor3 = T.accent, TextStrokeTransparency = 0.5, ZIndex = 5})
+        new("UIGradient", {Color = ColorSequence.new(WHITE, T.hub), Rotation = 90}, s)
+        sparkle(logoHost, 38, 6, 10, T.edge, 6)
+        sparkle(logoHost, 2, 38, 8, T.edge, 6)
+    end
+
+    local BR_TS = math.clamp(math.floor(W / 22), 15, 20)
+    local brand = tostring(C.Brand or "Soru Hub")
+    local bPre, bLast = brand:match("^(.-)%s+(%S+)$")
+    local brandRich = bPre and (esc(bPre).." <font color=\""..hex(T.hub).."\">"..esc(bLast).."</font>") or esc(brand)
+    local brandW = measureF(brand, BR_TS, BRAND_FONT, 400)
+    local BX = 68
+    label(hdr, {Text = brandRich, RichText = true, Font = BRAND_FONT, TextSize = BR_TS, Position = UDim2.fromOffset(BX, 0), Size = UDim2.fromOffset(brandW + 6, HEAD_H), TextYAlignment = Enum.TextYAlignment.Center, TextColor3 = WHITE, ZIndex = 4})
+
+    local DX = BX + brandW + 16
+    new("Frame", {Position = UDim2.fromOffset(DX, HEAD_H / 2 - 14), Size = UDim2.fromOffset(1, 28), BackgroundColor3 = T.dim, BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 4}, hdr)
+    local tagL = label(hdr, {Text = tostring(C.Tagline or "Key Manager"), TextSize = BR_TS - 2, TextColor3 = T.sub, Position = UDim2.fromOffset(DX + 16, 0), Size = UDim2.fromOffset(math.max(20, W - DX - 16 - 46), HEAD_H), TextYAlignment = Enum.TextYAlignment.Center, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 4})
+    italic(tagL)
+    sparkle(hdr, W - 30, 28, 24, T.hub, 5)
 
     ------------------------------------------------------------------
-    -- IKON GEMBOK (kiri). Tanpa wadah berwarna: glyph saja, warnanya membawa state.
+    -- KARTU STATUS
     ------------------------------------------------------------------
-    local lockHost = new("Frame", {Name = "Lock", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(PAD + ICON_S / 2, H / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, content)
-    local kc = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, lockHost)
-    new("UIScale", {Scale = (ICON_S - 1) / 34}, kc)
-    local shackle = new("Frame", {Position = UDim2.fromOffset(11.5, 4), Size = UDim2.fromOffset(11, 15), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, kc)
+    local card = new("Frame", {Name = "Card", Position = UDim2.fromOffset(CM, HEAD_H), Size = UDim2.fromOffset(CW, cardH(CHIP_H)), BackgroundColor3 = T.card, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 3}, win)
+    corner(card, 18)
+    stroke(card, WHITE, 1, 0.93)
+    new("UIGradient", {Color = ColorSequence.new(WHITE, Color3.fromRGB(150, 150, 150)), Rotation = 35}, card)
+
+    local dotGlow = disc(card, 12, 11, 17, T.accent, 4)
+    dotGlow.BackgroundTransparency = 0.8
+    local dot = disc(card, 16, 15, 9, T.accent, 5)
+    local stL = label(card, {Text = "Idle", TextSize = 13, Position = UDim2.fromOffset(32, 10), Size = UDim2.fromOffset(CW - 50, 18), TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 5})
+
+    ------------------------------------------------------------------
+    -- KAPSUL INPUT: gembok, kolom key, tombol
+    ------------------------------------------------------------------
+    local pillGlow = nil
+    if not lowFx then
+        pillGlow = soft(card, T.accent, 1, UDim2.fromOffset(PILL_W + 34, PH + 34), 4)
+        if pillGlow then pillGlow.Position = UDim2.fromOffset(PILL_X + PILL_W / 2, PILL_Y + PH / 2) end
+    end
+    local pill = new("Frame", {Name = "Pill", Position = UDim2.fromOffset(PILL_X, PILL_Y), Size = UDim2.fromOffset(PILL_W, PH), BackgroundColor3 = T.input, BorderSizePixel = 0, ZIndex = 5}, card)
+    corner(pill, FULL)
+    local pillStroke = stroke(pill, T.edgeDim, 1.5, 0.55)
+    local pillHit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 6}, pill)
+
+    -- gembok (kiri): badan, shackle, lubang kunci
+    local lockHost = new("Frame", {Name = "Lock", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(LOCK_CX, PH / 2), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7}, pill)
+    local kc = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(34, 34), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7}, lockHost)
+    new("UIScale", {Scale = ICON_S / 34}, kc)
+    local shackle = new("Frame", {Position = UDim2.fromOffset(11, 4), Size = UDim2.fromOffset(12, 15), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 7}, kc)
     corner(shackle, UDim.new(0.5, 0))
-    local shackleStroke = stroke(shackle, T.dim, 2.4, 0)
-    local lockBody = new("Frame", {Position = UDim2.fromOffset(8, 15), Size = UDim2.fromOffset(18, 14), BackgroundColor3 = T.dim, BorderSizePixel = 0, ZIndex = 3}, kc)
-    corner(lockBody, 4)
-    local hole = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3.5), Size = UDim2.fromOffset(4, 4), BackgroundColor3 = T.ground, BorderSizePixel = 0, ZIndex = 4}, lockBody)
+    local shackleStroke = stroke(shackle, T.dim, 3, 0)
+    local lockBody = new("Frame", {Position = UDim2.fromOffset(7, 15), Size = UDim2.fromOffset(20, 15), BackgroundColor3 = T.dim, BorderSizePixel = 0, ZIndex = 8}, kc)
+    corner(lockBody, 5)
+    local hole = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 3), Size = UDim2.fromOffset(5, 5), BackgroundColor3 = T.input, BorderSizePixel = 0, ZIndex = 9}, lockBody)
     corner(hole, FULL)
-    new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 6.5), Size = UDim2.fromOffset(2, 4.5), BackgroundColor3 = T.ground, BorderSizePixel = 0, ZIndex = 4}, lockBody)
+    local slot = new("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 7), Size = UDim2.fromOffset(2, 5), BackgroundColor3 = T.input, BorderSizePixel = 0, ZIndex = 9}, lockBody)
 
-    local function refreshLock(t)
-        local col = lockOverride or (focused and T.text or T.dim)
-        play(shackleStroke, {Color = col}, t or 0.16, EASE.ease)
-        play(lockBody, {BackgroundColor3 = col}, t or 0.16, EASE.ease)
+    local function setLock(col, fill, t)
+        play(shackleStroke, {Color = col}, t, EASE.ease)
+        play(lockBody, {BackgroundColor3 = col}, t, EASE.ease)
+        play(hole, {BackgroundColor3 = fill}, t, EASE.ease)
+        play(slot, {BackgroundColor3 = fill}, t, EASE.ease)
     end
     local function unlockIcon()
-        lockOverride = T.ok
-        refreshLock(0.2)
-        play(shackle, {Position = UDim2.fromOffset(11.5, -2)}, 0.3, EASE.drawer)
+        play(shackle, {Position = UDim2.fromOffset(11, -2)}, 0.3, EASE.drawer)
     end
     local function rattleIcon()
         task.spawn(function()
@@ -515,64 +701,76 @@ function KeySystem.Run(C)
         end)
     end
 
-    ------------------------------------------------------------------
-    -- INPUT (tengah)
-    ------------------------------------------------------------------
-    local box = new("TextBox", {Name = "Key", Position = UDim2.fromOffset(IN_X, 0), Size = UDim2.fromOffset(IN_W, H), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = C.Placeholder or "Enter your key", PlaceholderColor3 = T.faint, TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = IN_TS, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 2}, content)
+    -- kolom key (tengah)
+    local box = new("TextBox", {Name = "Key", Position = UDim2.fromOffset(IN_X, 0), Size = UDim2.fromOffset(IN_W, PH), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = C.Placeholder or "Enter your key", PlaceholderColor3 = T.faint, TextColor3 = T.text, Font = Enum.Font.GothamMedium, TextSize = IN_TS, TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false, ClipsDescendants = true, ZIndex = 8}, pill)
+    pillHit.MouseButton1Click:Connect(function() if not done then box:CaptureFocus() end end)
 
-    local tintTok = 0
-    local function tintInput(col, hold) -- teks key memerah sebentar saat salah
-        tintTok = tintTok + 1
-        local tok = tintTok
-        play(box, {TextColor3 = col}, 0.12, EASE.ease)
-        task.delay(hold, function()
-            if tok == tintTok and box.Parent then play(box, {TextColor3 = T.text}, 0.3, EASE.ease) end
-        end)
-    end
-
-    box.Focused:Connect(function()
-        focused = true
-        setRing() refreshLock() updateKb()
-    end)
-    box.FocusLost:Connect(function(enterPressed)
-        focused = false
-        setRing() refreshLock() updateKb()
-        if enterPressed then submit(false) end
-    end)
-
-    ------------------------------------------------------------------
-    -- TOMBOL (kanan): datar, pill. Diam sampai ada teks, lalu menyala.
-    ------------------------------------------------------------------
-    local btn = new("Frame", {Name = "Redeem", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W - PAD - BTN_W / 2, H / 2), Size = UDim2.fromOffset(BTN_W, ICON_S), BackgroundColor3 = T.raisedHi, BorderSizePixel = 0, ZIndex = 2}, content)
-    corner(btn, FULL)
+    -- tombol (kanan): tiga lapis (Redeem ungu, Invalid merah, Accepted hijau) yang saling crossfade
+    local btn = new("Frame", {Name = "Redeem", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(0, PILL_W - BTN_PAD, 0.5, 0), Size = UDim2.fromOffset(W_R, BTN_H), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 9}, pill)
     local btnScale = new("UIScale", {Scale = 1}, btn)
-    local btnL = label(btn, {Text = BTN_TEXT, Size = UDim2.fromScale(1, 1), TextXAlignment = Enum.TextXAlignment.Center, Font = Enum.Font.GothamBold, TextSize = BTN_TS, TextColor3 = T.dim, ZIndex = 3})
-    -- area tekan lebih besar dari tombol yang terlihat (setinggi bar, sampai ujung kanan)
-    local btnHit = new("TextButton", {Name = "Hit", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromOffset(W, 0), Size = UDim2.fromOffset(BTN_W + PAD + GAP, H), ZIndex = 6}, content)
+    local btnGlow = nil
+    if not lowFx then btnGlow = soft(btn, T.accent, 0.62, UDim2.new(1, 28, 1, 28), 1) end
 
-    local function refreshBtn()
-        if not btn.Parent then return end
-        local fill, txt
-        if btnOverride then
-            fill, txt = btnOverride[1], btnOverride[2]
-        elseif locked then
-            fill, txt = T.raised, T.dim
-        elseif busy or hasText then
-            fill, txt = T.btnFill, T.btnText
-            if hovering and not busy then fill = fill:Lerp(WHITE, 0.12) end
-        else
-            fill, txt = T.raisedHi, T.dim
-            if hovering then fill = fill:Lerp(WHITE, 0.07) end
-        end
-        play(btn, {BackgroundColor3 = fill}, 0.14, EASE.ease)
-        play(btnL, {TextColor3 = txt}, 0.14, EASE.ease)
+    local function mkLayer(name)
+        local g = new("CanvasGroup", {Name = name, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 2}, btn)
+        corner(g, FULL)
+        local face = new("Frame", {Name = "Face", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 1}, g)
+        corner(face, FULL)
+        return g, face
     end
+    -- isi tombol: ikon + teks, di tengah
+    local function mkContent(g, txtCol)
+        local row = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 5}, g)
+        new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder}, row)
+        local host, cv = iconCell(row, BIC, 5)
+        host.LayoutOrder = 1
+        local l = new("TextLabel", {BackgroundTransparency = 1, BorderSizePixel = 0, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), Font = Enum.Font.GothamBold, TextSize = BTN_TS, TextColor3 = txtCol, Text = "", LayoutOrder = 2, ZIndex = 5}, row)
+        return l, host, cv
+    end
+
+    -- lapis 1: Redeem
+    local layR, faceR = mkLayer("Redeem")
+    layR.GroupTransparency = 0
+    new("UIGradient", {Color = ColorSequence.new(T.btnL, T.btnR), Rotation = 0}, faceR)
+    local gloss = new("Frame", {Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = WHITE, BackgroundTransparency = 0.84, BorderSizePixel = 0, ZIndex = 3}, layR)
+    new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1)}), Rotation = 90}, gloss)
+    local btnL, enterHost, enterCv = mkContent(layR, WHITE)
+    btnL.Text = BTN_TEXT
+    icoEnter(enterCv, WHITE)
+    local spin = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(BIC, BIC), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 6}, enterHost)
+    for i = 0, 7 do
+        local a = (i / 8) * math.pi * 2
+        local d = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5 + math.cos(a) * 0.38, 0.5 + math.sin(a) * 0.38), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = WHITE, BackgroundTransparency = 0.1 + (i / 8) * 0.8, BorderSizePixel = 0, ZIndex = 6}, spin)
+        corner(d, FULL)
+    end
+
+    -- lapis 2: Invalid (merah)
+    local layB, faceB = mkLayer("Invalid")
+    new("UIGradient", {Color = ColorSequence.new(Color3.fromRGB(255, 112, 128), Color3.fromRGB(255, 74, 104)), Rotation = 0}, faceB)
+    local lB, _, cvB = mkContent(layB, Color3.fromRGB(58, 8, 20))
+    lB.Text = "Invalid"
+    icoXCircle(cvB, Color3.fromRGB(96, 10, 34), Color3.fromRGB(255, 176, 190))
+
+    -- lapis 3: Accepted (hijau gelap, border hijau)
+    local layG, faceG = mkLayer("Accepted")
+    faceG.BackgroundColor3 = T.ok
+    local innerG = new("Frame", {Position = UDim2.fromOffset(2, 2), Size = UDim2.new(1, -4, 1, -4), BackgroundColor3 = Color3.fromRGB(10, 52, 28), BorderSizePixel = 0, ZIndex = 3}, layG)
+    corner(innerG, FULL)
+    local lG, _, cvG = mkContent(layG, Color3.fromRGB(232, 255, 240))
+    lG.Text = "Accepted"
+    icoCheckCircle(cvG, Color3.fromRGB(120, 245, 160), Color3.fromRGB(8, 60, 30))
+
+    -- area tekan lebih besar dari tombol yang terlihat
+    local btnHit = new("TextButton", {Name = "Hit", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(0, PILL_W, 0.5, 0), Size = UDim2.fromOffset(BTN_MAXW + BTN_PAD + 8, PH), ZIndex = 12}, pill)
 
     local btnTok = 0
     local function setBtn(txt) -- label berganti dengan crossfade singkat
         btnTok = btnTok + 1
         local tok = btnTok
-        if btnL.Text == txt then return end
+        if btnL.Text == txt then
+            play(btnL, {TextTransparency = 0}, 0.1, EASE.ease)
+            return
+        end
         play(btnL, {TextTransparency = 1}, 0.09, EASE.ease)
         task.delay(0.09, function()
             if tok ~= btnTok or not btnL.Parent then return end
@@ -581,82 +779,101 @@ function KeySystem.Run(C)
         end)
     end
 
-    box:GetPropertyChangedSignal("Text"):Connect(function()
-        local has = trim(box.Text) ~= ""
-        if has ~= hasText then hasText = has refreshBtn() end
-    end)
+    -- spinner saat key dicek
+    local spinT = nil
+    local function spinOn()
+        if spinT then return end
+        spin.Visible = true
+        enterCv.Visible = false
+        spin.Rotation = 0
+        spinT = TweenService:Create(spin, TweenInfo.new(0.85, EASE.linear[1], EASE.linear[2], -1), {Rotation = 360})
+        spinT:Play()
+    end
+    local function spinOff()
+        if spinT then spinT:Cancel() spinT = nil end
+        spin.Visible = false
+        enterCv.Visible = true
+    end
+    gui.Destroying:Connect(function() if spinT then pcall(function() spinT:Cancel() end) end end)
 
     -- hover hanya untuk perangkat dengan mouse; layar sentuh tidak pernah "hover"
     local function canHover() return UIS.MouseEnabled and UIS:GetLastInputType() ~= Enum.UserInputType.Touch end
     btnHit.MouseEnter:Connect(function()
         if not canHover() then return end
-        hovering = true refreshBtn()
+        hovering = true
+        play(gloss, {BackgroundTransparency = 0.7}, 0.14, EASE.ease)
     end)
     btnHit.MouseLeave:Connect(function()
-        hovering = false refreshBtn()
+        hovering = false
+        play(gloss, {BackgroundTransparency = 0.84}, 0.16, EASE.ease)
         play(btnScale, {Scale = 1}, 0.16, EASE.out)
     end)
     btnHit.MouseButton1Down:Connect(function() -- respons saat ditekan, bukan saat dilepas
         if done then return end
         play(btnScale, {Scale = 0.97}, 0.1, EASE.out)
-        if hasText and not busy and not locked then sfx("click") end
+        if not busy and not locked then sfx("click") end
     end)
     btnHit.MouseButton1Up:Connect(function() play(btnScale, {Scale = 1}, 0.16, EASE.out) end)
 
-    -- progress: segmen tipis berjalan konstan di tepi bawah selama key dicek
-    local prog = new("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, -60, 1, 0), Size = UDim2.fromOffset(56, 2), BackgroundColor3 = T.accent, BorderSizePixel = 0, Visible = false, ZIndex = 5}, content)
-    corner(prog, FULL)
-    local progT = nil
-    local function progOn()
-        if progT then progT:Cancel() end
-        prog.Visible = true
-        prog.Position = UDim2.new(0, -60, 1, 0)
-        progT = TweenService:Create(prog, TweenInfo.new(0.9, EASE.linear[1], EASE.linear[2], -1), {Position = UDim2.new(0, W + 4, 1, 0)})
-        progT:Play()
-    end
-    local function progOff()
-        if progT then progT:Cancel() progT = nil end
-        prog.Visible = false
-    end
-
     ------------------------------------------------------------------
-    -- BARIS BAWAH: pesan status (chip) dan link. Dua pill datar, saling crossfade.
+    -- BARIS BAWAH: chip link (Get key / Discord / Close) dan chip pesan
     ------------------------------------------------------------------
-    local finish -- dideklarasikan dulu, diisi di bawah
-    local linksRow = nil
     local LINK_RISE = RM and 0 or 4
 
-    local chip = new("CanvasGroup", {Name = "Status", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(W / 2, ROW_Y + LINK_RISE), Size = UDim2.fromOffset(120, ROW_H), BackgroundColor3 = T.raised, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
-    local chipCorner = corner(chip, ROW_H / 2)
-    local chipDot = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 11, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 11}, chip)
-    corner(chipDot, FULL)
-    local msgL = label(chip, {Text = "", Position = UDim2.fromOffset(25, 0), Size = UDim2.new(1, -36, 1, 0), TextSize = 11, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 11})
+    -- chip pesan: ikon bulat + teks (1 atau 2 baris)
+    local msg = new("CanvasGroup", {Name = "Status", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(CW / 2, ROW_Y + LINK_RISE), Size = UDim2.fromOffset(160, CHIP_H), BackgroundColor3 = T.edge, BackgroundTransparency = 0.62, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 6}, card)
+    local msgCorner = corner(msg, CHIP_H / 2)
+    local msgFill = new("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), BackgroundColor3 = T.chipFill, BackgroundTransparency = 0.05, BorderSizePixel = 0, ZIndex = 1}, msg)
+    local msgFillCorner = corner(msgFill, CHIP_H / 2 - 1)
+    local msgIconHost = new("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 14, 0.5, 0), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 3}, msg)
+    local msgIcons = {}
+    do
+        local function mk(kind, fn)
+            local h, cv = iconCell(msgIconHost, 22, 3)
+            h.Visible = false
+            fn(cv)
+            msgIcons[kind] = h
+        end
+        mk("bad", function(cv) icoAlert(cv, T.bad, WHITE) end)
+        mk("warn", function(cv) icoAlert(cv, T.warn, Color3.fromRGB(40, 30, 0)) end)
+        mk("ok", function(cv) icoCheckCircle(cv, T.ok, Color3.fromRGB(8, 50, 24)) end)
+        mk("info", function(cv) icoInfo(cv, T.accent, WHITE) end)
+    end
+    local msgL = label(msg, {Text = "", TextSize = CHIP_TS, TextWrapped = true, Position = UDim2.fromOffset(46, 0), Size = UDim2.new(0, 100, 1, 0), TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 3})
 
-    local msgTok = 0
-    local function clearSay()
+    clearSay = function()
         msgTok = msgTok + 1
-        play(chip, {GroupTransparency = 1, Position = UDim2.fromOffset(W / 2, ROW_Y + LINK_RISE)}, 0.16, EASE.out)
+        play(msg, {GroupTransparency = 1, Position = UDim2.fromOffset(CW / 2, ROW_Y + LINK_RISE)}, 0.16, EASE.out)
         if linksRow then
             linksRow.Visible = true
-            play(linksRow, {GroupTransparency = 0, Position = UDim2.fromOffset(W / 2, ROW_Y)}, 0.2, EASE.out)
+            play(linksRow, {GroupTransparency = 0, Position = UDim2.fromOffset(CW / 2, ROW_Y)}, 0.2, EASE.out)
         end
+        layout(LINK_H)
     end
-    -- warna hanya di titik kecil; teks tetap ink penuh
-    local function say(text, col, hold)
+
+    -- warna hanya di ikon; teks tetap ink penuh. Kalimat pertama dipisah ke baris sendiri.
+    say = function(text, col, hold)
         msgTok = msgTok + 1
         local tok = msgTok
-        text = tostring(text)
+        text = (tostring(text):gsub("(%.) (%u)", "%1\n%2", 1))
+        local kind = (col == T.bad and "bad") or (col == T.warn and "warn") or (col == T.ok and "ok") or "info"
+        for k, ic in pairs(msgIcons) do ic.Visible = (k == kind) end
         msgL.Text = text
-        chipDot.BackgroundColor3 = col
-        local tw_, th_ = measure(text, 11, W - 38)
-        local CW = math.min(W, tw_ + 38)
-        local CH = (th_ > 16) and (th_ + 12) or ROW_H
-        chipCorner.CornerRadius = UDim.new(0, math.min(ROW_H / 2, CH / 2))
-        if chip.GroupTransparency > 0.9 then
-            chip.Size = UDim2.fromOffset(CW, CH)
-            chip.Position = UDim2.fromOffset(W / 2, ROW_Y + LINK_RISE + 2)
+        local tw_, th_ = measure(text, CHIP_TS, CW - PILL_X * 2 - 64)
+        local cw = math.min(CW - 16, 46 + tw_ + 20)
+        local chH = math.max(CHIP_H, th_ + 20)
+        local rad = math.min(chH / 2, 20)
+        msgL.Size = UDim2.new(0, tw_ + 2, 1, 0)
+        if msg.GroupTransparency > 0.9 then
+            msg.Size = UDim2.fromOffset(cw, chH)
+            msg.Position = UDim2.fromOffset(CW / 2, ROW_Y + LINK_RISE + 2)
+            msgCorner.CornerRadius = UDim.new(0, rad)
+            msgFillCorner.CornerRadius = UDim.new(0, math.max(rad - 1, 0))
         end
-        play(chip, {Size = UDim2.fromOffset(CW, CH), Position = UDim2.fromOffset(W / 2, ROW_Y), GroupTransparency = 0}, 0.22, EASE.out)
+        play(msg, {Size = UDim2.fromOffset(cw, chH), Position = UDim2.fromOffset(CW / 2, ROW_Y), GroupTransparency = 0}, 0.22, EASE.out)
+        play(msgCorner, {CornerRadius = UDim.new(0, rad)}, 0.22, EASE.out)
+        play(msgFillCorner, {CornerRadius = UDim.new(0, math.max(rad - 1, 0))}, 0.22, EASE.out)
+        layout(chH)
         if linksRow then
             play(linksRow, {GroupTransparency = 1}, 0.12, EASE.ease)
             task.delay(0.14, function() if tok == msgTok and linksRow.Parent then linksRow.Visible = false end end)
@@ -671,35 +888,146 @@ function KeySystem.Run(C)
         linkDefs[#linkDefs + 1] = {"Get key", function()
             local ok = copy(tostring(C.GetKeyLink))
             say(ok and "Link copied. Open it in your browser" or tostring(C.GetKeyLink), ok and T.ok or T.warn)
-        end}
+        end, function(cv) icoKey(cv, T.dim) end}
     end
     if C.DiscordLink then
         linkDefs[#linkDefs + 1] = {"Discord", function()
             local ok = copy(tostring(C.DiscordLink))
             say(ok and "Invite copied. Paste it in your browser" or tostring(C.DiscordLink), ok and T.ok or T.warn)
-        end}
+        end, function(cv) icoDiscord(cv, T.ico2, T.chipFill) end}
     end
     if C.Closable ~= false then
-        linkDefs[#linkDefs + 1] = {"Close", function() finish(false) end}
+        linkDefs[#linkDefs + 1] = {"Close", function() finish(false) end, function(cv) icoX(cv, T.ico2) end}
     end
     if #linkDefs > 0 then
-        local total, widths = 8, {}
+        LINK_H = CHIP_H
+        local widths, total, GAP = {}, 0, 8
         for i, d in ipairs(linkDefs) do
-            local lw = measure(d[1], 11, 400)
-            widths[i] = lw + 18 -- tanpa pemisah titik; jarak yang memisahkan
-            total = total + widths[i]
+            local lw = measure(d[1], CHIP_TS, 400)
+            widths[i] = lw + 12 + 17 + 7 + 14
+            total = total + widths[i] + ((i > 1) and GAP or 0)
         end
-        linksRow = new("CanvasGroup", {Name = "Links", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(W / 2, ROW_Y + LINK_RISE), Size = UDim2.fromOffset(total, ROW_H), BackgroundColor3 = T.raised, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 10}, shell)
-        corner(linksRow, ROW_H / 2)
-        new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder}, linksRow)
+        linksRow = new("CanvasGroup", {Name = "Links", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromOffset(CW / 2, ROW_Y + LINK_RISE), Size = UDim2.fromOffset(total, CHIP_H), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1, ZIndex = 6}, card)
+        local x = 0
         for i, d in ipairs(linkDefs) do
-            local b = new("TextButton", {Size = UDim2.fromOffset(widths[i], ROW_H), BackgroundTransparency = 1, BorderSizePixel = 0, Text = d[1], Font = Enum.Font.GothamMedium, TextSize = 11, TextColor3 = T.dim, AutoButtonColor = false, LayoutOrder = i, ZIndex = 11}, linksRow)
-            b.MouseEnter:Connect(function() if canHover() then play(b, {TextColor3 = T.text}, 0.14, EASE.ease) end end)
-            b.MouseLeave:Connect(function() play(b, {TextColor3 = T.dim}, 0.2, EASE.ease) end)
-            b.MouseButton1Down:Connect(function() play(b, {TextColor3 = T.text}, 0.1, EASE.out) end)
-            b.MouseButton1Click:Connect(function() sfx("click") d[2]() end)
+            local w = widths[i]
+            local ring = new("Frame", {Position = UDim2.fromOffset(x, 0), Size = UDim2.fromOffset(w, CHIP_H), BackgroundColor3 = T.edge, BackgroundTransparency = 0.62, BorderSizePixel = 0, ZIndex = 2}, linksRow)
+            corner(ring, CHIP_H / 2)
+            local fill = new("Frame", {Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), BackgroundColor3 = T.chipFill, BackgroundTransparency = 0.1, BorderSizePixel = 0, ZIndex = 3}, ring)
+            corner(fill, CHIP_H / 2 - 1)
+            local ih, icv = iconCell(fill, 17, 4)
+            ih.AnchorPoint = Vector2.new(0, 0.5)
+            ih.Position = UDim2.new(0, 11, 0.5, 0)
+            d[3](icv)
+            local l = label(fill, {Text = d[1], TextSize = CHIP_TS, TextColor3 = T.chipText, Position = UDim2.fromOffset(11 + 17 + 7, 0), Size = UDim2.new(1, -(11 + 17 + 7), 1, 0), TextYAlignment = Enum.TextYAlignment.Center, ZIndex = 4})
+            local hit = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), ZIndex = 8}, ring)
+            hit.MouseEnter:Connect(function()
+                if canHover() then
+                    play(ring, {BackgroundTransparency = 0.38}, 0.14, EASE.ease)
+                    play(l, {TextColor3 = WHITE}, 0.14, EASE.ease)
+                end
+            end)
+            hit.MouseLeave:Connect(function()
+                play(ring, {BackgroundTransparency = 0.62}, 0.2, EASE.ease)
+                play(l, {TextColor3 = T.chipText}, 0.2, EASE.ease)
+            end)
+            hit.MouseButton1Down:Connect(function() play(ring, {BackgroundTransparency = 0.3}, 0.1, EASE.out) end)
+            hit.MouseButton1Click:Connect(function() sfx("click") d[2]() end)
+            x = x + w + GAP
         end
     end
+
+    ------------------------------------------------------------------
+    -- LAYOUT: tinggi kartu dan panel mengikuti baris bawah (chip link / chip pesan)
+    ------------------------------------------------------------------
+    layout = function(rowH, instant)
+        local ch, ph = cardH(rowH), panelH(rowH)
+        local t = (instant or RM) and 0 or 0.24
+        play(card, {Size = UDim2.fromOffset(CW, ch)}, t, EASE.out)
+        play(win, {Size = UDim2.fromOffset(W, ph)}, t, EASE.out)
+        if glow then play(glow, {Size = UDim2.fromOffset(W + 70, ph + 70), Position = UDim2.fromOffset(W / 2, ph / 2)}, t, EASE.out) end
+    end
+    layout(LINK_H, true)
+    HP_IDLE = panelH(LINK_H)
+    shell.Size = UDim2.fromOffset(W, HP_IDLE)
+
+    ------------------------------------------------------------------
+    -- STATE VISUAL: satu kartu, empat wajah (Idle / Typing / Wrong / Accepted)
+    ------------------------------------------------------------------
+    local S = {
+        idle   = {label = "Idle",          dot = T.accent, stroke = T.edgeDim, th = 1.5, tr = 0.55, glow = 1,    glowC = T.accent, fill = T.input,    lock = T.dim, txt = T.text, layer = "r", bw = W_R},
+        typing = {label = "Typing a key",  dot = T.accent, stroke = T.edge,    th = 2,   tr = 0.04, glow = 0.55, glowC = T.accent, fill = T.input,    lock = T.dim, txt = T.text, layer = "r", bw = W_R},
+        busy   = {label = "Checking key",  dot = T.accent, stroke = T.accent,  th = 2,   tr = 0.3,  glow = 0.7,  glowC = T.accent, fill = T.input,    lock = T.dim, txt = T.text, layer = "r", bw = W_BUSY},
+        locked = {label = "Locked",        dot = T.warn,   stroke = T.warn,    th = 1.5, tr = 0.5,  glow = 1,    glowC = T.warn,   fill = T.input,    lock = T.dim, txt = T.text, layer = "r", bw = W_LOCK, dim = true},
+        bad    = {label = "Wrong key",     dot = T.bad,    stroke = T.bad,     th = 2,   tr = 0.02, glow = 0.5,  glowC = T.bad,    fill = T.inputBad, lock = T.bad, txt = T.bad,  layer = "b", bw = W_BAD},
+        ok     = {label = "Key accepted",  dot = T.ok,     stroke = T.ok,      th = 2,   tr = 0.02, glow = 0.5,  glowC = T.ok,     fill = T.inputOk,  lock = T.ok,  txt = T.text, layer = "g", bw = W_OK},
+    }
+    local function curState()
+        if done then return "ok" end
+        if errState then return "bad" end
+        if locked then return "locked" end
+        if busy then return "busy" end
+        if focused or hasText then return "typing" end
+        return "idle"
+    end
+
+    local stTok = 0
+    local function setStatus(txt)
+        stTok = stTok + 1
+        local tok = stTok
+        if stL.Text == txt then
+            play(stL, {TextTransparency = 0}, 0.1, EASE.ease)
+            return
+        end
+        play(stL, {TextTransparency = 1}, 0.08, EASE.ease)
+        task.delay(0.08, function()
+            if tok ~= stTok or not stL.Parent then return end
+            stL.Text = txt
+            play(stL, {TextTransparency = 0}, 0.14, EASE.ease)
+        end)
+    end
+
+    applyState = function(t)
+        t = t or 0.18
+        local s = S[curState()]
+        setStatus(s.label)
+        play(dot, {BackgroundColor3 = s.dot}, t, EASE.ease)
+        play(dotGlow, {BackgroundColor3 = s.dot}, t, EASE.ease)
+        play(pillStroke, {Color = s.stroke, Thickness = s.th, Transparency = s.tr}, t, EASE.ease)
+        play(pill, {BackgroundColor3 = s.fill}, t, EASE.ease)
+        if pillGlow then play(pillGlow, {ImageColor3 = s.glowC, ImageTransparency = s.glow}, t + 0.06, EASE.ease) end
+        play(box, {TextColor3 = s.txt}, t, EASE.ease)
+        setLock(s.lock, s.fill, t)
+        -- tombol
+        play(layR, {GroupTransparency = (s.layer == "r") and (s.dim and 0.55 or 0) or 1}, 0.16, EASE.ease)
+        play(layB, {GroupTransparency = (s.layer == "b") and 0 or 1}, 0.16, EASE.ease)
+        play(layG, {GroupTransparency = (s.layer == "g") and 0 or 1}, 0.16, EASE.ease)
+        play(btn, {Size = UDim2.fromOffset(s.bw, BTN_H)}, (t == 0) and 0 or 0.22, EASE.out)
+        if btnGlow then
+            local gc = (s.layer == "b") and T.bad or ((s.layer == "g") and T.ok or T.accent)
+            play(btnGlow, {ImageColor3 = gc, ImageTransparency = (s.layer == "g") and 0.8 or (s.dim and 0.9 or 0.62)}, 0.2, EASE.ease)
+        end
+        if busy then spinOn() else spinOff() end
+        if not locked then setBtn(busy and "Checking" or BTN_TEXT) end
+    end
+
+    box.Focused:Connect(function()
+        focused = true
+        applyState() updateKb()
+    end)
+    box.FocusLost:Connect(function(enterPressed)
+        focused = false
+        applyState() updateKb()
+        if enterPressed then submit(false) end
+    end)
+    box:GetPropertyChangedSignal("Text"):Connect(function()
+        hasText = trim(box.Text) ~= ""
+        if errState and not done then -- mengetik lagi = keluar dari state "Wrong key"
+            errState = false
+            if not locked then clearSay() end
+        end
+        applyState()
+    end)
 
     ------------------------------------------------------------------
     -- DIM / BLUR (opsional) + OPEN / CLOSE
@@ -715,33 +1043,33 @@ function KeySystem.Run(C)
     end
     gui.Destroying:Connect(function() if blur then pcall(function() blur:Destroy() end) end end)
 
-    -- intro: satu gerakan. Bar membuka dari kapsul pendek, isi ter-reveal oleh pertumbuhan container.
+    -- intro: fade + naik sedikit + skala 0.96 ke 1 (momen langka, boleh ada delight)
     local function openA()
         if isOpen then return end
         isOpen = true
         shell.Visible = true
         local rise = RM and 0 or 8
         win.GroupTransparency = 1
-        win.Size = RM and UDim2.fromScale(1, 1) or UDim2.new(0, START_W, 1, 0)
-        win.Position = UDim2.new(0.5, 0, 0.5, rise)
+        winStroke.Transparency = 1
+        winScale.Scale = RM and 1 or 0.96
+        win.Position = UDim2.new(0.5, 0, 0, rise)
         play(win, {GroupTransparency = 0}, 0.2, EASE.ease)
-        play(win, {Position = UDim2.fromScale(0.5, 0.5)}, 0.36, EASE.out)
-        if not RM then play(win, {Size = UDim2.fromScale(1, 1)}, 0.46, EASE.out) end
-        if shadow then
-            play(shadow, {ImageTransparency = SHADOW_REST, Size = UDim2.new(1, 34, 1, 34)}, RM and 0.2 or 0.46, EASE.out)
-        end
+        play(winStroke, {Transparency = 0.08}, 0.3, EASE.ease)
+        play(win, {Position = UDim2.new(0.5, 0, 0, 0)}, 0.36, EASE.out)
+        if not RM then play(winScale, {Scale = 1}, 0.42, EASE.out) end
+        if glow then play(glow, {ImageTransparency = GLOW_REST}, RM and 0.2 or 0.46, EASE.out) end
         if C.Dim == true then play(dimmer, {BackgroundTransparency = 0.6}, 0.3, EASE.ease) end
         if blur then play(blur, {Size = 10}, 0.3, EASE.ease) end
-        if linksRow then -- pendukung: menyusul 140 ms, hanya fade + naik sedikit
+        if linksRow then -- chip menyusul 140 ms, hanya fade + naik sedikit
             task.delay(0.14, function()
                 if linksRow.Parent and msgTok == 0 then
-                    play(linksRow, {GroupTransparency = 0, Position = UDim2.fromOffset(W / 2, ROW_Y)}, 0.24, EASE.out)
+                    play(linksRow, {GroupTransparency = 0, Position = UDim2.fromOffset(CW / 2, ROW_Y)}, 0.24, EASE.out)
                 end
             end)
         end
     end
 
-    -- keluar lebih singkat dari masuk. Sukses: naik sambil memudar. Batal: kembali jadi kapsul.
+    -- keluar lebih singkat dari masuk. Sukses: naik sambil memudar. Batal: turun sambil memudar.
     local function closeA(cb, success)
         if not isOpen then
             gui:Destroy()
@@ -749,12 +1077,10 @@ function KeySystem.Run(C)
             return
         end
         isOpen = false
-        play(win, {Position = UDim2.new(0.5, 0, 0.5, RM and 0 or (success and -8 or 8))}, 0.24, EASE.out)
-        if not success and not RM then play(win, {Size = UDim2.new(0, START_W, 1, 0)}, 0.26, EASE.out) end
+        play(win, {Position = UDim2.new(0.5, 0, 0, RM and 0 or (success and -8 or 8))}, 0.24, EASE.out)
         play(win, {GroupTransparency = 1}, 0.2, EASE.ease)
-        if shadow then play(shadow, {ImageTransparency = 1}, 0.2, EASE.ease) end
-        if linksRow then play(linksRow, {GroupTransparency = 1}, 0.14, EASE.ease) end
-        play(chip, {GroupTransparency = 1}, 0.14, EASE.ease)
+        play(winStroke, {Transparency = 1}, 0.2, EASE.ease)
+        if glow then play(glow, {ImageTransparency = 1}, 0.2, EASE.ease) end
         play(dimmer, {BackgroundTransparency = 1}, 0.24, EASE.ease)
         if blur then play(blur, {Size = 0}, 0.24, EASE.ease) end
         task.delay(0.28, function()
@@ -784,7 +1110,7 @@ function KeySystem.Run(C)
         if lifted == on then return end
         lifted = on
         play(winScale, {Scale = on and 1.015 or 1}, on and 0.16 or 0.22, EASE.out)
-        if shadow and isOpen then play(shadow, {ImageTransparency = on and SHADOW_LIFT or SHADOW_REST}, 0.16, EASE.ease) end
+        if glow and isOpen then play(glow, {ImageTransparency = on and GLOW_LIFT or GLOW_REST}, 0.16, EASE.ease) end
     end
     local function track(handle, onBegin, onMove, onEnd)
         handle.InputBegan:Connect(function(input)
@@ -838,7 +1164,7 @@ function KeySystem.Run(C)
         end)
 
     ------------------------------------------------------------------
-    -- KEYBOARD AVOIDANCE (layar sentuh): bar + pesan naik di atas keyboard layar
+    -- KEYBOARD AVOIDANCE (layar sentuh): panel naik di atas keyboard layar
     ------------------------------------------------------------------
     local function kbLift()
         if not (box:IsFocused() and UIS.TouchEnabled and not UIS.KeyboardEnabled) then return 0 end
@@ -850,7 +1176,7 @@ function KeySystem.Run(C)
             if UIS.OnScreenKeyboardVisible and UIS.OnScreenKeyboardPosition.Y > 0 then kbTop = UIS.OnScreenKeyboardPosition.Y end
         end)
         local limit = (kbTop or vpH * 0.52) - 10 -- tanpa data keyboard, anggap menutup ~48% bawah
-        local bottom = vpH / 2 + ty * s + (H / 2 + 44) * s
+        local bottom = vpH / 2 + ty * s + (HP_MAX - HP_IDLE / 2) * s
         if bottom <= limit then return 0 end
         return -math.min((bottom - limit) / s, virt.Y * 0.4)
     end
@@ -872,9 +1198,9 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     -- EFEK SUKSES: satu pulse dari gembok (Max). Percikan hanya kalau diminta (Confetti = true).
     ------------------------------------------------------------------
+    local LX, LY = CM + PILL_X + LOCK_CX, HEAD_H + PILL_Y + PH / 2
     local function pulse(col)
-        local cx, cy = PAD + ICON_S / 2, H / 2
-        local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 6}, shell)
+        local r = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(LX, LY), Size = UDim2.fromOffset(ICON_S, ICON_S), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 6}, shell)
         corner(r, FULL)
         local rs = stroke(r, col, 1.5, 0.2)
         play(r, {Size = UDim2.fromOffset(ICON_S * 3.2, ICON_S * 3.2)}, 0.55, EASE.out)
@@ -882,14 +1208,13 @@ function KeySystem.Run(C)
         task.delay(0.6, function() r:Destroy() end)
     end
     local function burst()
-        local cx, cy = PAD + ICON_S / 2, H / 2
         local cols = {T.accent, T.ok, T.text}
         for i = 1, 14 do
             local ang = (i / 14) * math.pi * 2 + rand(-0.2, 0.2)
             local dist = rand(34, 76)
-            local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx, cy), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = cols[i % #cols + 1], BorderSizePixel = 0, ZIndex = 20}, shell)
+            local p = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(LX, LY), Size = UDim2.fromOffset(3, 3), BackgroundColor3 = cols[i % #cols + 1], BorderSizePixel = 0, ZIndex = 20}, shell)
             corner(p, FULL)
-            play(p, {Position = UDim2.fromOffset(cx + math.cos(ang) * dist * 1.5, cy + math.sin(ang) * dist * 0.8)}, 0.5, EASE.out)
+            play(p, {Position = UDim2.fromOffset(LX + math.cos(ang) * dist * 1.5, LY + math.sin(ang) * dist * 0.8)}, 0.5, EASE.out)
             task.delay(0.15, function() if p.Parent then play(p, {BackgroundTransparency = 1}, 0.4, EASE.ease) end end)
             task.delay(0.7, function() p:Destroy() end)
         end
@@ -907,8 +1232,8 @@ function KeySystem.Run(C)
         local ok, body = pcall(function() return game:HttpGet(C.KeyUrl) end)
         if not ok or type(body) ~= "string" then return nil end
         local list = {}
-        for line in body:gmatch("[^\r\n]+") do
-            local k = trim(line)
+        for line_ in body:gmatch("[^\r\n]+") do
+            local k = trim(line_)
             if k ~= "" and k:sub(1, 1) ~= "#" then list[#list + 1] = k end
         end
         return list
@@ -919,10 +1244,10 @@ function KeySystem.Run(C)
         key = trim(key)
         if key == "" then return false, "Enter your key first" end
         if C.Validate then
-            local ok, res, msg = pcall(C.Validate, key)
+            local ok, res, msg_ = pcall(C.Validate, key)
             if not ok then return false, "Validator error: "..tostring(res) end
             if res then return true end
-            return false, msg or "That key isn't valid. Check it and try again"
+            return false, msg_ or "That key isn't valid. Check it and try again"
         end
         local list = {}
         for _, k in ipairs(C.Keys or {}) do list[#list + 1] = tostring(k) end
@@ -944,49 +1269,34 @@ function KeySystem.Run(C)
     ------------------------------------------------------------------
     -- ALUR VERIFIKASI
     ------------------------------------------------------------------
-    local ringTok, lockTok = 0, 0
-    local function flash(col, dur) -- ring berwarna sebentar, lalu kembali ke state normal
-        ringTok = ringTok + 1
-        local tok = ringTok
-        ringOverride = col
-        setRing(0.12)
-        task.delay(dur, function()
-            if tok ~= ringTok or done or not gui.Parent then return end
-            ringOverride = nil
-            setRing(0.3)
-        end)
-    end
-
     local function onSuccess(key, auto)
         done = true
-        progOff()
+        busy = false
+        errState = false
         if saveKey then pcall(function() if writefile then writefile(keyFile, key) end end) end
-        ringTok = ringTok + 1
-        ringOverride = T.ok
-        setRing(0.2)
+        box.TextEditable = false
+        pcall(function() box:ReleaseFocus() end)
         unlockIcon()
-        btnOverride = {T.ok, T.ground}
-        refreshBtn()
-        setBtn("Accepted")
+        applyState(0.2)
         say(auto and "Verified" or "Key accepted", T.ok, true)
         if not auto then -- momen langka: boleh ada delight. Auto-login tetap cepat dan tenang.
             sfx("success")
             if not lowFx and not RM then pulse(T.ok) end
             if wantConfetti then burst() end
         end
-        task.delay(auto and 0.5 or 0.9, function() finish(true, key) end)
+        task.delay(auto and 0.5 or 1.0, function() finish(true, key) end)
     end
 
     local function lockout(sec)
         locked = true
-        btnOverride = nil
-        refreshBtn()
+        errState = false
+        applyState()
         say("Too many attempts. Please wait", T.warn, true)
         task.spawn(function()
             for s = sec, 1, -1 do
                 if not gui.Parent then return end
                 if s == sec then
-                    btnTok = btnTok + 1 -- batalkan crossfade "Invalid" yang masih menunggu
+                    btnTok = btnTok + 1 -- batalkan crossfade label yang masih menunggu
                     play(btnL, {TextTransparency = 0}, 0.1, EASE.ease)
                 end
                 btnL.Text = "Wait "..s.."s"
@@ -995,42 +1305,24 @@ function KeySystem.Run(C)
             locked = false
             attempts = 0
             if gui.Parent and not done then
-                refreshBtn()
-                setBtn(BTN_TEXT)
+                applyState()
                 clearSay()
             end
         end)
     end
 
-    local function onFail(msg, auto)
+    local function onFail(msg_, auto)
         attempts = attempts + 1
         sfx("error")
         if auto then
             pcall(function() if delfile and isfile and isfile(keyFile) then delfile(keyFile) end end)
-            msg = "Your saved key is no longer valid. Enter a new one"
+            msg_ = "Your saved key is no longer valid. Enter a new one"
         end
-        flash(T.bad, 1.3)
-        tintInput(T.bad, 1.2)
-        lockTok = lockTok + 1
-        local ltok = lockTok
-        lockOverride = T.bad
-        refreshLock(0.1)
-        task.delay(0.9, function()
-            if ltok == lockTok and gui.Parent and not done then lockOverride = nil refreshLock(0.3) end
-        end)
+        errState = true -- state "Wrong key" bertahan sampai key diedit lagi
+        applyState()
         rattleIcon()
         shake()
-        btnOverride = {T.bad, T.ground}
-        refreshBtn()
-        setBtn("Invalid")
-        task.delay(1.1, function()
-            if gui.Parent and not done and not locked then
-                btnOverride = nil
-                refreshBtn()
-                setBtn(BTN_TEXT)
-            end
-        end)
-        say(msg or "That key isn't valid. Check it and try again", T.bad)
+        say(msg_ or "That key isn't valid. Check it and try again", T.bad, true)
         if maxAttempts > 0 and attempts >= maxAttempts then lockout(cooldown) end
     end
 
@@ -1044,21 +1336,20 @@ function KeySystem.Run(C)
             rattleIcon()
             return
         end
+        if errState then
+            errState = false
+            clearSay()
+        end
         busy = true
-        setRing()
-        progOn()
-        setBtn("Checking")
-        refreshBtn()
+        applyState()
         task.spawn(function()
             local t0 = os.clock()
-            local ok, msg = check(key)
+            local ok, msg_ = check(key)
             local el = os.clock() - t0
             if el < 0.35 then task.wait(0.35 - el) end -- cukup lama untuk terbaca, tidak berkedip
             if not gui.Parent or finished then return end
             busy = false
-            progOff()
-            setRing()
-            if ok then onSuccess(key, auto) else onFail(msg, auto) end
+            if ok then onSuccess(key, auto) else onFail(msg_, auto) end
         end)
     end
 
@@ -1070,6 +1361,7 @@ function KeySystem.Run(C)
     bind(gui:GetPropertyChangedSignal("AbsoluteSize"), applyScale)
     applyScale()
     render(0)
+    applyState(0)
     openA()
 
     -- key tersimpan -> isi otomatis lalu verifikasi diam-diam (setelah intro selesai)
