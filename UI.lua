@@ -2,7 +2,10 @@
 -- Tambahan API: Window:Group(), Page:SubTab() (chip di atas konten), K:Accordion = kartu 2 kolom, K:Buttons({...}).
 -- Dashboard OTOMATIS: grup "Loaded" > tab "Dashboard" langsung ada begitu CreateWindow jalan (tidak perlu dipanggil). Akses isinya lewat Window.Dashboard.
 --   Opsi: AutoDashboard = false (matikan), DashboardGroup = "Nama Grup" (ganti nama grup, default "Loaded").
-local SORU = {Version = "1.2.1"}
+-- NEXRIFT SKIN (1.3.0): tema merah-hitam, banner sidebar, pill atas, tab aktif, dan ikon grid digambar langsung lewat kode (tanpa gambar).
+--   Opsi baru CreateWindow: Brand = "NEXRIFT", Tagline = "Play Smarter." (false = tanpa tagline), OldBanner = true (banner gambar lama), OldPill = true (pill gambar lama).
+--   Pertama kali jalan, tema otomatis pindah ke "Nexrift" (sekali saja). Setelah itu pilihan tema di UI Settings tetap dihormati.
+local SORU = {Version = "1.3.0"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
 local Http, TextService, GuiService, Lighting = game:GetService("HttpService"), game:GetService("TextService"), game:GetService("GuiService"), game:GetService("Lighting")
 
@@ -36,6 +39,7 @@ local CHAT_URL = "https://chatting-soru-hub-default-rtdb.asia-southeast1.firebas
 -- Dibuat dari 2 lapis PNG (base64 di PALING BAWAH file): BANNER_B64 = lapisan bayangan yang di-tint warna aksen tema, BANNER_B64S = highlight putih + tulisan "SORU" (tetap).
 -- Dipakai otomatis kalau C.Logo / C.LogoUrl kosong. Opsi: CreateWindow({Banner = false}) matikan, CreateWindow({Banner = "rbxassetid://ID"}) pakai gambar sendiri (warna tidak ikut tema).
 local BANNER, BANNER2, BANNER_B64, BANNER_B64S = "", "", "", ""
+local NEXBANNER = false -- true = banner NEXRIFT buatan kode (default)
 local BN_HSHIFT, BN_SBOOST = -0.009577, 1.4552 -- hasil fitting: aksen tema -> warna tint banner (di tema Nemesis hasilnya = warna logo asli)
 local function bannerTint(c)
     local h, s = c:ToHSV()
@@ -91,11 +95,11 @@ end
 ----------------------------------------------------------------------
 local WHITE = Color3.new(1, 1, 1)
 local T = {
-    bg = Color3.fromRGB(12, 12, 16), side = Color3.fromRGB(8, 8, 11), el = Color3.fromRGB(21, 20, 27), field = Color3.fromRGB(30, 29, 37),
-    hover = Color3.fromRGB(38, 36, 47), chip = Color3.fromRGB(29, 28, 36), outline = Color3.fromRGB(42, 40, 53), text = Color3.fromRGB(255, 255, 255),
-    mid = Color3.fromRGB(160, 160, 171), dim = Color3.fromRGB(134, 134, 146), faint = Color3.fromRGB(102, 102, 115), off = Color3.fromRGB(52, 50, 63),
+    bg = Color3.fromRGB(10, 9, 11), side = Color3.fromRGB(6, 6, 8), el = Color3.fromRGB(20, 16, 19), field = Color3.fromRGB(29, 24, 28),
+    hover = Color3.fromRGB(42, 31, 36), chip = Color3.fromRGB(26, 21, 25), outline = Color3.fromRGB(56, 36, 42), text = Color3.fromRGB(255, 255, 255),
+    mid = Color3.fromRGB(166, 160, 164), dim = Color3.fromRGB(140, 134, 139), faint = Color3.fromRGB(108, 102, 107), off = Color3.fromRGB(58, 50, 56),
     ok = Color3.fromRGB(46, 204, 113), warn = Color3.fromRGB(241, 196, 15), bad = Color3.fromRGB(235, 80, 70),
-    accent = Color3.fromRGB(129, 61, 195), accent2 = Color3.fromRGB(94, 47, 158),
+    accent = Color3.fromRGB(255, 36, 56), accent2 = Color3.fromRGB(165, 16, 31),
 }
 local function derive()
     T.accentL = T.accent:Lerp(WHITE, 0.42) -- judul halaman, angka slider
@@ -118,7 +122,7 @@ function SORU.AddTheme(name, a, b)
     THEMES[name] = {hx(a), hx(b)}
 end
 for _, s in ipairs({
-    "Nemesis 813DC3 5E2F9E", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
+    "Nexrift FF2438 A5101F", "Nemesis 813DC3 5E2F9E", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
     "Sunset FF963C F0465A", "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA", "Aqua 1ED2E6 2896EB",
     "Ice 82C8FF 648CFF", "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E", "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C",
     "Cyber FF28C8 8C3CFF", "Orchid D26EFF A050E6", "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64",
@@ -230,6 +234,15 @@ local function mkIcon(parent, name, size, color, props)
         local h = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(size * 0.82, size * 0.82), Size = UDim2.fromOffset(size * 0.4, 1.5), Rotation = 45, BackgroundColor3 = color, BorderSizePixel = 0}, o)
         corner(h, "full")
         function ic.tint(c, t) play(rs, {Color = c}, t or 0.2) play(h, {BackgroundColor3 = c}, t or 0.2) end
+    elseif name == "grid" then -- ikon dashboard: 4 kotak membulat dari Frame
+        o = new("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)}, parent)
+        local parts, cs = {}, size * 0.42
+        for i = 0, 3 do
+            local f = new("Frame", {Position = UDim2.fromOffset((i % 2) * (size - cs), math.floor(i / 2) * (size - cs)), Size = UDim2.fromOffset(cs, cs), BackgroundColor3 = color, BorderSizePixel = 0}, o)
+            corner(f, math.max(1, size * 0.14))
+            parts[#parts + 1] = f
+        end
+        function ic.tint(c, t) for _, f in ipairs(parts) do play(f, {BackgroundColor3 = c}, t or 0.2) end end
     elseif name == "bell" then -- lonceng dibuat dari Frame (kubah + dasar + pemukul)
         o = new("Frame", {BackgroundTransparency = 1, Size = UDim2.fromOffset(size, size)}, parent)
         local parts = {}
@@ -250,6 +263,36 @@ local function mkIcon(parent, name, size, color, props)
     for k, v in pairs(props or {}) do o[k] = v end
     ic.inst = o
     return ic
+end
+
+-- NEXRIFT: logo "N" siku (2 batang + diagonal, warna ikut tema) dan teks huruf renggang (huruf X diberi warna aksen)
+local NEX = {Name = "NEXRIFT", Tag = "PLAY SMARTER."}
+local function hexOf(c) return string.format("%02X%02X%02X", math.floor(c.R * 255 + 0.5), math.floor(c.G * 255 + 0.5), math.floor(c.B * 255 + 0.5)) end
+local function spaced(s, hi, hex)
+    local out, used = {}, false
+    for i = 1, #s do
+        local c = s:sub(i, i)
+        if hex and not used and c == hi then
+            used = true
+            out[#out + 1] = '<font color="#' .. hex .. '">' .. c .. '</font>'
+        else
+            out[#out + 1] = c
+        end
+    end
+    return table.concat(out, " ")
+end
+local function nexN(parent, S, props)
+    local box = new("Frame", {Name = "NexN", BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromOffset(S, S)}, parent)
+    for k, v in pairs(props or {}) do box[k] = v end
+    local bw, bh = math.max(2, math.floor(S * 0.2 + 0.5)), S * 0.84
+    local function bar(x, w, h, rot, key)
+        local f = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, S / 2), Size = UDim2.fromOffset(w, h), Rotation = rot, BorderSizePixel = 0}, box)
+        return skin(f, "BackgroundColor3", key)
+    end
+    bar(bw / 2, bw, bh, 0, "accent")
+    bar(S - bw / 2, bw, bh, 0, "accent")
+    bar(S / 2, bw, math.sqrt((S - bw) ^ 2 + bh ^ 2) - bw * 0.3, -math.deg(math.atan2(S - bw, bh)), "accentL")
+    return box
 end
 
 -- logo: gambar (kalau LOGO diisi) atau huruf besar italic bergradien aksen
@@ -429,8 +472,10 @@ end
 function SORU:CreateWindow(C)
     C = C or {}
     skins, themeFns = {}, {}
-    LOGONAME = string.upper(tostring(C.Title or C.Name or "NEMESIS"))
+    LOGONAME = string.upper(tostring(C.Title or C.Name or "NEXRIFT"))
     LOGOCHAR = LOGONAME:sub(1, 1)
+    NEX.Name = string.upper(tostring(C.Brand or "NEXRIFT"))
+    NEX.Tag = (C.Tagline == false) and "" or string.upper(tostring(C.Tagline or "Play Smarter."))
     LOGO = ""
     if type(C.Icons) == "table" then for k, v in pairs(C.Icons) do SORU.Icons[k] = tostring(v) end end
     if C.Logo then
@@ -441,12 +486,13 @@ function SORU:CreateWindow(C)
         LOGO = fetchImage(u, "logo_" .. #u .. "_" .. (u:sub(-14):gsub("%W", "")) .. ".png")
     end
     BANNER, BANNER2 = "", ""
+    NEXBANNER = false
     if LOGO == "" and C.Banner ~= false then
         if C.Banner then
             BANNER = tostring(C.Banner)
             if BANNER:match("^%d+$") then BANNER = "rbxassetid://" .. BANNER end
         else
-            BANNER, BANNER2 = loadBanner()
+            if C.OldBanner then BANNER, BANNER2 = loadBanner() else NEXBANNER = true end
         end
     end
 
@@ -494,6 +540,7 @@ function SORU:CreateWindow(C)
     end
 
     NOANIM = (C.NoAnim == true) or (F.UINoAnim == true)
+    if F.NexSkin ~= true then F.NexSkin, F.UITheme = true, "Nexrift" persist() end -- sekali saja: pindah ke tema Nexrift
     local curTheme = (type(F.UITheme) == "string" and THEMES[F.UITheme]) and F.UITheme or ORDER[1]
     applyTheme(curTheme)
     local toggleKey = C.ToggleKey or Enum.KeyCode.RightControl
@@ -633,13 +680,19 @@ function SORU:CreateWindow(C)
     local win = new("Frame", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = WHITE, BorderSizePixel = 0, ClipsDescendants = true, Active = true}, shell)
     corner(win, 12)
-    stroke(win, T.outline, 1, 0.1)
+    skin(stroke(win, T.accent, 1.2, 0.5), "Color", "accent") -- bingkai merah tipis ala NEXRIFT
     local winG = new("UIGradient", {Rotation = 135}, win)
     local function paintWin()
         winG.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.bg:Lerp(T.accent, 0.1)), ColorSequenceKeypoint.new(0.6, T.bg), ColorSequenceKeypoint.new(1, T.bg)})
     end
     paintWin()
     themeFns[#themeFns + 1] = paintWin
+    -- garis diagonal merah di pojok kanan atas (nuansa NEXRIFT), diletakkan di belakang semua konten
+    for _, d in ipairs({{150, 2, 0.15, 118, 30}, {84, 1, 0.45, 84, 56}}) do
+        local ln = new("Frame", {Name = "Slash", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -d[4], 0, d[5]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = -48, BackgroundTransparency = d[3], BorderSizePixel = 0}, win)
+        skin(ln, "BackgroundColor3", "accent")
+        new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})}, ln)
+    end
     local winScale = new("UIScale", {Scale = 1}, win)
     local ctxWin = newCtx(win, 12)
 
@@ -669,7 +722,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local BX, BY = 14, math.floor((LOGO_H - BS) / 2) -- posisi badge: kiri, tengah vertikal
 
     -- glow aksen berlapis di belakang badge (berdenyut pelan, diam kalau "Reduce animation" aktif)
-    for i, pad in ipairs(BANNER ~= "" and {} or {5, 10, 15, 20}) do
+    for i, pad in ipairs((BANNER ~= "" or NEXBANNER) and {} or {5, 10, 15, 20}) do
         local base = 0.74 + i * 0.05
         local gl = new("Frame", {Name = "Glow" .. i, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(BX + BS / 2, BY + BS / 2),
             Size = UDim2.fromOffset(BS + pad, BS + pad), BackgroundTransparency = base, BorderSizePixel = 0, ZIndex = 1}, dragLogo)
@@ -681,7 +734,29 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     end
 
     local bgG, chG, bnT -- gradien badge & huruf, lapisan banner yang di-tint; dicat ulang saat tema berganti
-    if BANNER ~= "" then
+    if NEXBANNER then
+        -- banner NEXRIFT: kartu gelap berbingkai aksen | logo N | wordmark renggang (X berwarna aksen) + tagline | strip diagonal di kanan bawah
+        local card = new("Frame", {Name = "NexBanner", Position = UDim2.fromOffset(9, 7), Size = UDim2.new(1, -18, 1, -14), BackgroundColor3 = WHITE, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 2}, dragLogo)
+        corner(card, 9)
+        skin(stroke(card, T.accent, 1, 0.4), "Color", "accent")
+        local cardG = new("UIGradient", {Rotation = 15}, card)
+        for _, d in ipairs({{64, 9, 0.5, -10, 2}, {64, 2, 0.15, -24, 6}}) do
+            local s = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, d[4], 1, d[5]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = -50, BackgroundTransparency = d[3], BorderSizePixel = 0, ZIndex = 2}, card)
+            skin(s, "BackgroundColor3", "accent")
+        end
+        nexN(card, 22, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), ZIndex = 3})
+        new("Frame", {Name = "Divider", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 40, 0.5, 0), Size = UDim2.fromOffset(1, 24), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 3}, card)
+        local wm = text(card, {Name = "Wordmark", Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -54, 0, 20), W = 4, TextSize = 12, TextScaled = true, RichText = true, TextTruncate = NOTRUNC, ZIndex = 3})
+        new("UITextSizeConstraint", {MinTextSize = 6, MaxTextSize = 12}, wm)
+        local tg = text(card, {Name = "Tagline", Position = UDim2.fromOffset(48, 26), Size = UDim2.new(1, -54, 0, 9), W = 2, TextSize = 6, TextScaled = true, TextColor3 = T.dim, Text = spaced(NEX.Tag), TextTruncate = NOTRUNC, ZIndex = 3})
+        new("UITextSizeConstraint", {MinTextSize = 4, MaxTextSize = 7}, tg)
+        local function paintNex()
+            cardG.Color = ColorSequence.new(T.bg:Lerp(T.accent, 0.22), T.side)
+            wm.Text = spaced(NEX.Name, "X", hexOf(T.accent:Lerp(WHITE, 0.06)))
+        end
+        paintNex()
+        themeFns[#themeFns + 1] = paintNex
+    elseif BANNER ~= "" then
         -- banner SORU HUB: ukuran & posisi disamakan dengan referensi (kiri 12, atas 6, 137x47). Lapisan bawah = bayangan (di-tint warna tema), lapisan atas = highlight putih + tulisan SORU
         local bp = {Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(137, 47), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit}
         bp.Name, bp.Image, bp.ZIndex = "Banner", BANNER, 2
@@ -714,7 +789,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         W = 3, TextSize = 15, TextScaled = true, TextTruncate = NOTRUNC, ZIndex = 2})
     new("UITextSizeConstraint", {MinTextSize = 7, MaxTextSize = 15}, nm)
     local ng = new("UIGradient", {}, nm)
-    nm.Visible = BANNER == "" -- teks nama sudah ada di dalam gambar banner
+    nm.Visible = BANNER == "" and not NEXBANNER -- teks nama sudah ada di dalam banner
 
     -- garis pemisah tipis di bawah banner (nuansa ungu)
     local ll = new("Frame", {Name = "LogoLine", Position = UDim2.fromOffset(0, LOGO_H), Size = UDim2.new(0, SIDE_W - 1, 0, 1), BackgroundTransparency = 0.4, BorderSizePixel = 0}, win)
@@ -797,8 +872,57 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local launcher
     do
         local pB, pT, pS = "", "", ""
-        if C.Pill ~= false then pB, pT, pS = loadPill() end
-        if pB ~= "" then
+        local NEXPILL = (C.Pill ~= false) and not C.OldPill
+        if C.Pill ~= false and not NEXPILL then pB, pT, pS = loadPill() end
+        if NEXPILL then
+            -- PILL NEXRIFT: kapsul hitam berhalo aksen | logo N | wordmark | bar sinyal | FPS live (semua digambar lewat kode)
+            local PW, PH = 240, 36
+            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = WHITE, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
+            corner(launcher, "full")
+            local bodyG = new("UIGradient", {Rotation = 90}, launcher)
+            local halo = stroke(launcher, T.accent, 6, 0.88)
+            local edge = stroke(launcher, WHITE, 1.4, 0)
+            local edgeG = new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 0.1)})}, edge)
+            nexN(launcher, 21, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0), ZIndex = 91})
+            for _, x in ipairs({46, 146, 189}) do
+                new("Frame", {Name = "Divider", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, x, 0.5, 0), Size = UDim2.fromOffset(1, 16), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            end
+            local wm = text(launcher, {Name = "Wordmark", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 54, 0.5, 0), Size = UDim2.fromOffset(86, 18), W = 4, TextSize = 11, TextScaled = true, RichText = true, TextTruncate = NOTRUNC, ZIndex = 91})
+            new("UITextSizeConstraint", {MinTextSize = 6, MaxTextSize = 11}, wm)
+            local sig = {}
+            for i, h in ipairs({6, 10, 14, 18}) do
+                sig[i] = new("Frame", {Name = "Sig" .. i, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 156 + (i - 1) * 7, 0.5, 9), Size = UDim2.fromOffset(4, h), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 91}, launcher)
+                corner(sig[i], "full")
+            end
+            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 195, 0.5, 0), Size = UDim2.fromOffset(36, 18), W = 4, TextSize = 13, TextXAlignment = XC, TextYAlignment = YC, TextTruncate = NOTRUNC, ZIndex = 91})
+            local curFps = 0
+            local function paintSig()
+                local lit = curFps >= 50 and 4 or (curFps >= 35 and 3 or (curFps >= 20 and 2 or 1))
+                local col = curFps >= 35 and T.accent or (curFps >= 20 and T.warn or T.bad)
+                for i, b in ipairs(sig) do b.BackgroundColor3 = (i <= lit) and col or T.off end
+            end
+            local function paintNexPill()
+                bodyG.Color = ColorSequence.new(T.side:Lerp(T.accent, 0.2), T.side)
+                halo.Color = T.accent
+                edgeG.Color = ColorSequence.new(T.accent:Lerp(WHITE, 0.12), T.accent2)
+                wm.Text = spaced(NEX.Name, "X", hexOf(T.accent:Lerp(WHITE, 0.06)))
+                paintSig()
+            end
+            paintNexPill()
+            themeFns[#themeFns + 1] = paintNexPill
+            launcher.MouseEnter:Connect(function() play(halo, {Transparency = 0.7}, 0.2) play(edge, {Thickness = 2}, 0.2) end)
+            launcher.MouseLeave:Connect(function() play(halo, {Transparency = 0.88}, 0.2) play(edge, {Thickness = 1.4}, 0.2) end)
+            local frames, acc = 0, 0
+            bind(RunService.Heartbeat, function(dt)
+                frames = frames + 1
+                acc = acc + dt
+                if acc < 0.5 then return end
+                curFps = math.floor(frames / acc + 0.5)
+                frames, acc = 0, 0
+                fpsL.Text = tostring(curFps)
+                paintSig()
+            end)
+        elseif pB ~= "" then
             -- PILL SORU HUB (gambar): body + tint aksen + highlight. Bar sinyal & angka FPS live di atasnya (posisi = fraksi ukuran pill, diukur dari gambar referensi).
             local PH = PILL_H
             local PW = math.floor(PH * PILL_ASPECT + 0.5)
@@ -1002,7 +1126,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     ------------------------------------------------------------------
     -- NAVIGASI: grup (header + item halaman) -> halaman -> sub-tab (chip) -> kolom kartu
     ------------------------------------------------------------------
-    local GH, IH, IGAP, HGAP = 26, 22, 4, 4 -- tinggi header grup, tinggi item, jarak antar item, jarak header -> item
+    local GH, IH, IGAP, HGAP = 26, 26, 5, 4 -- tinggi header grup, tinggi item, jarak antar item, jarak header -> item
     local TOP0, TOP1 = 50, 82 -- awal konten tanpa / dengan baris chip
     local groups, glist, pages = {}, {}, {}
     local cur, lastPage, searching = nil, nil, false
@@ -1074,10 +1198,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         play(s.chipLb, {TextColor3 = on and T.text or T.mid}, 0.2)
         if s.chipIc then s.chipIc.tint(on and T.text or T.mid) end
     end
-    local function pillCols()
-        local h, s, v = T.accent:ToHSV()
-        return Color3.fromHSV((h - 0.06) % 1, math.clamp(s * 1.25, 0, 1), math.min(v * 0.92, 0.72)),
-            Color3.fromHSV((h + 0.06) % 1, math.clamp(s * 1.15, 0, 1), math.min(v * 0.75, 0.6))
+    local function pillCols() -- kaca gelap bernuansa aksen (kiri lebih merah, kanan hampir hitam)
+        return T.bg:Lerp(T.accent, 0.3), T.bg:Lerp(T.accent2, 0.07)
     end
     local function paintItem(p, on, instant)
         p.on = on
@@ -1085,12 +1207,13 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             if instant then for k, v in pairs(props) do o[k] = v end else play(o, props, t or 0.22) end
         end
         set(p.pill, {BackgroundTransparency = on and 0 or 1})
-        set(p.pillSt, {Transparency = on and 0.5 or 1})
+        set(p.pillSt, {Transparency = on and 0.08 or 1})
+        if p.dot then set(p.dot, {BackgroundTransparency = on and 0 or 1}) end
         set(p.item, {BackgroundTransparency = 1})
         set(p.label, {TextColor3 = on and T.text or T.faint})
         p.icon.tint(on and WHITE or T.faint, instant and 0 or 0.22)
-        set(p.bar, {Size = UDim2.fromOffset(3, on and 12 or 0)})
-        set(p.barGlow, {Size = UDim2.fromOffset(7, on and 18 or 0), BackgroundTransparency = on and 0.7 or 1})
+        set(p.bar, {Size = UDim2.fromOffset(3, 0)}) -- garis kiri dimatikan, diganti bingkai + titik merah
+        set(p.barGlow, {Size = UDim2.fromOffset(7, 0), BackgroundTransparency = 1})
         if p.iconGlow then set(p.iconGlow, {Transparency = on and 0.55 or 1}) end
         if on and not instant and not NOANIM then -- kilau gradien saat tab dipilih
             p.pillG.Offset = Vector2.new(-0.3, 0)
@@ -1122,7 +1245,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             p.pill = new("Frame", {Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
             corner(p.pill, 8)
             p.pillG = new("UIGradient", {Rotation = 0}, p.pill)
-            p.pillSt = skin(stroke(p.pill, T.accentL, 1, 1), "Color", "accentL")
+            p.pillSt = skin(stroke(p.pill, T.accent, 1.2, 1), "Color", "accent")
             p.icon = mkIcon(p.item, icon or "dot", 12, T.faint, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
             if p.icon.inst:IsA("TextLabel") then -- ikon teks: outline lembut supaya terlihat bercahaya saat aktif
                 p.iconGlow = skin(new("UIStroke", {Thickness = 1.5, Transparency = 1}, p.icon.inst), "Color", "accentL")
@@ -1133,8 +1256,11 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             corner(p.barGlow, "full")
             p.bar = new("Frame", {Name = "Indicator", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 2, 0.5, 0), Size = UDim2.fromOffset(3, 0), BorderSizePixel = 0}, p.item)
             corner(p.bar, "full")
-            p.star = text(p.item, {Text = "★", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -7, 0.5, 0), Size = UDim2.fromOffset(12, 12), TextXAlignment = XC, TextSize = 9, TextTruncate = NOTRUNC, Visible = favs[key] == true})
+            p.star = text(p.item, {Text = "★", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Size = UDim2.fromOffset(12, 12), TextXAlignment = XC, TextSize = 9, TextTruncate = NOTRUNC, Visible = favs[key] == true})
             skin(p.star, "TextColor3", "accentL")
+            p.dot = new("Frame", {Name = "Dot", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(6, 6), BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
+            corner(p.dot, "full")
+            skin(p.dot, "BackgroundColor3", "accent")
             local function paintPill()
                 local l, r = pillCols()
                 p.pillG.Color = ColorSequence.new(l, r)
