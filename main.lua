@@ -1013,6 +1013,7 @@ local VBL = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/head
 
 local GAMES = {
     [114326934417838] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/main/BAS.lua",
+    [17516596118] = "",
     [129827112113663] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/main/Prospecting.lua",
     [126244816328678] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/DIG",
     [101051454784523] = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/Malam%20Bersama%20Opah",
