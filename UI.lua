@@ -97,13 +97,13 @@ local function loadOverlay() -- -> bar body, bar tint, panel body, panel tint ("
 end
 
 ----------------------------------------------------------------------
--- THEME: palet gelap ala Nemesis (hampir hitam + ungu). Aksen bisa diganti lewat UI Settings (45 preset)
+-- THEME: palet gelap (latar hampir hitam + kartu abu netral). Aksen default Nexrift (merah), bisa diganti lewat UI Settings (45 preset)
 ----------------------------------------------------------------------
 local WHITE = Color3.new(1, 1, 1)
 local T = {
-    bg = Color3.fromRGB(10, 9, 11), side = Color3.fromRGB(6, 6, 8), el = Color3.fromRGB(20, 16, 19), field = Color3.fromRGB(29, 24, 28),
-    hover = Color3.fromRGB(42, 31, 36), chip = Color3.fromRGB(26, 21, 25), outline = Color3.fromRGB(56, 36, 42), text = Color3.fromRGB(255, 255, 255),
-    mid = Color3.fromRGB(166, 160, 164), dim = Color3.fromRGB(140, 134, 139), faint = Color3.fromRGB(108, 102, 107), off = Color3.fromRGB(58, 50, 56),
+    bg = Color3.fromRGB(11, 9, 14), side = Color3.fromRGB(7, 7, 12), el = Color3.fromRGB(52, 51, 58), field = Color3.fromRGB(34, 33, 40),
+    hover = Color3.fromRGB(66, 65, 74), chip = Color3.fromRGB(44, 43, 50), outline = Color3.fromRGB(74, 72, 82), text = Color3.fromRGB(255, 255, 255),
+    mid = Color3.fromRGB(190, 188, 198), dim = Color3.fromRGB(160, 158, 168), faint = Color3.fromRGB(128, 126, 136), off = Color3.fromRGB(30, 29, 36),
     ok = Color3.fromRGB(46, 204, 113), warn = Color3.fromRGB(241, 196, 15), bad = Color3.fromRGB(235, 80, 70),
     accent = Color3.fromRGB(255, 36, 56), accent2 = Color3.fromRGB(165, 16, 31),
 }
@@ -128,7 +128,7 @@ function SORU.AddTheme(name, a, b)
     THEMES[name] = {hx(a), hx(b)}
 end
 for _, s in ipairs({
-    "Nexrift FF2438 A5101F", "Nemesis 813DC3 5E2F9E", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
+    "Nexrift FF2438 A5101F", "Amethyst 813DC3 5E2F9E", "Violet 9160FF 5E6AFF", "Ocean 28A0FF 3870FF", "Crimson FF4664 DC2650", "Emerald 2DD496 10AA78",
     "Sunset FF963C F0465A", "Rose FF6996 E63C78", "Sakura FF96BE DC6ED2", "Mint 50E6BE 28BEAA", "Aqua 1ED2E6 2896EB",
     "Ice 82C8FF 648CFF", "Midnight 5A6EFF 3C46C8", "Gold FABE28 EB8C1E", "Lava FF5F32 E12D2D", "Toxic A0F028 5AC83C",
     "Cyber FF28C8 8C3CFF", "Orchid D26EFF A050E6", "Forest 50BE64 288C5A", "Coffee D29664 AA6E46", "Peach FFA078 F56E64",
@@ -164,7 +164,7 @@ end
 ----------------------------------------------------------------------
 -- HELPERS
 ----------------------------------------------------------------------
--- W: 1 = Regular (isi), 2 = Medium (label), 3 = SemiBold (judul), 4 = Bold. Font Nemesis = Montserrat
+-- W: 1 = Regular (isi), 2 = Medium (label), 3 = SemiBold (judul), 4 = Bold. Font = Montserrat
 local MONT = "rbxasset://fonts/families/Montserrat.json"
 local function mkFont(w, italic)
     local ok, f = pcall(function() return Font.new(MONT, w, italic and Enum.FontStyle.Italic or Enum.FontStyle.Normal) end)
@@ -204,7 +204,7 @@ end
 local function safe(fn, ...)
     if type(fn) ~= "function" then return end
     local ok, err = pcall(fn, ...)
-    if not ok then warn("[NEMESIS] " .. tostring(err)) end
+    if not ok then warn("[NEXRIFT] " .. tostring(err)) end
 end
 local function copy(s) if setclipboard then setclipboard(s) elseif toclipboard then toclipboard(s) end end
 local function toKey(n)
@@ -341,6 +341,33 @@ local function logoImg(parent, props)
     paint()
     themeFns[#themeFns + 1] = paint
     return l
+end
+
+-- logo N NEXRIFT untuk pill / badge: dipotong dari lapisan tint gambar banner (warna ikut aksen tema, light = 0..1 makin putih).
+-- Kalau gambar tidak termuat -> N buatan kode (nexN). Kalau C.Logo / C.LogoUrl diisi -> pakai gambar itu.
+local NEXMARK_OFF, NEXMARK_SIZE = Vector2.new(22, 38), Vector2.new(142, 117)
+local function nexMark(parent, H, props, light)
+    if LOGO ~= "" then
+        local p2 = {Size = UDim2.fromOffset(H, H), ScaleType = Enum.ScaleType.Fit}
+        for k, v in pairs(props or {}) do p2[k] = v end
+        return logoImg(parent, p2)
+    end
+    if BANNER ~= "" and BANNER2 ~= "" then
+        local function col() return bannerTint(T.accent):Lerp(WHITE, light or 0) end
+        local im = new("ImageLabel", {Name = "NexMark", BackgroundTransparency = 1, BorderSizePixel = 0, Image = BANNER, ImageRectOffset = NEXMARK_OFF, ImageRectSize = NEXMARK_SIZE,
+            Size = UDim2.fromOffset(math.floor(H * NEXMARK_SIZE.X / NEXMARK_SIZE.Y + 0.5), H), ScaleType = Enum.ScaleType.Stretch, ImageColor3 = col()}, parent)
+        for k, v in pairs(props or {}) do im[k] = v end
+        themeFns[#themeFns + 1] = function() im.ImageColor3 = col() end
+        return im
+    end
+    return nexN(parent, H, props)
+end
+-- nama merek tanpa spasi huruf, huruf X diberi warna aksen
+local function nameRich(hex)
+    local n = NEX.Name
+    local i = n:find("X", 1, true)
+    if not i then return n end
+    return n:sub(1, i - 1) .. '<font color="#' .. hex .. '">X</font>' .. n:sub(i + 1)
 end
 
 -- drag generik: onBegin(pos) -> state, onMove(dx, dy, state, moved, pos), onEnd(moved, state)
@@ -683,20 +710,19 @@ function SORU:CreateWindow(C)
         unread = unread + 1
         if notifHook then notifHook() end
         if F.NotifToasts == false then return end -- toast dimatikan: tetap masuk riwayat lonceng
-        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 54), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
-        local m = new("Frame", {Position = UDim2.fromOffset(310 * Toast.side, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.el, BackgroundTransparency = 0.02, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
+        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 58), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
+        local m = new("Frame", {Position = UDim2.fromOffset(310 * Toast.side, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg:Lerp(T.el, 0.4), BackgroundTransparency = 0.02, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
         corner(m, 9)
-        stroke(m, color, 1, 0.7)
-        local ic = new("Frame", {Position = UDim2.fromOffset(10, 11), Size = UDim2.fromOffset(32, 32), BackgroundColor3 = color, BackgroundTransparency = 0.82, BorderSizePixel = 0}, m)
-        corner(ic, 8)
-        if img then
-            new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(20, 20), BackgroundTransparency = 1, Image = img, ImageColor3 = color, ScaleType = Enum.ScaleType.Fit}, ic)
-        else
-            logoImg(ic, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(20, 20), ScaleType = Enum.ScaleType.Fit})
-        end
-        text(m, {Text = tostring(title or ""), Position = UDim2.fromOffset(52, 9), Size = UDim2.new(1, -62, 0, 16), W = 3})
-        text(m, {Text = tostring(msg or ""), Position = UDim2.fromOffset(52, 26), Size = UDim2.new(1, -62, 0, 24), TextSize = 10, W = 1, TextColor3 = T.dim, TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
-        local pr = new("Frame", {Position = UDim2.new(0, 0, 1, -2), Size = UDim2.new(1, 0, 0, 2), BackgroundColor3 = color, BorderSizePixel = 0}, m)
+        stroke(m, color, 1, 0.82)
+        new("Frame", {Name = "Edge", Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0}, m) -- garis aksen di tepi kiri
+        local ic = new("Frame", {Position = UDim2.fromOffset(15, 17), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, BorderSizePixel = 0}, m)
+        corner(ic, "full")
+        stroke(ic, color, 1.6, 0) -- ring ikon
+        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(img and 14 or 12, img and 14 or 12), BackgroundTransparency = 1,
+            Image = img or "rbxassetid://6031094667", ImageColor3 = color, ScaleType = Enum.ScaleType.Fit}, ic)
+        text(m, {Text = tostring(title or ""), Position = UDim2.fromOffset(48, 9), Size = UDim2.new(1, -58, 0, 16), W = 3, TextSize = 12, TextColor3 = color})
+        text(m, {Text = tostring(msg or ""), Position = UDim2.fromOffset(48, 27), Size = UDim2.new(1, -58, 0, 24), TextSize = 10, W = 2, TextColor3 = Color3.fromRGB(226, 226, 232), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
+        local pr = new("Frame", {Position = UDim2.new(0, 0, 1, -3), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = color, BorderSizePixel = 0}, m)
         local gone, entry = false, {}
         local function leave()
             if gone then return end
@@ -710,7 +736,7 @@ function SORU:CreateWindow(C)
         if #toasts > 5 then task.spawn(toasts[1].leave) end
         new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5}, m).MouseButton1Click:Connect(leave)
         play(m, {Position = UDim2.fromOffset(0, 0)}, 0.5)
-        play(pr, {Size = UDim2.new(0, 0, 0, 2)}, dur, Enum.EasingStyle.Linear)
+        play(pr, {Size = UDim2.new(0, 0, 0, 3)}, dur, Enum.EasingStyle.Linear)
         task.delay(dur, leave)
     end
 
@@ -723,15 +749,15 @@ function SORU:CreateWindow(C)
     local win = new("Frame", {Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
         BackgroundColor3 = WHITE, BorderSizePixel = 0, ClipsDescendants = true, Active = true}, shell)
     corner(win, 12)
-    skin(stroke(win, T.accent, 1.2, 0.5), "Color", "accent") -- bingkai merah tipis ala NEXRIFT
+    stroke(win, T.outline, 1, 0.78) -- tepi tipis netral (di video tidak ada bingkai berwarna)
     local winG = new("UIGradient", {Rotation = 135}, win)
     local function paintWin()
-        winG.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.bg:Lerp(T.accent, 0.1)), ColorSequenceKeypoint.new(0.6, T.bg), ColorSequenceKeypoint.new(1, T.bg)})
+        winG.Color = ColorSequence.new(T.bg) -- latar polos gelap
     end
     paintWin()
     themeFns[#themeFns + 1] = paintWin
-    -- garis diagonal merah di pojok kanan atas (nuansa NEXRIFT), diletakkan di belakang semua konten
-    for _, d in ipairs({{150, 2, 0.15, 118, 30}, {84, 1, 0.45, 84, 56}}) do
+    -- garis diagonal pojok kanan atas dimatikan (di video window polos); isi {{150, 2, 0.15, 118, 30}, {84, 1, 0.45, 84, 56}} untuk menyalakan lagi
+    for _, d in ipairs({}) do
         local ln = new("Frame", {Name = "Slash", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -d[4], 0, d[5]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = -48, BackgroundTransparency = d[3], BorderSizePixel = 0}, win)
         skin(ln, "BackgroundColor3", "accent")
         new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})}, ln)
@@ -779,19 +805,17 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local bgG, chG, bnT -- gradien badge & huruf, lapisan banner yang di-tint; dicat ulang saat tema berganti
     if NEXBANNER then
         -- banner NEXRIFT: kartu gelap berbingkai aksen | logo N | wordmark renggang (X berwarna aksen) + tagline | strip diagonal di kanan bawah
-        local card = new("Frame", {Name = "NexBanner", Position = UDim2.fromOffset(9, 7), Size = UDim2.new(1, -18, 1, -14), BackgroundColor3 = WHITE, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 2}, dragLogo)
+        local card = new("Frame", {Name = "NexBanner", Position = UDim2.fromOffset(9, 7), Size = UDim2.new(1, -18, 1, -14), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 2}, dragLogo)
         corner(card, 9)
-        skin(stroke(card, T.accent, 1, 0.4), "Color", "accent")
         local cardG = new("UIGradient", {Rotation = 15}, card)
-        for _, d in ipairs({{64, 9, 0.5, -10, 2}, {64, 2, 0.15, -24, 6}}) do
+        for _, d in ipairs({}) do
             local s = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, d[4], 1, d[5]), Size = UDim2.fromOffset(d[1], d[2]), Rotation = -50, BackgroundTransparency = d[3], BorderSizePixel = 0, ZIndex = 2}, card)
             skin(s, "BackgroundColor3", "accent")
         end
-        nexN(card, 22, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0), ZIndex = 3})
-        new("Frame", {Name = "Divider", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 40, 0.5, 0), Size = UDim2.fromOffset(1, 24), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 3}, card)
-        local wm = text(card, {Name = "Wordmark", Position = UDim2.fromOffset(48, 5), Size = UDim2.new(1, -54, 0, 20), W = 4, TextSize = 12, TextScaled = true, RichText = true, TextTruncate = NOTRUNC, ZIndex = 3})
-        new("UITextSizeConstraint", {MinTextSize = 6, MaxTextSize = 12}, wm)
-        local tg = text(card, {Name = "Tagline", Position = UDim2.fromOffset(48, 26), Size = UDim2.new(1, -54, 0, 9), W = 2, TextSize = 6, TextScaled = true, TextColor3 = T.dim, Text = spaced(NEX.Tag), TextTruncate = NOTRUNC, ZIndex = 3})
+        nexN(card, 34, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), ZIndex = 3})
+        local wm = text(card, {Name = "Wordmark", Position = UDim2.fromOffset(50, 18), Size = UDim2.new(1, -56, 0, 18), W = 4, TextSize = 12, TextScaled = true, RichText = true, TextTruncate = NOTRUNC, ZIndex = 3})
+        new("UITextSizeConstraint", {MinTextSize = 6, MaxTextSize = 13}, wm)
+        local tg = text(card, {Name = "Tagline", Position = UDim2.fromOffset(48, 26), Size = UDim2.new(1, -54, 0, 9), W = 2, TextSize = 6, TextScaled = true, TextColor3 = T.dim, Text = "", TextTruncate = NOTRUNC, ZIndex = 3})
         new("UITextSizeConstraint", {MinTextSize = 4, MaxTextSize = 7}, tg)
         local function paintNex()
             cardG.Color = ColorSequence.new(T.bg:Lerp(T.accent, 0.22), T.side)
@@ -801,13 +825,25 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         themeFns[#themeFns + 1] = paintNex
     elseif BANNER ~= "" then
         -- banner SORU HUB: ukuran & posisi disamakan dengan referensi (kiri 12, atas 6, 137x47). Lapisan bawah = bayangan (di-tint warna tema), lapisan atas = highlight putih + tulisan SORU
-        local bp = {Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(137, 47), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit}
-        bp.Name, bp.Image, bp.ZIndex = "Banner", BANNER, 2
-        local bi = new("ImageLabel", bp, dragLogo)
-        if BANNER2 ~= "" then
-            bnT = bi
-            bp.Name, bp.Image, bp.ZIndex = "BannerShine", BANNER2, 3
-            new("ImageLabel", bp, dragLogo)
+        if BANNER2 ~= "" and not C.FramedBanner then
+            -- gaya video: hanya logo N + tulisan NEXRIFT (tanpa bingkai, strip, tagline), dipotong dari gambar banner lewat ImageRect.
+            -- Banner berbingkai lama: CreateWindow({FramedBanner = true})
+            nexMark(dragLogo, 40, {Name = "Logo", Position = UDim2.fromOffset(14, 9), ZIndex = 2})
+            local wp = {Position = UDim2.fromOffset(66, 25), Size = UDim2.fromOffset(80, 12), BackgroundTransparency = 1, BorderSizePixel = 0, ScaleType = Enum.ScaleType.Stretch,
+                ImageRectOffset = Vector2.new(200, 54), ImageRectSize = Vector2.new(320, 48)}
+            wp.Name, wp.Image, wp.ZIndex = "WordX", BANNER, 2
+            bnT = new("ImageLabel", wp, dragLogo) -- huruf X (lapisan tint -> warna aksen)
+            wp.Name, wp.Image, wp.ZIndex = "Word", BANNER2, 3
+            new("ImageLabel", wp, dragLogo)       -- huruf putih
+        else
+            local bp = {Position = UDim2.fromOffset(12, 6), Size = UDim2.fromOffset(137, 47), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit}
+            bp.Name, bp.Image, bp.ZIndex = "Banner", BANNER, 2
+            local bi = new("ImageLabel", bp, dragLogo)
+            if BANNER2 ~= "" then
+                bnT = bi
+                bp.Name, bp.Image, bp.ZIndex = "BannerShine", BANNER2, 3
+                new("ImageLabel", bp, dragLogo)
+            end
         end
     elseif LOGO ~= "" then
         -- kalau C.Logo / C.LogoUrl diisi, gambarnya dipakai sebagai ikon di kiri
@@ -842,7 +878,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if bgG then bgG.Color = ColorSequence.new(T.accent:Lerp(WHITE, 0.12), T.accent2) end
         if chG then chG.Color = ColorSequence.new(WHITE, T.accentL) end
         ng.Color = ColorSequence.new(WHITE, T.accentL:Lerp(WHITE, 0.5))
-        ll.BackgroundColor3 = T.accent:Lerp(T.outline, 0.55)
+        ll.BackgroundColor3 = T.outline
     end
     paintBanner()
     themeFns[#themeFns + 1] = paintBanner
@@ -854,11 +890,11 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     new("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12), PaddingTop = UDim.new(0, 2)}, nav)
 
     -- tombol UI Settings (kiri bawah)
-    local setBtn = new("TextButton", {Name = "UISettings", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 12, 1, -9), Size = UDim2.new(1, -25, 0, 24), BackgroundColor3 = T.chip,
+    local setBtn = new("TextButton", {Name = "UISettings", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 14, 1, -10), Size = UDim2.fromOffset(104, 24), BackgroundColor3 = T.chip,
         Text = "", AutoButtonColor = false, BorderSizePixel = 0}, sbg)
-    corner(setBtn, 7)
+    corner(setBtn, "full")
     local setIc = mkIcon(setBtn, "settings", 11, T.mid, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
-    local setLb = text(setBtn, {Text = "Settings", Position = UDim2.fromOffset(28, 0), Size = UDim2.new(1, -34, 1, 0), W = 2, TextSize = 11, TextColor3 = T.mid, TextTruncate = NOTRUNC})
+    local setLb = text(setBtn, {Text = "UI Settings", Position = UDim2.fromOffset(28, 0), Size = UDim2.new(1, -34, 1, 0), W = 2, TextSize = 10, TextColor3 = T.mid, TextTruncate = NOTRUNC})
 
     ------------------------------------------------------------------
     -- MAIN: judul halaman + subjudul, tombol bintang / lonceng / pencarian, chip sub-tab, konten
@@ -868,7 +904,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local titleL = text(main, {Name = "Title", Text = "", Position = UDim2.fromOffset(14, 11), Size = UDim2.new(1, -270, 0, 18), W = 3, TextSize = 14})
     skin(titleL, "TextColor3", "accentL")
     local subL = text(main, {Name = "Subtitle", Text = "", Position = UDim2.fromOffset(14, 30), Size = UDim2.new(1, -270, 0, 12), TextSize = 10, W = 1, TextColor3 = T.faint})
-    local hl = new("Frame", {Name = "HeaderLine", Position = UDim2.fromOffset(14, 47), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.35, BorderSizePixel = 0}, main)
+    local hl = new("Frame", {Name = "HeaderLine", Position = UDim2.fromOffset(14, 47), Size = UDim2.new(1, -28, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 0.35, BorderSizePixel = 0, Visible = false}, main) -- garis header dimatikan (video tidak punya)
     new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0.55), NumberSequenceKeypoint.new(1, 1)})}, hl)
 
     local SEARCH_W = 170
@@ -887,15 +923,16 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -1, 0, 2), Size = UDim2.fromOffset(13, 13), BackgroundColor3 = T.bad, BorderSizePixel = 0, ZIndex = 5, Visible = false}, bellB)
     corner(badge, "full")
     local badgeL = text(badge, {Size = UDim2.fromScale(1, 1), TextXAlignment = XC, W = 3, TextSize = 8, TextTruncate = NOTRUNC, ZIndex = 6, Text = "0"})
+    starB.Visible, bellB.Visible = false, false -- header video hanya berisi kotak pencarian; ganti ke true kalau mau bintang / lonceng muncul lagi
 
     local sBox = new("Frame", {Name = "Search", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 13), Size = UDim2.fromOffset(SEARCH_W, 23), BackgroundColor3 = T.chip, BorderSizePixel = 0}, main)
-    corner(sBox, 6)
-    local sStroke = stroke(sBox, T.outline, 1, 0.45)
+    corner(sBox, "full")
+    local sStroke = stroke(sBox, T.outline, 1, 0.85)
     mkIcon(sBox, "search", 11, T.mid, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
     local sInput = new("TextBox", {Size = UDim2.new(1, -34, 1, 0), Position = UDim2.fromOffset(28, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Text = "", PlaceholderText = "Search tabs/groups...",
         PlaceholderColor3 = T.faint, TextColor3 = T.text, FontFace = FONT[2], TextSize = 10, TextXAlignment = XL, ClearTextOnFocus = false, TextTruncate = Enum.TextTruncate.AtEnd}, sBox)
     sInput.Focused:Connect(function() play(sStroke, {Color = T.accent, Transparency = 0.3}, 0.2) end)
-    sInput.FocusLost:Connect(function() play(sStroke, {Color = T.outline, Transparency = 0.45}, 0.2) end)
+    sInput.FocusLost:Connect(function() play(sStroke, {Color = T.outline, Transparency = 0.85}, 0.2) end)
 
     -- resize handle: tiga garis diagonal samar
     local rh = new("TextButton", {Name = "ResizeHandle", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -3, 1, -3), Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 100}, win)
@@ -917,56 +954,57 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local pB, pT, pS = "", "", ""
         local NEXPILL = false
         if C.Pill ~= false and not C.OldPill then
-            if not C.CodePill then pB, pT, pS = loadPill() end -- pill gambar base64 (default)
-            NEXPILL = (pB == "")                                -- gagal dimuat / executor tanpa file API -> pill buatan kode
+            if C.ImagePill then pB, pT, pS = loadPill() end -- pill gambar base64 berhalo merah (opsional: CreateWindow({ImagePill = true}))
+            NEXPILL = (pB == "")                            -- default: pill buatan kode gaya video
         end
         if NEXPILL then
-            -- PILL NEXRIFT: kapsul hitam berhalo aksen | logo N | wordmark | bar sinyal | FPS live (semua digambar lewat kode)
-            local PW, PH = 240, 36
-            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = WHITE, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
+            -- PILL NEXRIFT (gaya video): kapsul abu gelap | badge bulat berisi logo N | nama | bar equalizer warna aksen (tinggi ikut FPS) | angka FPS live
+            local PW, PH = 226, 36
+            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = T.el:Lerp(T.bg, 0.2), BackgroundTransparency = 0.03, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
             corner(launcher, "full")
-            local bodyG = new("UIGradient", {Rotation = 90}, launcher)
-            local halo = stroke(launcher, T.accent, 6, 0.88)
-            local edge = stroke(launcher, WHITE, 1.4, 0)
-            local edgeG = new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 0.1)})}, edge)
-            nexN(launcher, 21, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 16, 0.5, 0), ZIndex = 91})
-            for _, x in ipairs({46, 146, 189}) do
-                new("Frame", {Name = "Divider", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, x, 0.5, 0), Size = UDim2.fromOffset(1, 16), BackgroundColor3 = WHITE, BackgroundTransparency = 0.8, BorderSizePixel = 0, ZIndex = 91}, launcher)
-            end
-            local wm = text(launcher, {Name = "Wordmark", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 54, 0.5, 0), Size = UDim2.fromOffset(86, 18), W = 4, TextSize = 11, TextScaled = true, RichText = true, TextTruncate = NOTRUNC, ZIndex = 91})
-            new("UITextSizeConstraint", {MinTextSize = 6, MaxTextSize = 11}, wm)
+            local edge = stroke(launcher, WHITE, 1.2, 0.9) -- tepi tipis
+            local BD = 30
+            local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = T.accent2, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            corner(badge, "full")
+            local badgeSt = stroke(badge, T.accent, 1, 0.55)
+            nexMark(badge, 17, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 92}, 0.45)
+            local wm = text(launcher, {Name = "Wordmark", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 46, 0.5, 0), Size = UDim2.fromOffset(100, 18), W = 4, TextSize = 13, RichText = true, TextTruncate = NOTRUNC, ZIndex = 91})
+            local BW, BGAP, BX0 = 4, 3, 158
             local sig = {}
-            for i, h in ipairs({6, 10, 14, 18}) do
-                sig[i] = new("Frame", {Name = "Sig" .. i, AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 156 + (i - 1) * 7, 0.5, 9), Size = UDim2.fromOffset(4, h), BackgroundColor3 = T.off, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            for i = 1, 4 do
+                sig[i] = new("Frame", {Name = "Bar" .. i, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, BX0 + (i - 1) * (BW + BGAP), 0.5, 0), Size = UDim2.fromOffset(BW, 8), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 91}, launcher)
                 corner(sig[i], "full")
             end
-            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 195, 0.5, 0), Size = UDim2.fromOffset(36, 18), W = 4, TextSize = 13, TextXAlignment = XC, TextYAlignment = YC, TextTruncate = NOTRUNC, ZIndex = 91})
-            local curFps = 0
-            local function paintSig()
-                local lit = curFps >= 50 and 4 or (curFps >= 35 and 3 or (curFps >= 20 and 2 or 1))
-                local col = curFps >= 35 and T.accent or (curFps >= 20 and T.warn or T.bad)
-                for i, b in ipairs(sig) do b.BackgroundColor3 = (i <= lit) and col or T.off end
+            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 190, 0.5, 0), Size = UDim2.fromOffset(32, 18), W = 4, TextSize = 13, TextXAlignment = XL, TextYAlignment = YC, TextTruncate = NOTRUNC, ZIndex = 91})
+            local function pulse(fps) -- bar naik-turun, makin tinggi FPS makin tinggi bar
+                local q = math.clamp(fps / 60, 0.15, 1)
+                for _, b in ipairs(sig) do
+                    local h = math.floor(7 + (PH * 0.5 - 7) * q * (0.45 + 0.55 * math.random()) + 0.5)
+                    play(b, {Size = UDim2.fromOffset(BW, h)}, 0.3)
+                end
             end
             local function paintNexPill()
-                bodyG.Color = ColorSequence.new(T.side:Lerp(T.accent, 0.2), T.side)
-                halo.Color = T.accent
-                edgeG.Color = ColorSequence.new(T.accent:Lerp(WHITE, 0.12), T.accent2)
-                wm.Text = spaced(NEX.Name, "X", hexOf(T.accent:Lerp(WHITE, 0.06)))
-                paintSig()
+                launcher.BackgroundColor3 = T.el:Lerp(T.bg, 0.2)
+                badge.BackgroundColor3 = T.accent2:Lerp(T.bg, 0.45)
+                badgeSt.Color = T.accent
+                wm.Text = nameRich(hexOf(T.accent:Lerp(WHITE, 0.06)))
+                wm.TextColor3 = Color3.fromRGB(242, 240, 248)
+                fpsL.TextColor3 = T.accentL:Lerp(WHITE, 0.5)
+                for _, b in ipairs(sig) do b.BackgroundColor3 = T.accent end
             end
             paintNexPill()
             themeFns[#themeFns + 1] = paintNexPill
-            launcher.MouseEnter:Connect(function() play(halo, {Transparency = 0.7}, 0.2) play(edge, {Thickness = 2}, 0.2) end)
-            launcher.MouseLeave:Connect(function() play(halo, {Transparency = 0.88}, 0.2) play(edge, {Thickness = 1.4}, 0.2) end)
+            launcher.MouseEnter:Connect(function() play(edge, {Transparency = 0.65}, 0.2) end)
+            launcher.MouseLeave:Connect(function() play(edge, {Transparency = 0.9}, 0.2) end)
             local frames, acc = 0, 0
             bind(RunService.Heartbeat, function(dt)
                 frames = frames + 1
                 acc = acc + dt
                 if acc < 0.5 then return end
-                curFps = math.floor(frames / acc + 0.5)
+                local fps = math.floor(frames / acc + 0.5)
                 frames, acc = 0, 0
-                fpsL.Text = tostring(curFps)
-                paintSig()
+                fpsL.Text = tostring(fps)
+                pulse(fps)
             end)
         elseif pB ~= "" then
             -- PILL NEXRIFT (gambar base64, 3 lapis): body gelap (ikut tema) + tint aksen (halo merah menyala, bingkai, logo N, huruf X, garis) + huruf putih.
@@ -1193,8 +1231,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         groups[name] = g
         glist[#glist + 1] = g
         g.holder = new("Frame", {Name = name .. "Group", Size = UDim2.new(1, 0, 0, GH), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = #glist}, nav)
-        g.head = new("TextButton", {Name = "Header", Size = UDim2.new(1, 0, 0, GH), BackgroundColor3 = T.el, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.holder)
-        corner(g.head, 7)
+        g.head = new("TextButton", {Name = "Header", Size = UDim2.new(1, 0, 0, GH), BackgroundColor3 = T.chip, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.holder)
+        corner(g.head, "full")
         g.icon = mkIcon(g.head, icon or "dot", 12, T.text, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
         text(g.head, {Text = name, Position = UDim2.fromOffset(28, 0), Size = UDim2.new(1, -52, 1, 0), W = 3, TextSize = 11})
         local sortIc = mkIcon(g.head, "sort", 11, T.mid, {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0)})
@@ -1202,7 +1240,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         new("UIListLayout", {Padding = UDim.new(0, IGAP), SortOrder = Enum.SortOrder.LayoutOrder}, g.items)
         new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8)}, g.items)
         g.head.MouseEnter:Connect(function() play(g.head, {BackgroundColor3 = T.hover}, 0.15) end)
-        g.head.MouseLeave:Connect(function() play(g.head, {BackgroundColor3 = T.el}, 0.15) end)
+        g.head.MouseLeave:Connect(function() play(g.head, {BackgroundColor3 = T.chip}, 0.15) end)
         g.head.MouseButton1Click:Connect(function()
             g.open = not g.open
             sortIc.tint(g.open and T.mid or T.accentL)
@@ -1237,8 +1275,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         play(s.chipLb, {TextColor3 = on and T.text or T.mid}, 0.2)
         if s.chipIc then s.chipIc.tint(on and T.text or T.mid) end
     end
-    local function pillCols() -- kaca gelap bernuansa aksen (kiri lebih merah, kanan hampir hitam)
-        return T.bg:Lerp(T.accent, 0.3), T.bg:Lerp(T.accent2, 0.07)
+    local function pillCols() -- pil aktif: isi penuh warna aksen (kiri sedikit lebih terang), seperti di video
+        return T.accent:Lerp(WHITE, 0.08), T.accent:Lerp(T.accent2, 0.35)
     end
     local function paintItem(p, on, instant)
         p.on = on
@@ -1246,14 +1284,14 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             if instant then for k, v in pairs(props) do o[k] = v end else play(o, props, t or 0.22) end
         end
         set(p.pill, {BackgroundTransparency = on and 0 or 1})
-        set(p.pillSt, {Transparency = on and 0.08 or 1})
-        if p.dot then set(p.dot, {BackgroundTransparency = on and 0 or 1}) end
+        set(p.pillSt, {Transparency = 1}) -- tanpa bingkai & titik: pil aktif = isi penuh warna aksen
+        if p.dot then set(p.dot, {BackgroundTransparency = 1}) end
         set(p.item, {BackgroundTransparency = 1})
-        set(p.label, {TextColor3 = on and T.text or T.faint})
-        p.icon.tint(on and WHITE or T.faint, instant and 0 or 0.22)
+        set(p.label, {TextColor3 = on and WHITE or T.mid})
+        p.icon.tint(on and WHITE or T.mid, instant and 0 or 0.22)
         set(p.bar, {Size = UDim2.fromOffset(3, 0)}) -- garis kiri dimatikan, diganti bingkai + titik merah
         set(p.barGlow, {Size = UDim2.fromOffset(7, 0), BackgroundTransparency = 1})
-        if p.iconGlow then set(p.iconGlow, {Transparency = on and 0.55 or 1}) end
+        if p.iconGlow then set(p.iconGlow, {Transparency = 1}) end
         if on and not instant and not NOANIM then -- kilau gradien saat tab dipilih
             p.pillG.Offset = Vector2.new(-0.3, 0)
             play(p.pillG, {Offset = Vector2.new(0, 0)}, 0.4)
@@ -1278,18 +1316,18 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if not hidden then
             local g = createGroup(gname, nil)
             p.group = g
-            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.el, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
-            corner(p.item, 8)
+            p.item = new("TextButton", {Name = name .. "Button", LayoutOrder = #g.pages + 1, Size = UDim2.new(1, 0, 0, IH), BackgroundColor3 = T.chip, BackgroundTransparency = 1, BorderSizePixel = 0, AutoButtonColor = false, Text = ""}, g.items)
+            corner(p.item, "full")
             -- pil aktif (gradien horizontal), hanya tampil saat tab dipilih
             p.pill = new("Frame", {Name = "Pill", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
-            corner(p.pill, 8)
+            corner(p.pill, "full")
             p.pillG = new("UIGradient", {Rotation = 0}, p.pill)
             p.pillSt = skin(stroke(p.pill, T.accent, 1.2, 1), "Color", "accent")
-            p.icon = mkIcon(p.item, icon or "dot", 12, T.faint, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
+            p.icon = mkIcon(p.item, icon or "dot", 12, T.mid, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
             if p.icon.inst:IsA("TextLabel") then -- ikon teks: outline lembut supaya terlihat bercahaya saat aktif
                 p.iconGlow = skin(new("UIStroke", {Thickness = 1.5, Transparency = 1}, p.icon.inst), "Color", "accentL")
             end
-            p.label = text(p.item, {Text = name, Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -48, 1, 0), W = 2, TextSize = 11, TextColor3 = T.faint})
+            p.label = text(p.item, {Text = name, Position = UDim2.fromOffset(30, 0), Size = UDim2.new(1, -48, 1, 0), W = 2, TextSize = 11, TextColor3 = T.mid})
             -- garis glow di tepi kiri pil
             p.barGlow = new("Frame", {Name = "IndicatorGlow", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.fromOffset(7, 0), BackgroundTransparency = 1, BorderSizePixel = 0}, p.item)
             corner(p.barGlow, "full")
@@ -1308,7 +1346,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             end
             paintPill()
             themeFns[#themeFns + 1] = function() -- jalan SETELAH callback tema bawaan, jadi warna di sini yang menang
-                p.item.BackgroundColor3 = T.el
+                p.item.BackgroundColor3 = T.chip
                 paintPill()
                 paintItem(p, p.on, true)
             end
@@ -1316,16 +1354,16 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             relayoutGroup(g)
             p.item.MouseEnter:Connect(function()
                 if not p.on then
-                    play(p.item, {BackgroundTransparency = 0.35}, 0.15)
-                    play(p.label, {TextColor3 = T.mid}, 0.15)
-                    p.icon.tint(T.mid, 0.15)
+                    play(p.item, {BackgroundTransparency = 0.5}, 0.15)
+                    play(p.label, {TextColor3 = T.text}, 0.15)
+                    p.icon.tint(T.text, 0.15)
                 end
             end)
             p.item.MouseLeave:Connect(function()
                 if not p.on then
                     play(p.item, {BackgroundTransparency = 1}, 0.15)
-                    play(p.label, {TextColor3 = T.faint}, 0.15)
-                    p.icon.tint(T.faint, 0.15)
+                    play(p.label, {TextColor3 = T.mid}, 0.15)
+                    p.icon.tint(T.mid, 0.15)
                 end
             end)
             p.item.MouseButton1Click:Connect(function()
@@ -1417,8 +1455,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         for _, p in pairs(pages) do
             if not p.hidden then
                 p.item.BackgroundColor3 = T.accent
-                p.label.TextColor3 = p.on and T.text or T.faint
-                p.icon.tint(p.on and T.accentL or T.faint, 0)
+                p.label.TextColor3 = p.on and WHITE or T.mid
+                p.icon.tint(p.on and WHITE or T.mid, 0)
             end
             for i, s in ipairs(p.subs) do
                 s.chip.BackgroundColor3 = (p.curSub == i) and T.chipOn or T.chip
@@ -2135,8 +2173,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local parent = K._cur or pickCol(o.Column) or container
             local box = new("Frame", {Name = "Card", Size = UDim2.new(1, 0, 0, HEAD), BackgroundColor3 = nested and T.field or T.el, BackgroundTransparency = glass and 0.45 or 0,
                 BorderSizePixel = 0, ClipsDescendants = true, LayoutOrder = nextOrder()}, parent)
-            corner(box, nested and 7 or 10)
-            stroke(box, T.outline, 1, nested and 0.6 or 0.4)
+            corner(box, nested and 7 or 12)
+            stroke(box, T.outline, 1, nested and 0.7 or 0.9)
             local hd2 = new("TextButton", {Name = "CardHeader", Size = UDim2.new(1, 0, 0, HEAD), BackgroundTransparency = 1, AutoButtonColor = false, Text = "", BorderSizePixel = 0, ZIndex = 2}, box)
             local tx = 12
             if o.Icon then
@@ -2299,8 +2337,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local function rowF(h) return new("Frame", {Size = UDim2.new(1, 0, 0, h), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextO()}, root) end
             local function card(parent, size, pos)
                 local f = new("Frame", {Size = size, Position = pos or UDim2.new(), BackgroundColor3 = T.el, BorderSizePixel = 0}, parent)
-                corner(f, 10)
-                stroke(f, T.outline, 1, 0.4)
+                corner(f, 12)
+                stroke(f, T.outline, 1, 0.9)
                 return f
             end
             local function lb(parent, txt, x, y, w, h, o) -- label kecil; w boleh UDim2
@@ -2312,15 +2350,15 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local function chip(parent, glyph, x, y) -- kotak ikon ungu tipis
                 local b = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 0.82, BorderSizePixel = 0}, parent)
                 skin(b, "BackgroundColor3", "accent")
-                corner(b, 6)
+                corner(b, "full")
                 local ic = mkIcon(b, glyph, 11, T.accentL, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
                 themeFns[#themeFns + 1] = function() ic.tint(T.accentL, 0) end
                 return b
             end
             local function pill(parent, txt, col, x, y, themed) -- badge kecil, mengembalikan x berikutnya
-                local w = textW(txt, 9) + 18
-                local f = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, 18), BackgroundColor3 = col, BackgroundTransparency = 0.8, BorderSizePixel = 0}, parent)
-                corner(f, 5)
+                local w = textW(txt, 9) + 24
+                local f = new("Frame", {Position = UDim2.fromOffset(x, y), Size = UDim2.fromOffset(w, 18), BackgroundColor3 = col, BackgroundTransparency = 0.78, BorderSizePixel = 0}, parent)
+                corner(f, "full")
                 local l = text(f, {Text = txt, Size = UDim2.fromScale(1, 1), TextXAlignment = XC, TextColor3 = col, W = 4, TextSize = 9, TextTruncate = NOTRUNC})
                 if themed then skin(f, "BackgroundColor3", "accent") skin(l, "TextColor3", "accentL") end
                 return x + w + 6
@@ -2379,8 +2417,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             chip(tc, "gauge", 12, 10)
             lb(tc, "Time spent", 40, 10, 90, 22, {W = 2, TextSize = 11})
             lb(tc, "Total usage", 14, 40, 90, 12, {W = 1, TextSize = 9, TextColor3 = T.faint})
-            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.new(0.55, 0, 0, 46), BackgroundColor3 = T.bg, BorderSizePixel = 0}, tc)
-            corner(cnt, 8)
+            local cnt = new("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.new(0.55, 0, 0, 46), BackgroundColor3 = T.bg:Lerp(T.field, 0.5), BorderSizePixel = 0}, tc)
+            corner(cnt, 10)
             local cells = {}
             for i, nmv in ipairs({"DAY", "HOUR", "MIN", "SEC"}) do
                 local cf = new("Frame", {Position = UDim2.fromScale((i - 1) / 4, 0), Size = UDim2.fromScale(0.25, 1), BackgroundTransparency = 1, BorderSizePixel = 0}, cnt)
@@ -2409,7 +2447,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local fpsL = lb(pf, "-- fps", 14, 52, UDim2.new(0.38, -14, 0, 28), nil, {W = 4, TextSize = 21, TextTruncate = NOTRUNC})
             local function stat(y, tag)
                 local f = new("Frame", {Position = UDim2.fromOffset(12, y), Size = UDim2.new(0.36, -12, 0, 21), BackgroundColor3 = T.field, BorderSizePixel = 0}, pf)
-                corner(f, 6)
+                corner(f, "full")
                 local v = text(f, {Text = "--", Position = UDim2.fromOffset(26, 0), Size = UDim2.new(0.6, -26, 1, 0), W = 3, TextSize = 9, TextTruncate = NOTRUNC})
                 new("Frame", {Position = UDim2.new(0.6, 0, 0, 4), Size = UDim2.new(0, 1, 1, -8), BackgroundColor3 = T.outline, BorderSizePixel = 0}, f)
                 local t = text(f, {Text = tag, Position = UDim2.fromScale(0.6, 0), Size = UDim2.fromScale(0.4, 1), TextXAlignment = XC, W = 3, TextSize = 8, TextTruncate = NOTRUNC})
@@ -2425,7 +2463,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local mic = mkIcon(memF, "save", 11, T.accentL, {Position = UDim2.fromOffset(7, 5)})
             themeFns[#themeFns + 1] = function() mic.tint(T.accentL, 0) end
 
-            local plot = new("Frame", {Position = UDim2.new(0.4, 0, 0, 14), Size = UDim2.new(0.6, -12, 0, 100), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true}, pf)
+            local plot = new("Frame", {Position = UDim2.new(0.4, 0, 0, 14), Size = UDim2.new(0.6, -12, 0, 100), BackgroundColor3 = T.bg:Lerp(T.field, 0.5), BackgroundTransparency = 0, BorderSizePixel = 0, ClipsDescendants = true}, pf)
+            corner(plot, 8) -- area grafik gelap (inset) seperti di video
             local ax = new("Frame", {Position = UDim2.new(0.4, 0, 0, 118), Size = UDim2.new(0.6, -12, 0, 11), BackgroundTransparency = 1, BorderSizePixel = 0}, pf)
             for i, s in ipairs({"20s", "15s", "10s", "5s", "Now"}) do
                 local l = text(ax, {Text = s, AnchorPoint = Vector2.new((i == 1) and 0 or ((i == 5) and 1 or 0.5), 0), Position = UDim2.fromScale((i - 1) / 4, 0), Size = UDim2.fromOffset(30, 11),
@@ -3155,7 +3194,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local function ns(...) return NumberSequence.new({...}) end
 
         -- holder: nempel di tengah layar (vertikal), tinggi diatur fit() mengikuti isi
-        local holder = new("Frame", {Name = "NEMESIS_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + HZ, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
+        local holder = new("Frame", {Name = "NEXRIFT_Panel", AnchorPoint = Vector2.new(AX, 0.5), Size = UDim2.fromOffset(W + HZ, 200), BackgroundTransparency = 1, ZIndex = 60}, root)
         local function pos(p)
             local x = (1 - p) * W - p * M
             return UDim2.new(AX, dockL and -x or x, 0.5, 0)
@@ -4193,7 +4232,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         c2:ColorPicker({Title = "Color picker", Flag = "Demo_Col", Default = T.accent})
         c2:Info({Title = "Version", Value = "v" .. VERSION})
         local c3 = dash:Accordion({Title = "About", Icon = "info", Column = 1})
-        c3:Paragraph({Title = "Nemesis style", Desc = "Dark cards, purple accent, pill launcher at the top. Tap the pill to open or close."})
+        c3:Paragraph({Title = "Nexrift style", Desc = "Dark cards, Nexrift accent, pill launcher at the top. Tap the pill to open or close."})
 
         local GB = Window:Group({Title = "GrowBlox", Icon = "sprout"})
         local farm = GB:Tab({Title = "Farm", Icon = "pickaxe", Subtitle = "Clear, mine, farm, loot"})
@@ -4259,7 +4298,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     end
 
     if F.StartMode ~= "Stay minimized" then openA() end
-    if F.NotifLoad ~= false then notify(LOGONAME .. " v" .. VERSION, "Loaded successfully", T.accent, 3) end
+    if F.NotifLoad ~= false then notify(LOGONAME, "Loaded successfully, press " .. toggleKey.Name .. " to toggle UI", T.ok, 4) end
     return Window
 end
 
