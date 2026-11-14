@@ -1,3 +1,4 @@
+-- v1.3.1.1: pill launcher diganti desain baru (kapsul abu gelap + sheen putih tipis di atas, badge logo N, equalizer, FPS).
 -- v1.3.1.0: halaman Settings baru (6 sub-tab: General, Appearance, Performance, Notifications, Account, About) + FPS Overlay (pill stats, bingkai base64) + opsi toast.
 local SORU = {Version = "1.3.1.0"}
 local Players, TweenService, UIS, RunService = game:GetService("Players"), game:GetService("TweenService"), game:GetService("UserInputService"), game:GetService("RunService")
@@ -958,53 +959,80 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             NEXPILL = (pB == "")                            -- default: pill buatan kode gaya video
         end
         if NEXPILL then
-            -- PILL NEXRIFT (gaya video): kapsul abu gelap | badge bulat berisi logo N | nama | bar equalizer warna aksen (tinggi ikut FPS) | angka FPS live
-            local PW, PH = 226, 36
-            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = T.el:Lerp(T.bg, 0.2), BackgroundTransparency = 0.03, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
+            -- PILL NEXRIFT (desain dari video): kapsul abu gelap (atas abu terang -> bawah hampir hitam) | sheen putih tipis di tepi atas |
+            -- badge bulat berisi logo N | nama bergradien putih -> aksen | bar equalizer warna aksen (tinggi ikut FPS, kadang jadi titik) | angka FPS live
+            local PW, PH = 232, 46
+            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = WHITE, BackgroundTransparency = 0, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
             corner(launcher, "full")
-            local edge = stroke(launcher, WHITE, 1.2, 0.9) -- tepi tipis
-            local BD = 30
-            local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = T.accent2, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            local bodyG = new("UIGradient", {Rotation = 90}, launcher)
+            -- tepi tipis: paling terang di atas, memudar ke tengah, garis samar lagi di bawah
+            local edge = stroke(launcher, WHITE, 1, 0)
+            new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(0.35, 0.86), NumberSequenceKeypoint.new(0.75, 0.93), NumberSequenceKeypoint.new(1, 0.8)})}, edge)
+            -- sheen: gradien putih tipis di bagian atas kapsul (memudar sebelum tengah)
+            local sheen = new("Frame", {Name = "Sheen", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 90}, launcher)
+            corner(sheen, "full")
+            new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(0.3, 0.93), NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1)})}, sheen)
+
+            local BD = 30 -- badge bulat, jarak sama ke kiri / atas / bawah (8px)
+            local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 91}, launcher)
             corner(badge, "full")
-            local badgeSt = stroke(badge, T.accent, 1, 0.55)
-            nexMark(badge, 17, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 92}, 0.45)
-            local wm = text(launcher, {Name = "Wordmark", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 46, 0.5, 0), Size = UDim2.fromOffset(100, 18), W = 4, TextSize = 13, RichText = true, TextTruncate = NOTRUNC, ZIndex = 91})
-            local BW, BGAP, BX0 = 4, 3, 158
-            local sig = {}
+            local badgeG = new("UIGradient", {Rotation = 55}, badge)
+            local badgeSt = stroke(badge, T.accent, 1, 0.65)
+            nexMark(badge, 16, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 92}, 0.5)
+
+            local wm = text(launcher, {Name = "Wordmark", Text = NEX.Name, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 50, 0.5, 0), Size = UDim2.fromOffset(104, 18), W = 4, TextSize = 14, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
+            local wmG = new("UIGradient", {Rotation = 90}, wm)
+
+            local BW, BGAP, BX0, BMIN = 4, 3, 167, 4
+            local BMAX = math.floor(PH * 0.42 + 0.5)
+            local sig, barG = {}, {}
             for i = 1, 4 do
-                sig[i] = new("Frame", {Name = "Bar" .. i, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, BX0 + (i - 1) * (BW + BGAP), 0.5, 0), Size = UDim2.fromOffset(BW, 8), BackgroundColor3 = T.accent, BorderSizePixel = 0, ZIndex = 91}, launcher)
+                sig[i] = new("Frame", {Name = "Bar" .. i, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, BX0 + (i - 1) * (BW + BGAP), 0.5, 0), Size = UDim2.fromOffset(BW, BMIN + 4), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 92}, launcher)
                 corner(sig[i], "full")
+                barG[i] = new("UIGradient", {Rotation = 90}, sig[i])
             end
-            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 190, 0.5, 0), Size = UDim2.fromOffset(32, 18), W = 4, TextSize = 13, TextXAlignment = XL, TextYAlignment = YC, TextTruncate = NOTRUNC, ZIndex = 91})
-            local function pulse(fps) -- bar naik-turun, makin tinggi FPS makin tinggi bar
-                local q = math.clamp(fps / 60, 0.15, 1)
+            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 199, 0.5, 0), Size = UDim2.fromOffset(30, 18), W = 4, TextSize = 14, TextXAlignment = XL, TextYAlignment = YC, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
+
+            local function pulse(fps) -- bar naik-turun acak, makin tinggi FPS makin tinggi bar
+                local q = math.clamp(fps / 60, 0.2, 1)
                 for _, b in ipairs(sig) do
-                    local h = math.floor(7 + (PH * 0.5 - 7) * q * (0.45 + 0.55 * math.random()) + 0.5)
-                    play(b, {Size = UDim2.fromOffset(BW, h)}, 0.3)
+                    local h = BMIN + (BMAX - BMIN) * q * (math.random() ^ 0.7)
+                    if math.random() < 0.18 then h = BMIN end -- kadang mengecil jadi titik
+                    play(b, {Size = UDim2.fromOffset(BW, math.floor(h + 0.5))}, 0.22)
                 end
             end
             local function paintNexPill()
-                launcher.BackgroundColor3 = T.el:Lerp(T.bg, 0.2)
-                badge.BackgroundColor3 = T.accent2:Lerp(T.bg, 0.45)
+                bodyG.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, T.el:Lerp(T.bg, 0.06)),
+                    ColorSequenceKeypoint.new(0.55, T.el:Lerp(T.bg, 0.1)),
+                    ColorSequenceKeypoint.new(1, T.el:Lerp(T.bg, 0.74))})
+                badgeG.Color = ColorSequence.new(T.accent2:Lerp(T.bg, 0.2), T.accent2:Lerp(T.bg, 0.62))
                 badgeSt.Color = T.accent
-                wm.Text = nameRich(hexOf(T.accent:Lerp(WHITE, 0.06)))
-                wm.TextColor3 = Color3.fromRGB(242, 240, 248)
-                fpsL.TextColor3 = T.accentL:Lerp(WHITE, 0.5)
-                for _, b in ipairs(sig) do b.BackgroundColor3 = T.accent end
+                wm.Text = NEX.Name
+                wmG.Color = ColorSequence.new(WHITE, T.accentL:Lerp(WHITE, 0.35))
+                fpsL.TextColor3 = T.accentL:Lerp(WHITE, 0.6)
+                for _, g in ipairs(barG) do g.Color = ColorSequence.new(T.accentH, T.accent) end
             end
             paintNexPill()
             themeFns[#themeFns + 1] = paintNexPill
-            launcher.MouseEnter:Connect(function() play(edge, {Transparency = 0.65}, 0.2) end)
-            launcher.MouseLeave:Connect(function() play(edge, {Transparency = 0.9}, 0.2) end)
-            local frames, acc = 0, 0
+            launcher.MouseEnter:Connect(function() play(edge, {Thickness = 1.6}, 0.2) end)
+            launcher.MouseLeave:Connect(function() play(edge, {Thickness = 1}, 0.2) end)
+            local frames, acc, eqT, curFps = 0, 0, 0, 0
             bind(RunService.Heartbeat, function(dt)
                 frames = frames + 1
                 acc = acc + dt
-                if acc < 0.5 then return end
-                local fps = math.floor(frames / acc + 0.5)
-                frames, acc = 0, 0
-                fpsL.Text = tostring(fps)
-                pulse(fps)
+                eqT = eqT + dt
+                if acc >= 0.5 then
+                    curFps = math.floor(frames / acc + 0.5)
+                    frames, acc = 0, 0
+                    fpsL.Text = tostring(curFps)
+                end
+                if eqT >= 0.25 then
+                    eqT = 0
+                    if launcher.Visible then pulse(curFps) end
+                end
             end)
         elseif pB ~= "" then
             -- PILL NEXRIFT (gambar base64, 3 lapis): body gelap (ikut tema) + tint aksen (halo merah menyala, bingkai, logo N, huruf X, garis) + huruf putih.
@@ -1124,8 +1152,9 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     -- BUKA / TUTUP: window "keluar" dari pill di atas dan kembali masuk ke pill saat ditutup
     ------------------------------------------------------------------
     local function pillCenter()
-        if launchPos then return Vector2.new(launchPos.X, launchPos.Y + 11) end
-        return Vector2.new(virt.X / 2, 19)
+        local hh = math.floor(launcher.Size.Y.Offset / 2)
+        if launchPos then return Vector2.new(launchPos.X, launchPos.Y + hh) end
+        return Vector2.new(virt.X / 2, 8 + hh)
     end
     local function openA()
         if isOpen then return end
