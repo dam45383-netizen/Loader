@@ -1,3 +1,4 @@
+-- v1.3.1.2: palet kartu/isi window digelapkan, pill lebih gelap + semburat aksen, kartu dashboard bergradien tipis.
 -- v1.3.1.1: pill launcher diganti desain baru (kapsul abu gelap + sheen putih tipis di atas, badge logo N, equalizer, FPS).
 -- v1.3.1.0: halaman Settings baru (6 sub-tab: General, Appearance, Performance, Notifications, Account, About) + FPS Overlay (pill stats, bingkai base64) + opsi toast.
 local SORU = {Version = "1.3.1.0"}
@@ -102,9 +103,9 @@ end
 ----------------------------------------------------------------------
 local WHITE = Color3.new(1, 1, 1)
 local T = {
-    bg = Color3.fromRGB(11, 9, 14), side = Color3.fromRGB(7, 7, 12), el = Color3.fromRGB(52, 51, 58), field = Color3.fromRGB(34, 33, 40),
-    hover = Color3.fromRGB(66, 65, 74), chip = Color3.fromRGB(44, 43, 50), outline = Color3.fromRGB(74, 72, 82), text = Color3.fromRGB(255, 255, 255),
-    mid = Color3.fromRGB(190, 188, 198), dim = Color3.fromRGB(160, 158, 168), faint = Color3.fromRGB(128, 126, 136), off = Color3.fromRGB(30, 29, 36),
+    bg = Color3.fromRGB(11, 9, 14), side = Color3.fromRGB(7, 7, 12), el = Color3.fromRGB(29, 28, 34), field = Color3.fromRGB(18, 17, 22),
+    hover = Color3.fromRGB(41, 40, 48), chip = Color3.fromRGB(35, 34, 41), outline = Color3.fromRGB(62, 60, 70), text = Color3.fromRGB(255, 255, 255),
+    mid = Color3.fromRGB(190, 188, 198), dim = Color3.fromRGB(160, 158, 168), faint = Color3.fromRGB(128, 126, 136), off = Color3.fromRGB(22, 21, 27),
     ok = Color3.fromRGB(46, 204, 113), warn = Color3.fromRGB(241, 196, 15), bad = Color3.fromRGB(235, 80, 70),
     accent = Color3.fromRGB(255, 36, 56), accent2 = Color3.fromRGB(165, 16, 31),
 }
@@ -968,12 +969,12 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             -- tepi tipis: paling terang di atas, memudar ke tengah, garis samar lagi di bawah
             local edge = stroke(launcher, WHITE, 1, 0)
             new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(0.35, 0.86), NumberSequenceKeypoint.new(0.75, 0.93), NumberSequenceKeypoint.new(1, 0.8)})}, edge)
+                NumberSequenceKeypoint.new(0, 0.62), NumberSequenceKeypoint.new(0.3, 0.9), NumberSequenceKeypoint.new(0.75, 0.96), NumberSequenceKeypoint.new(1, 0.86)})}, edge)
             -- sheen: gradien putih tipis di bagian atas kapsul (memudar sebelum tengah)
             local sheen = new("Frame", {Name = "Sheen", Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 90}, launcher)
             corner(sheen, "full")
             new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(0.3, 0.93), NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1)})}, sheen)
+                NumberSequenceKeypoint.new(0, 0.86), NumberSequenceKeypoint.new(0.22, 0.95), NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(1, 1)})}, sheen)
 
             local BD = 30 -- badge bulat, jarak sama ke kiri / atas / bawah (8px)
             local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 91}, launcher)
@@ -1005,9 +1006,9 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             end
             local function paintNexPill()
                 bodyG.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, T.el:Lerp(T.bg, 0.06)),
-                    ColorSequenceKeypoint.new(0.55, T.el:Lerp(T.bg, 0.1)),
-                    ColorSequenceKeypoint.new(1, T.el:Lerp(T.bg, 0.74))})
+                    ColorSequenceKeypoint.new(0, T.el:Lerp(T.accent, 0.05):Lerp(WHITE, 0.03)),
+                    ColorSequenceKeypoint.new(0.55, T.el:Lerp(T.accent, 0.04)),
+                    ColorSequenceKeypoint.new(1, T.bg:Lerp(T.accent2, 0.18))}) -- bawah: semburat warna aksen tema
                 badgeG.Color = ColorSequence.new(T.accent2:Lerp(T.bg, 0.2), T.accent2:Lerp(T.bg, 0.62))
                 badgeSt.Color = T.accent
                 wm.Text = NEX.Name
@@ -2365,9 +2366,10 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             local function nextO() ord = ord + 1 return ord end
             local function rowF(h) return new("Frame", {Size = UDim2.new(1, 0, 0, h), BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = nextO()}, root) end
             local function card(parent, size, pos)
-                local f = new("Frame", {Size = size, Position = pos or UDim2.new(), BackgroundColor3 = T.el, BorderSizePixel = 0}, parent)
+                local f = new("Frame", {Size = size, Position = pos or UDim2.new(), BackgroundColor3 = WHITE, BorderSizePixel = 0}, parent)
                 corner(f, 12)
                 stroke(f, T.outline, 1, 0.9)
+                new("UIGradient", {Rotation = 90, Color = ColorSequence.new(T.el:Lerp(WHITE, 0.035), T.el:Lerp(T.bg, 0.3))}, f)
                 return f
             end
             local function lb(parent, txt, x, y, w, h, o) -- label kecil; w boleh UDim2
