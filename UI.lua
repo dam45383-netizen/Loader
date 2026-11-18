@@ -1,3 +1,4 @@
+-- v1.3.2.0 (edit): ikon vektor buatan sendiri tanpa asset id (47 ikon dari Frame), badge ikon di sidebar, pil melar antar tab, toast dengan tombol aksi + tumpukan menutup mulus.
 -- v1.3.1.2: palet kartu/isi window digelapkan, pill lebih gelap + semburat aksen, kartu dashboard bergradien tipis.
 -- v1.3.1.1: pill launcher diganti desain baru (kapsul abu gelap + sheen putih tipis di atas, badge logo N, equalizer, FPS).
 -- v1.3.1.0: halaman Settings baru (6 sub-tab: General, Appearance, Performance, Notifications, Account, About) + FPS Overlay (pill stats, bingkai base64) + opsi toast.
@@ -218,9 +219,58 @@ local function textW(s, size)
     return ok and v or (#tostring(s) * size * 0.62)
 end
 
--- IKON. Nama ikon (gaya Lucide) -> gambar kalau kamu isi SORU.Icons["nama"] = "rbxassetid://ID", kalau tidak -> glyph teks.
+-- IKON. Semua ikon bawaan DIGAMBAR dari Frame (tabel ICONS di bawah, tanpa asset id). Isi SORU.Icons["nama"] = "rbxassetid://ID" hanya kalau mau menimpa dengan gambar sendiri.
 -- Bisa juga langsung kasih "rbxassetid://ID" / angka ID di Icon = ... pada Tab / SubTab / Accordion / Group.
-SORU.Icons = {settings = "rbxassetid://70386228443175", chevron = "rbxassetid://6031091004"}
+SORU.Icons = {}
+local ICONS = { -- ikon vektor 24x24 buatan sendiri: l/L garis (L = tebal), p garis sambung, c lingkaran, d bulatan isi, r kotak membulat
+    home = {{"p",3,11,12,3,21,11},{"p",5,9.5,5,20,19,20,19,9.5},{"p",10,20,10,14,14,14,14,20}},
+    user = {{"c",12,8,4},{"p",4,21.1,5.8,18.2,8.6,16.2,12,15.5,15.4,16.2,18.2,18.2,20,21.1}},
+    users = {{"c",9,8,3.5},{"p",2.5,20,3.5,16.5,6.5,14.5,11.5,14.5,14.5,16.5,15.5,20},{"c",17.5,9,2.6},{"p",17.5,14.5,20.5,15.5,21.5,19}},
+    zap = {{"p",13,2.5,4.5,13.5,12,13.5,11,21.5,19.5,10.5,12,10.5,13,2.5}},
+    pickaxe = {{"l",4,20,15,9},{"p",3.3,9.7,4.8,6.7,7.2,4.4,10.3,3.2,13.7,3.2,16.8,4.4,19.2,6.7,20.7,9.7}},
+    sliders = {{"l",3,6,21,6},{"l",3,12,21,12},{"l",3,18,21,18},{"d",8,6,2.4},{"d",16,12,2.4},{"d",10,18,2.4}},
+    save = {{"r",3,3,18,18,3},{"p",7,3,7,9,16,9,16,3},{"p",7,21,7,14,17,14,17,21}},
+    info = {{"c",12,12,9.5},{"l",12,11,12,17},{"d",12,7.6,1.2}},
+    activity = {{"p",2,12,6,12,9,4,15,20,18,12,22,12}},
+    wrench = {{"p",20.9,6.3,21.1,8,20.6,9.6,19.5,11,18,11.8,16.3,12.1,14.7,11.7,13.2,10.8,12.3,9.3,11.9,7.7,12.2,6,13,4.5,14.4,3.4,16,2.9,17.7,3.1},{"l",13.3,10.8,5,19},{"d",4.8,19.2,1.5}},
+    settings = {{"c",12,12,3},{"c",12,12,7.2},{"l",12,2.5,12,4.8},{"l",12,19.2,12,21.5},{"l",2.5,12,4.8,12},{"l",19.2,12,21.5,12},{"l",5.3,5.3,6.9,6.9},{"l",17.1,17.1,18.7,18.7},{"l",5.3,18.7,6.9,17.1},{"l",17.1,6.9,18.7,5.3}},
+    palette = {{"c",12,12,9.5},{"d",8,10.2,1.4},{"d",12,7.4,1.4},{"d",16,10.2,1.4},{"d",8.8,15,1.4}},
+    gauge = {{"p",3.5,19.1,3.1,14.8,4.6,10.8,7.8,8,12,7,16.2,8,19.4,10.8,20.9,14.8,20.5,19.1},{"l",12,16,16.5,10.8},{"d",12,16,1.7}},
+    eraser = {{"p",5,14.5,12.5,7,19.5,14,12,21.5,5,14.5},{"l",8.8,18.2,15.8,11.2},{"l",14.5,21.5,21,21.5}},
+    target = {{"c",12,12,9.5},{"c",12,12,5.5},{"d",12,12,1.7}},
+    crosshair = {{"c",12,12,6.8},{"l",12,2.5,12,7},{"l",12,17,12,21.5},{"l",2.5,12,7,12},{"l",17,12,21.5,12},{"d",12,12,1.3}},
+    star = {{"p",12,2.8,14.9,8.9,21.5,9.8,16.7,14.4,17.9,21,12,17.8,6.1,21,7.3,14.4,2.5,9.8,9.1,8.9,12,2.8}},
+    starfill = {{"p",12,2.8,14.9,8.9,21.5,9.8,16.7,14.4,17.9,21,12,17.8,6.1,21,7.3,14.4,2.5,9.8,9.1,8.9,12,2.8},{"d",12,12.6,4.6},{"L",12,12.6,12,6.2},{"L",12,12.6,17,10},{"L",12,12.6,15.5,17},{"L",12,12.6,8.5,17},{"L",12,12.6,7,10}},
+    sprout = {{"l",12,21.5,12,11.5},{"p",12,14,7.5,14.2,4.2,11,3.8,6.8,8,7.2,11.2,10,12,14},{"p",12,11,12.6,7,16,4.2,20,4.2,20.2,8,17,10.8,12,11}},
+    send = {{"p",21.5,2.5,2.5,10.5,10.5,13.5,13.5,21.5,21.5,2.5},{"l",21.5,2.5,10.5,13.5}},
+    list = {{"l",8,6,21,6},{"l",8,12,21,12},{"l",8,18,21,18},{"d",3.8,6,1.2},{"d",3.8,12,1.2},{"d",3.8,18,1.2}},
+    layers = {{"p",12,2.5,2.5,7.5,12,12.5,21.5,7.5,12,2.5},{"p",2.5,12,12,17,21.5,12},{"p",2.5,16.5,12,21.5,21.5,16.5}},
+    folder = {{"p",2.5,6,2.5,19.5,21.5,19.5,21.5,8.5,11,8.5,9,5.5,2.5,5.5,2.5,6}},
+    eye = {{"p",2,12,5,8,8.5,5.8,12,5,15.5,5.8,19,8,22,12,19,16,15.5,18.2,12,19,8.5,18.2,5,16,2,12},{"c",12,12,3.2}},
+    hammer = {{"l",4.5,19.5,14.5,9.5},{"L",10,5.5,18.5,14}},
+    box = {{"p",12,2.5,21,7,21,17,12,21.5,3,17,3,7,12,2.5},{"p",3,7,12,11.5,21,7},{"l",12,11.5,12,21.5}},
+    wheat = {{"l",12,22,12,3.5},{"l",12,8,8,5},{"l",12,8,16,5},{"l",12,12.5,8,9.5},{"l",12,12.5,16,9.5},{"l",12,17,8,14},{"l",12,17,16,14},{"d",12,3.4,1.4}},
+    sort = {{"l",8,4,8,20},{"p",4.5,7.5,8,4,11.5,7.5},{"l",16,4,16,20},{"p",12.5,16.5,16,20,19.5,16.5}},
+    smile = {{"c",12,12,9.5},{"p",8,14.5,10,16.5,14,16.5,16,14.5},{"d",9,9.5,1.2},{"d",15,9.5,1.2}},
+    dot = {{"d",12,12,3.4}},
+    close = {{"l",5,5,19,19},{"l",19,5,5,19}},
+    check = {{"p",4,12.5,9.5,18,20,6.5}},
+    play = {{"p",7,4,19,12,7,20,7,4}},
+    chevron = {{"p",5,9,12,16,19,9}},
+    sword = {{"l",19.5,4.5,8.5,15.5},{"l",6.5,11.5,12.5,17.5},{"l",9,15,4.5,19.5},{"d",4,20,1.5}},
+    shield = {{"p",12,2.5,20,5.5,20,12,17,17.5,12,21.5,7,17.5,4,12,4,5.5,12,2.5}},
+    heart = {{"p",12,20.5,4.5,12.5,3.5,8.5,5.5,5.5,9,5,12,8,15,5,18.5,5.5,20.5,8.5,19.5,12.5,12,20.5}},
+    lock = {{"r",4.5,10.5,15,10.5,2.5},{"p",8,10.5,8,7,9.5,4.5,12,3.5,14.5,4.5,16,7,16,10.5},{"d",12,15.7,1.4}},
+    key = {{"c",8,15,4.5},{"l",11.5,12,20.5,3},{"l",17,6.5,19.5,9},{"l",14.5,9,16.5,11}},
+    flag = {{"l",5,22,5,3},{"p",5,4,19.5,4,16,8.5,19.5,13,5,13}},
+    plus = {{"l",12,4.5,12,19.5},{"l",4.5,12,19.5,12}},
+    minus = {{"l",4.5,12,19.5,12}},
+    trash = {{"l",3.5,6.5,20.5,6.5},{"p",9,6.5,9,4,15,4,15,6.5},{"p",5.5,6.5,6.5,20.5,17.5,20.5,18.5,6.5},{"l",10,10.5,10,16.5},{"l",14,10.5,14,16.5}},
+    refresh = {{"p",18.1,6.9,19.8,10.3,19.7,14.1,17.9,17.4,14.7,19.5,11,19.9,7.4,18.6,4.9,15.7,4,12,4.9,8.3,7.4,5.4},{"p",17.5,3.5,18.5,7.2,14.8,8.3}},
+    globe = {{"c",12,12,9.5},{"l",2.5,12,21.5,12},{"p",12,2.5,14.2,3.8,15.9,7.3,16.5,12,15.9,16.8,14.2,20.2,12,21.5,9.8,20.2,8.1,16.8,7.5,12,8.1,7.2,9.7,3.8,12,2.5}},
+    cpu = {{"r",6,6,12,12,2},{"r",9.5,9.5,5,5,0.8},{"l",9,2.5,9,6},{"l",15,2.5,15,6},{"l",9,18,9,21.5},{"l",15,18,15,21.5},{"l",2.5,9,6,9},{"l",2.5,15,6,15},{"l",18,9,21.5,9},{"l",18,15,21.5,15}},
+    code = {{"p",8,7,3,12,8,17},{"p",16,7,21,12,16,17},{"l",14,5,10,19}},
+}
 local GLYPH = {
     grid = "▦", home = "⌂", sprout = "✿", sliders = "☰", pickaxe = "⚒", hammer = "⚒", zap = "ϟ", wrench = "✎", save = "▣", eraser = "▱",
     box = "◧", layers = "≋", wheat = "✾", gauge = "◔", activity = "∿", target = "◎", star = "☆", starfill = "★", sort = "⇅", crosshair = "⌖",
@@ -289,6 +339,48 @@ local function mkIcon(parent, name, size, color, props)
             end
         end
         function ic.tint(c, t) for _, f in ipairs(parts) do play(f, {BackgroundColor3 = c}, t or 0.2) end end
+    elseif ICONS[name] then -- ikon vektor: garis / lingkaran / kotak digambar dari Frame (tanpa asset id), warna lewat ic.tint
+        o = new("Frame", {BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromOffset(size, size)}, parent)
+        local parts, cur = {}, color
+        local k, th = size / 24, math.max(1, size * 0.085)
+        local function fill(cx, cy, w, h, rot, r)
+            local f = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx * k, cy * k), Size = UDim2.fromOffset(math.max(1, w), math.max(1, h)),
+                Rotation = rot or 0, BackgroundColor3 = cur, BorderSizePixel = 0}, o)
+            if r then corner(f, r) end
+            parts[#parts + 1] = {f}
+        end
+        local function ring(cx, cy, w, h, r)
+            local f = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(cx * k, cy * k), Size = UDim2.fromOffset(math.max(1, w - th), math.max(1, h - th)),
+                BackgroundTransparency = 1, BorderSizePixel = 0}, o)
+            corner(f, r)
+            parts[#parts + 1] = {f, stroke(f, cur, th, 0)}
+        end
+        local function seg(x1, y1, x2, y2, w)
+            local dx, dy = (x2 - x1) * k, (y2 - y1) * k
+            fill((x1 + x2) / 2, (y1 + y2) / 2, math.sqrt(dx * dx + dy * dy) + w, w, math.deg(math.atan2(dy, dx)), "full")
+        end
+        local function build(nm)
+            for _, p in ipairs(parts) do p[1]:Destroy() end
+            parts = {}
+            for _, sh in ipairs(ICONS[nm]) do
+                local t = sh[1]
+                if t == "l" then seg(sh[2], sh[3], sh[4], sh[5], th)
+                elseif t == "L" then seg(sh[2], sh[3], sh[4], sh[5], th * 2.4)
+                elseif t == "p" then for i = 2, #sh - 3, 2 do seg(sh[i], sh[i + 1], sh[i + 2], sh[i + 3], th) end
+                elseif t == "c" then ring(sh[2], sh[3], sh[4] * 2 * k, sh[4] * 2 * k, "full")
+                elseif t == "d" then fill(sh[2], sh[3], sh[4] * 2 * k, sh[4] * 2 * k, 0, "full")
+                elseif t == "r" then ring(sh[2] + sh[4] / 2, sh[3] + sh[5] / 2, sh[4] * k, sh[5] * k, math.max(1, sh[6] * k))
+                end
+            end
+        end
+        build(name)
+        function ic.tint(c, t)
+            cur = c
+            for _, p in ipairs(parts) do
+                if p[2] then play(p[2], {Color = c}, t or 0.2) else play(p[1], {BackgroundColor3 = c}, t or 0.2) end
+            end
+        end
+        function ic.set(nm) if ICONS[nm] then build(nm) end end -- ganti bentuk ikon (dipakai bintang favorit)
     else
         o = text(parent, {Text = GLYPH[name] or name, Size = UDim2.fromOffset(size, size), TextXAlignment = XC, TextYAlignment = YC, W = 3, TextSize = math.floor(size * 1.05), TextColor3 = color, TextTruncate = NOTRUNC})
         function ic.tint(c, t) play(o, {TextColor3 = c}, t or 0.2) end
@@ -459,12 +551,11 @@ local function makeDrawer(host, rad)
                 cbox = new("Frame", {Position = UDim2.new(0, 8, 0.5, -7), Size = UDim2.fromOffset(14, 14), BackgroundColor3 = T.off, BorderSizePixel = 0}, b)
                 corner(cbox, 4)
                 stroke(cbox, T.outline, 1, 0.1)
-                mark = new("ImageLabel", {BackgroundTransparency = 1, Image = "rbxassetid://6031094667", Size = UDim2.new(1, 2, 1, 2), Position = UDim2.fromOffset(-1, -1), ImageTransparency = 1}, cbox)
+                mark = mkIcon(cbox, "check", 11, WHITE, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Visible = false}).inst
                 tx = 30
             end
             if not sp.multi then
-                tick = new("ImageLabel", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1,
-                    Image = "rbxassetid://6031094667", ImageColor3 = T.accent, ImageTransparency = 1}, b)
+                tick = mkIcon(b, "check", 13, T.accent, {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Visible = false})
             end
             local sc = sp.swatch and sp.swatch(name)
             if sc then
@@ -480,13 +571,13 @@ local function makeDrawer(host, rad)
                 b.BackgroundTransparency = on and 0.84 or 1
                 if sp.multi then
                     cbox.BackgroundColor3 = on and T.accent or T.off
-                    mark.ImageTransparency = on and 0 or 1
+                    mark.Visible = on and true or false
                     lb.TextColor3 = on and T.text or T.dim
                     lb.FontFace = on and FONT[3] or FONT[2]
                 else
                     lb.TextColor3 = on and T.text or T.dim
-                    tick.ImageColor3 = T.accent
-                    tick.ImageTransparency = on and 0 or 1
+                    tick.tint(T.accent, 0)
+                    tick.inst.Visible = on and true or false
                 end
             end
             b.MouseEnter:Connect(function()
@@ -691,20 +782,24 @@ function SORU:CreateWindow(C)
     -- TOAST (kanan bawah, maksimal 5, klik untuk menutup) + riwayat untuk lonceng
     ------------------------------------------------------------------
     local toastHolder = new("Frame", {Name = "Toasts", AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -20), Size = UDim2.new(0, 280, 1, -20), BackgroundTransparency = 1, ZIndex = 200}, root)
-    local toastLay = new("UIListLayout", {Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom}, toastHolder)
+    local toastLay = new("UIListLayout", {Padding = UDim.new(0, 0), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom}, toastHolder)
     local Toast = {side = 1} -- side: 1 = toast masuk dari kanan, -1 = dari kiri
     function Toast.setPos(name) -- "Bottom right" / "Bottom left" / "Top right" / "Top left"
         name = tostring(name or "")
         local left, top = name:find("left", 1, true) ~= nil, name:find("Top", 1, true) ~= nil
         Toast.side = left and -1 or 1
         toastHolder.AnchorPoint = Vector2.new(left and 0 or 1, top and 0 or 1)
-        toastHolder.Position = UDim2.new(left and 0 or 1, left and 20 or -20, top and 0 or 1, top and 20 or -20)
+        toastHolder.Position = UDim2.new(left and 0 or 1, left and 20 or -20, top and 0 or 1, top and 12 or -20)
         toastLay.VerticalAlignment = top and Enum.VerticalAlignment.Top or Enum.VerticalAlignment.Bottom
     end
     local toasts, toastN = {}, 0
     local notifs, unread, notifHook = {}, 0, nil
-    local function notify(title, msg, color, dur, img)
-        color, dur = color or T.accent, dur or 3
+    -- notify(judul, isi, warna, durasi, ikon, aksi). aksi = {{Text = "Coba lagi", Callback = fn, Primary = true, Keep = false}, ...}
+    -- Toast beraksi: tombol di bawah isi, durasi bawaan 7 dtk. Tumpukan masuk/keluar dengan tinggi yang menutup mulus.
+    local function notify(title, msg, color, dur, img, acts)
+        color = color or T.accent
+        if type(acts) ~= "table" or #acts == 0 then acts = nil end
+        dur = dur or (acts and 7 or 3)
         dur = dur * ((tonumber(F.NotifDurPct) or 100) / 100)
         toastN = toastN + 1
         notifs[#notifs + 1] = {t = tostring(title or ""), m = tostring(msg or ""), c = color, at = os.time()}
@@ -712,16 +807,21 @@ function SORU:CreateWindow(C)
         unread = unread + 1
         if notifHook then notifHook() end
         if F.NotifToasts == false then return end -- toast dimatikan: tetap masuk riwayat lonceng
-        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, 58), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
-        local m = new("Frame", {Position = UDim2.fromOffset(310 * Toast.side, 0), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.bg:Lerp(T.el, 0.4), BackgroundTransparency = 0.02, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
+        local GAP = 8 -- jarak antar toast ada DI DALAM wrap (di atas kartu), jadi tumpukan bisa menutup tanpa loncat
+        local H = acts and 88 or 58
+        local wrap = new("Frame", {Size = UDim2.new(1, 0, 0, NOANIM and (H + GAP) or 0), BackgroundTransparency = 1, LayoutOrder = toastN}, toastHolder)
+        local m = new("Frame", {Position = UDim2.fromOffset(310 * Toast.side, GAP), Size = UDim2.new(1, 0, 1, -GAP), BackgroundColor3 = T.bg:Lerp(T.el, 0.4), BackgroundTransparency = 0.02, BorderSizePixel = 0, ClipsDescendants = true}, wrap)
         corner(m, 9)
         stroke(m, color, 1, 0.82)
         new("Frame", {Name = "Edge", Size = UDim2.new(0, 3, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0}, m) -- garis aksen di tepi kiri
         local ic = new("Frame", {Position = UDim2.fromOffset(15, 17), Size = UDim2.fromOffset(22, 22), BackgroundTransparency = 1, BorderSizePixel = 0}, m)
         corner(ic, "full")
         stroke(ic, color, 1.6, 0) -- ring ikon
-        new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(img and 14 or 12, img and 14 or 12), BackgroundTransparency = 1,
-            Image = img or "rbxassetid://6031094667", ImageColor3 = color, ScaleType = Enum.ScaleType.Fit}, ic)
+        local glyph = img or ((color == T.bad) and "close") or ((color == T.warn) and "info") or "check"
+        mkIcon(ic, glyph, img and 14 or 12, color, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+        local pulse = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0}, ic)
+        corner(pulse, "full")
+        local pst = stroke(pulse, color, 1.4, 0.25) -- cincin berdenyut sekali saat toast masuk
         text(m, {Text = tostring(title or ""), Position = UDim2.fromOffset(48, 9), Size = UDim2.new(1, -58, 0, 16), W = 3, TextSize = 12, TextColor3 = color})
         text(m, {Text = tostring(msg or ""), Position = UDim2.fromOffset(48, 27), Size = UDim2.new(1, -58, 0, 24), TextSize = 10, W = 2, TextColor3 = Color3.fromRGB(226, 226, 232), TextWrapped = true, TextYAlignment = Enum.TextYAlignment.Top})
         local pr = new("Frame", {Position = UDim2.new(0, 0, 1, -3), Size = UDim2.new(1, 0, 0, 3), BackgroundColor3 = color, BorderSizePixel = 0}, m)
@@ -730,14 +830,40 @@ function SORU:CreateWindow(C)
             if gone then return end
             gone = true
             for i, e in ipairs(toasts) do if e == entry then table.remove(toasts, i) break end end
-            play(m, {Position = UDim2.fromOffset(310 * Toast.side, 0)}, 0.5, QUINT, Enum.EasingDirection.In)
-            task.delay(NOANIM and 0 or 0.52, function() wrap:Destroy() end)
+            play(m, {Position = UDim2.fromOffset(310 * Toast.side, GAP)}, 0.45, QUINT, Enum.EasingDirection.In)
+            if NOANIM then wrap:Destroy() return end
+            task.delay(0.3, function() play(wrap, {Size = UDim2.new(1, 0, 0, 0)}, 0.28) end) -- tinggi menutup, toast lain bergeser mulus
+            task.delay(0.62, function() wrap:Destroy() end)
         end
         entry.leave = leave
         toasts[#toasts + 1] = entry
         if #toasts > 5 then task.spawn(toasts[1].leave) end
         new("TextButton", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "", ZIndex = 5}, m).MouseButton1Click:Connect(leave)
-        play(m, {Position = UDim2.fromOffset(0, 0)}, 0.5)
+        if acts then
+            local lum = color.R * 0.299 + color.G * 0.587 + color.B * 0.114
+            local onCol = (lum > 0.62) and Color3.fromRGB(14, 14, 20) or WHITE
+            local row = new("Frame", {Position = UDim2.fromOffset(48, 56), Size = UDim2.new(1, -58, 0, 22), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 8}, m)
+            new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, row)
+            for i, a in ipairs(acts) do
+                if type(a) ~= "table" then a = {Text = tostring(a)} end
+                local label = tostring(a.Text or a.Name or a.Title or "OK")
+                local prim = (a.Primary == true) or (a.Primary == nil and i == 1)
+                local b = new("TextButton", {LayoutOrder = i, Size = UDim2.fromOffset(math.floor(textW(label, 10)) + 22, 22), BackgroundColor3 = color, BackgroundTransparency = prim and 0 or 1,
+                    AutoButtonColor = false, Text = label, FontFace = FONT[3], TextSize = 10, TextColor3 = prim and onCol or T.text, BorderSizePixel = 0, ZIndex = 8}, row)
+                corner(b, 7)
+                stroke(b, color, 1, prim and 1 or 0.55)
+                b.MouseEnter:Connect(function() play(b, {BackgroundTransparency = prim and 0.15 or 0.82}, 0.12) end)
+                b.MouseLeave:Connect(function() play(b, {BackgroundTransparency = prim and 0 or 1}, 0.12) end)
+                b.MouseButton1Click:Connect(function()
+                    safe(a.Callback or a.Func)
+                    if a.Keep ~= true then leave() end
+                end)
+            end
+        end
+        play(wrap, {Size = UDim2.new(1, 0, 0, H + GAP)}, 0.3)
+        play(m, {Position = UDim2.fromOffset(0, GAP)}, 0.5, BACK)
+        play(pulse, {Size = UDim2.fromOffset(46, 46)}, 0.7)
+        play(pst, {Transparency = 1}, 0.7)
         play(pr, {Size = UDim2.new(0, 0, 0, 3)}, dur, Enum.EasingStyle.Linear)
         task.delay(dur, leave)
     end
@@ -1313,12 +1439,19 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local function set(o, props, t)
             if instant then for k, v in pairs(props) do o[k] = v end else play(o, props, t or 0.22) end
         end
-        set(p.pill, {BackgroundTransparency = on and 0 or 1})
+        if on and p.slideDelay and not instant then -- pil muncul setelah pil bayangan (trail) tiba di tab ini
+            local d = p.slideDelay
+            p.slideDelay = nil
+            task.delay(d, function() if p.on then play(p.pill, {BackgroundTransparency = 0}, 0.12) end end)
+        else
+            set(p.pill, {BackgroundTransparency = on and 0 or 1})
+        end
         set(p.pillSt, {Transparency = 1}) -- tanpa bingkai & titik: pil aktif = isi penuh warna aksen
         if p.dot then set(p.dot, {BackgroundTransparency = 1}) end
         set(p.item, {BackgroundTransparency = 1})
         set(p.label, {TextColor3 = on and WHITE or T.mid})
         p.icon.tint(on and WHITE or T.mid, instant and 0 or 0.22)
+        if p.badge then set(p.badge, {BackgroundColor3 = on and WHITE or T.chip, BackgroundTransparency = on and 0.8 or 0.35}) end
         set(p.bar, {Size = UDim2.fromOffset(3, 0)}) -- garis kiri dimatikan, diganti bingkai + titik merah
         set(p.barGlow, {Size = UDim2.fromOffset(7, 0), BackgroundTransparency = 1})
         if p.iconGlow then set(p.iconGlow, {Transparency = 1}) end
@@ -1335,7 +1468,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     local function updateStar()
         local p = pages[cur]
         local on = p ~= nil and not p.hidden and favs[p.key] == true
-        if starIc.inst:IsA("TextLabel") then starIc.inst.Text = on and "★" or "☆" end
+        if starIc.inst:IsA("TextLabel") then starIc.inst.Text = on and "★" or "☆" elseif starIc.set then starIc.set(on and "starfill" or "star") end
         starIc.tint(on and T.accentL or T.mid)
     end
 
@@ -1353,7 +1486,10 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             corner(p.pill, "full")
             p.pillG = new("UIGradient", {Rotation = 0}, p.pill)
             p.pillSt = skin(stroke(p.pill, T.accent, 1.2, 1), "Color", "accent")
-            p.icon = mkIcon(p.item, icon or "dot", 12, T.mid, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 10, 0.5, 0)})
+            p.badge = new("Frame", {Name = "IconBadge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 5, 0.5, 0), Size = UDim2.fromOffset(18, 18), BackgroundColor3 = T.chip, BackgroundTransparency = 0.35, BorderSizePixel = 0}, p.item)
+            corner(p.badge, 6)
+            new("UIGradient", {Rotation = 45, Color = ColorSequence.new(WHITE, Color3.fromRGB(170, 170, 182))}, p.badge)
+            p.icon = mkIcon(p.badge, icon or "dot", 11, T.mid, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
             if p.icon.inst:IsA("TextLabel") then -- ikon teks: outline lembut supaya terlihat bercahaya saat aktif
                 p.iconGlow = skin(new("UIStroke", {Thickness = 1.5, Transparency = 1}, p.icon.inst), "Color", "accentL")
             end
@@ -1387,6 +1523,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     play(p.item, {BackgroundTransparency = 0.5}, 0.15)
                     play(p.label, {TextColor3 = T.text}, 0.15)
                     p.icon.tint(T.text, 0.15)
+                    play(p.badge, {BackgroundColor3 = T.accent, BackgroundTransparency = 0.6}, 0.15)
                 end
             end)
             p.item.MouseLeave:Connect(function()
@@ -1394,6 +1531,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     play(p.item, {BackgroundTransparency = 1}, 0.15)
                     play(p.label, {TextColor3 = T.mid}, 0.15)
                     p.icon.tint(T.mid, 0.15)
+                    play(p.badge, {BackgroundColor3 = T.chip, BackgroundTransparency = 0.35}, 0.15)
                 end
             end)
             p.item.MouseButton1Click:Connect(function()
@@ -1464,9 +1602,52 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             play(p.frame, {Position = UDim2.fromOffset(0, p.top)}, 0.32)
         end
     end
+    -- PIL MELAR: pil bayangan berjalan dari tab lama ke tab baru (memanjang dulu, lalu menyusut & memantul di tujuan).
+    -- Dibuat DI BELAKANG Nav, jadi ikon & tulisan tetap di atas. Pil asli tab baru baru muncul setelah bayangan tiba.
+    local ghostLay = new("Frame", {Name = "PillTrail", Position = nav.Position, Size = nav.Size, BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, ZIndex = 0}, sbg)
+    local ghost = new("Frame", {Name = "Trail", Visible = false, BackgroundColor3 = WHITE, BorderSizePixel = 0}, ghostLay)
+    corner(ghost, "full")
+    local ghostG = new("UIGradient", {Rotation = 0}, ghost)
+    local ghostTok = 0
+    local function paintGhost() local l, r = pillCols() ghostG.Color = ColorSequence.new(l, r) end
+    paintGhost()
+    themeFns[#themeFns + 1] = paintGhost
+    local function itemRect(p) -- posisi & ukuran item relatif ke ghostLay, dalam satuan lokal (dibagi skala UI)
+        local sc = math.max(ghostLay.AbsoluteSize.X / math.max(1, SIDE_W - 1), 0.01)
+        local a, z = p.item.AbsolutePosition - ghostLay.AbsolutePosition, p.item.AbsoluteSize
+        return a.X / sc, a.Y / sc, z.X / sc, z.Y / sc
+    end
+    local function slideTo(old, nw)
+        if NOANIM or not old or not nw or old == nw or old.hidden or nw.hidden or not shell.Visible then return end
+        if not (old.item.Visible and nw.item.Visible) then return end
+        if not ((old.group.open or searching) and (nw.group.open or searching)) then return end
+        if ghostLay.AbsoluteSize.X < 2 then return end
+        local ox, oy, ow, oh = itemRect(old)
+        local nx, ny, nW, nH = itemRect(nw)
+        if oh < 2 or nH < 2 then return end
+        ghostTok = ghostTok + 1
+        local my = ghostTok
+        ghost.Position, ghost.Size = UDim2.fromOffset(ox, oy), UDim2.fromOffset(ow, oh)
+        ghost.BackgroundTransparency = 0
+        ghost.Visible = true
+        local top, bot = math.min(oy, ny), math.max(oy + oh, ny + nH)
+        play(ghost, {Position = UDim2.fromOffset(math.min(ox, nx), top), Size = UDim2.fromOffset(math.max(ow, nW), bot - top)}, 0.17, Enum.EasingStyle.Quad)
+        nw.slideDelay = 0.3
+        task.spawn(function()
+            task.wait(0.15)
+            if ghostTok ~= my then return end
+            play(ghost, {Position = UDim2.fromOffset(nx, ny), Size = UDim2.fromOffset(nW, nH)}, 0.26, BACK)
+            task.wait(0.22)
+            if ghostTok ~= my then return end
+            play(ghost, {BackgroundTransparency = 1}, 0.16)
+            task.wait(0.18)
+            if ghostTok == my then ghost.Visible = false end
+        end)
+    end
     go = function(key)
         if key == cur or not pages[key] then return end
         local old = pages[cur]
+        slideTo(old, pages[key])
         if old then
             old.frame.Visible = false
             old.chips.Visible = false
@@ -2213,7 +2394,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                 tx = 32
             end
             text(hd2, {Text = tostring(o.Title or o.Name or "Card"), Position = UDim2.fromOffset(tx, 0), Size = UDim2.new(1, -(tx + 30), 1, 0), W = 3, TextSize = 12})
-            local chev = new("ImageLabel", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(15, 15), BackgroundTransparency = 1, Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = -90, ZIndex = 3}, hd2)
+            local chev = mkIcon(hd2, "chevron", 15, T.dim, {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Rotation = -90, ZIndex = 3})
 
             local hdl = new("Frame", {Name = "HeaderLine", Position = UDim2.fromOffset(10, HEAD - 1), Size = UDim2.new(1, -20, 0, 1), BackgroundColor3 = T.outline, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 2}, box)
             local wrap = new("Frame", {Position = UDim2.fromOffset(0, HEAD), Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, box)
@@ -2241,7 +2422,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                 tok = tok + 1
                 local my = tok
                 play(hdl, {BackgroundTransparency = v and 0.5 or 1}, 0.25)
-                play(chev, {Rotation = v and 0 or -90}, 0.25)
+                play(chev.inst, {Rotation = v and 0 or -90}, 0.25)
                 if v then wrap.Visible = true end
                 if instant or NOANIM then
                     wrap.Visible = v
@@ -2268,8 +2449,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     if math.abs(wrap.Size.Y.Offset - h) > 1 then setH(h) end
                 end
             end)
-            hd2.MouseEnter:Connect(function() play(chev, {ImageColor3 = T.text}, 0.15) end)
-            hd2.MouseLeave:Connect(function() play(chev, {ImageColor3 = T.dim}, 0.15) end)
+            hd2.MouseEnter:Connect(function() chev.tint(T.text, 0.15) end)
+            hd2.MouseLeave:Connect(function() chev.tint(T.dim, 0.15) end)
             hd2.MouseButton1Click:Connect(function() setOpen(not open) end)
 
             function sub:Expand() setOpen(true) end
@@ -2306,7 +2487,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if a == Window then a, b, c, d, e = b, c, d, e, nil end
         if type(a) == "table" then
             local img = a.Image or a.Icon
-            return notify(a.Title or a.Name, a.Content or a.Desc or a.Message, a.Color, a.Duration, img)
+            return notify(a.Title or a.Name, a.Content or a.Desc or a.Message, a.Color, a.Duration, img, a.Actions or a.Buttons)
         end
         return notify(a, b, c, d, e)
     end
@@ -3371,17 +3552,16 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         corner(cb, "full")
         new("UIGradient", {Rotation = 45, Transparency = ns(kp(0, 0.8), kp(1, 0.94))}, cb)
         local cst = stroke(cb, WHITE, 1, 0.72)
-        local cic = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundTransparency = 1,
-            Image = "rbxassetid://6031091004", ImageColor3 = T.dim, Rotation = dockL and 90 or -90, ZIndex = 5}, cb)
+        local cic = mkIcon(cb, "chevron", 12, T.dim, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Rotation = dockL and 90 or -90, ZIndex = 5})
         cb.MouseEnter:Connect(function()
             play(cb, {BackgroundColor3 = T.accent}, 0.2)
             play(cst, {Color = T.accent, Transparency = 0.2}, 0.2)
-            play(cic, {ImageColor3 = T.text}, 0.2)
+            cic.tint(T.text, 0.2)
         end)
         cb.MouseLeave:Connect(function()
             play(cb, {BackgroundColor3 = WHITE}, 0.2)
             play(cst, {Color = WHITE, Transparency = 0.72}, 0.2)
-            play(cic, {ImageColor3 = T.dim}, 0.2)
+            cic.tint(T.dim, 0.2)
         end)
 
         ------------------------------------------------------------------
@@ -3704,7 +3884,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local bMem = lbl(bar, "--", 312, 18, 80, 22, 16, 4, fpsCol)
         chipIcon(bar, 376, OH / 2, 17, 3)
         local chevB = new("TextButton", {Name = "Expand", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(423, OH / 2), Size = UDim2.fromOffset(28, 28), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 6}, bar)
-        local chev = new("ImageLabel", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(15, 15), BackgroundTransparency = 1, Image = SORU.Icons.chevron, ImageColor3 = WHITE, Rotation = 180, ZIndex = 7}, chevB)
+        local chev = mkIcon(chevB, "chevron", 15, WHITE, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Rotation = 180, ZIndex = 7})
 
         ---------------- isi PANEL ----------------
         local CX = {16.5, 121.5, 222.5}
@@ -3879,7 +4059,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             expanded = v and true or false
             ptok = ptok + 1
             local my = ptok
-            play(chev, {Rotation = expanded and 180 or 0}, 0.2)
+            play(chev.inst, {Rotation = expanded and 180 or 0}, 0.2)
             local rest, hidden = UDim2.fromOffset(PXO, OH - 2), UDim2.fromOffset(PXO, OH - 14)
             if expanded then
                 panel.Visible = true
