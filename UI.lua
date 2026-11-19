@@ -1,4 +1,5 @@
--- v1.3.2.0 (edit): ikon vektor buatan sendiri tanpa asset id (47 ikon dari Frame), badge ikon di sidebar, pil melar antar tab, toast dengan tombol aksi + tumpukan menutup mulus.
+-- v1.3.3.0 (edit): ikon jadi 144, tema berpindah mulus, bubble nilai di slider, kolom otomatis menumpuk saat window sempit.
+-- v1.3.2.0 (edit): ikon vektor buatan sendiri tanpa asset id (144 ikon dari Frame), badge ikon di sidebar, pil melar antar tab, toast dengan tombol aksi + tumpukan menutup mulus.
 -- v1.3.1.2: palet kartu/isi window digelapkan, pill lebih gelap + semburat aksen, kartu dashboard bergradien tipis.
 -- v1.3.1.1: pill launcher diganti desain baru (kapsul abu gelap + sheen putih tipis di atas, badge logo N, equalizer, FPS).
 -- v1.3.1.0: halaman Settings baru (6 sub-tab: General, Appearance, Performance, Notifications, Account, About) + FPS Overlay (pill stats, bingkai base64) + opsi toast.
@@ -151,16 +152,37 @@ local function skin(o, prop, key)
     o[prop] = T[key]
     return o
 end
-local function applyTheme(name)
+local themeTok = 0
+local function applyTheme(name, instant)
     local p = THEMES[name]
     if not p then return false end
-    T.accent, T.accent2 = p[1], p[2]
-    derive()
-    for i = #skins, 1, -1 do
-        local e = skins[i]
-        if e[1].Parent == nil then table.remove(skins, i) else e[1][e[2]] = T[e[3]] end
+    local function paint()
+        derive()
+        for i = #skins, 1, -1 do
+            local e = skins[i]
+            if e[1].Parent == nil then table.remove(skins, i) else e[1][e[2]] = T[e[3]] end
+        end
+        for _, fn in ipairs(themeFns) do pcall(fn) end
     end
-    for _, fn in ipairs(themeFns) do pcall(fn) end
+    local a0, b0 = T.accent, T.accent2
+    themeTok = themeTok + 1
+    local my = themeTok
+    if instant or NOANIM or (a0 == p[1] and b0 == p[2]) then
+        T.accent, T.accent2 = p[1], p[2]
+        paint()
+        return true
+    end
+    task.spawn(function() -- warna berpindah mulus (ease-out) dari tema lama ke tema baru, bukan langsung berkedip
+        local t0 = os.clock()
+        while themeTok == my do
+            local k = math.min((os.clock() - t0) / 0.4, 1)
+            local e = 1 - (1 - k) ^ 3
+            T.accent, T.accent2 = a0:Lerp(p[1], e), b0:Lerp(p[2], e)
+            paint()
+            if k >= 1 then break end
+            RunService.Heartbeat:Wait()
+        end
+    end)
     return true
 end
 
@@ -270,6 +292,100 @@ local ICONS = { -- ikon vektor 24x24 buatan sendiri: l/L garis (L = tebal), p ga
     globe = {{"c",12,12,9.5},{"l",2.5,12,21.5,12},{"p",12,2.5,14.2,3.8,15.9,7.3,16.5,12,15.9,16.8,14.2,20.2,12,21.5,9.8,20.2,8.1,16.8,7.5,12,8.1,7.2,9.7,3.8,12,2.5}},
     cpu = {{"r",6,6,12,12,2},{"r",9.5,9.5,5,5,0.8},{"l",9,2.5,9,6},{"l",15,2.5,15,6},{"l",9,18,9,21.5},{"l",15,18,15,21.5},{"l",2.5,9,6,9},{"l",2.5,15,6,15},{"l",18,9,21.5,9},{"l",18,15,21.5,15}},
     code = {{"p",8,7,3,12,8,17},{"p",16,7,21,12,16,17},{"l",14,5,10,19}},
+    arrowup = {{"l",12,20,12,4},{"p",5.5,10.5,12,4,18.5,10.5}},
+    arrowdown = {{"l",12,4,12,20},{"p",5.5,13.5,12,20,18.5,13.5}},
+    arrowleft = {{"l",20,12,4,12},{"p",10.5,5.5,4,12,10.5,18.5}},
+    arrowright = {{"l",4,12,20,12},{"p",13.5,5.5,20,12,13.5,18.5}},
+    chevronup = {{"p",5,15,12,8,19,15}},
+    chevronleft = {{"p",15,5,8,12,15,19}},
+    chevronright = {{"p",9,5,16,12,9,19}},
+    external = {{"p",10,5,5,5,4,6,4,19,5,20,18,20,19,19,19,14},{"p",14,4,20,4,20,10},{"l",20,4,10.5,13.5}},
+    download = {{"l",12,3.5,12,15},{"p",6.5,10,12,15.5,17.5,10},{"p",4,16,4,20,20,20,20,16}},
+    upload = {{"l",12,15.5,12,4},{"p",6.5,9.5,12,4,17.5,9.5},{"p",4,16,4,20,20,20,20,16}},
+    menu = {{"l",4,6,20,6},{"l",4,12,20,12},{"l",4,18,20,18}},
+    more = {{"d",5,12,1.7},{"d",12,12,1.7},{"d",19,12,1.7}},
+    maximize = {{"p",4,9,4,4,9,4},{"p",15,4,20,4,20,9},{"p",20,15,20,20,15,20},{"p",9,20,4,20,4,15}},
+    minimize = {{"p",4,9,9,9,9,4},{"p",15,4,15,9,20,9},{"p",20,15,15,15,15,20},{"p",9,20,9,15,4,15}},
+    move = {{"l",12,3,12,21},{"l",3,12,21,12},{"p",9,6,12,3,15,6},{"p",9,18,12,21,15,18},{"p",6,9,3,12,6,15},{"p",18,9,21,12,18,15}},
+    filter = {{"p",3,5,21,5,14,13,14,20,10,18,10,13,3,5}},
+    pencil = {{"p",4,20,5,15,16,4,20,8,9,19,4,20},{"l",13.5,6.5,17.5,10.5}},
+    copy = {{"r",9,9,12,12,2.5},{"p",15,6,15,4.5,13.5,3,4.5,3,3,4.5,3,13.5,4.5,15,6,15}},
+    link = {{"r",2,9,12,6,3},{"r",10,9,12,6,3},{"l",9,12,15,12}},
+    pin = {{"p",12,22,5.5,12,5.5,8.5,8,4.5,12,3,16,4.5,18.5,8.5,18.5,12,12,22},{"c",12,9.5,2.5}},
+    bookmark = {{"p",6,3,18,3,18,21,12,16.5,6,21,6,3}},
+    tag = {{"p",3,3,12,3,21,12,12,21,3,12,3,3},{"d",7.5,7.5,1.4}},
+    power = {{"p",16,6.1,18.6,8.4,19.9,11.6,19.7,15.1,18.1,18.1,15.4,20.3,12,21,8.6,20.3,5.9,18.1,4.3,15.1,4.1,11.6,5.4,8.4,8,6.1},{"l",12,3,12,12}},
+    logout = {{"p",10,4,5,4,4,5,4,19,5,20,10,20},{"l",9,12,20,12},{"p",16,8,20,12,16,16}},
+    undo = {{"p",8,5,4,9,8,13},{"p",4,9,14,9,18,10.5,20,14,18,18,14,19.5,8,19.5}},
+    alert = {{"p",12,3,22,20,2,20,12,3},{"l",12,9.5,12,14},{"d",12,17,1.1}},
+    checkcircle = {{"c",12,12,9.5},{"p",7.5,12.5,10.5,15.5,16.5,9}},
+    xcircle = {{"c",12,12,9.5},{"l",9,9,15,15},{"l",15,9,9,15}},
+    help = {{"c",12,12,9.5},{"p",9.5,9.5,10,8,11.5,7,13,7,14.5,8,15,9.5,14.5,11,12,12.5,12,14},{"d",12,17,1.1}},
+    ban = {{"c",12,12,9.5},{"l",5.5,5.5,18.5,18.5}},
+    shieldcheck = {{"p",12,2.5,20,5.5,20,12,17,17.5,12,21.5,7,17.5,4,12,4,5.5,12,2.5},{"p",8.5,12,11,14.5,15.5,9.5}},
+    gamepad = {{"r",2.5,7,19,11,5},{"l",7,10.5,7,14.5},{"l",5,12.5,9,12.5},{"d",15.5,11.5,1.1},{"d",17.5,13.5,1.1}},
+    skull = {{"p",4,10,4.4,7.5,5.5,5.3,7.3,3.5,9.5,2.4,12,2,14.5,2.4,16.7,3.5,18.5,5.3,19.6,7.5,20,10},{"p",20,10,20,14.5,16.5,17,16.5,21,7.5,21,7.5,17,4,14.5,4,10},{"d",8.8,11.5,1.8},{"d",15.2,11.5,1.8}},
+    flame = {{"p",12,2.5,15.5,7,18.5,10.5,19,14.5,17,18.5,12,21.5,7,18.5,5,14.5,6,10.5,9,8.5,9.5,5.5,12,2.5},{"p",12,21.5,9.5,18,10,14.5,12,12,14,14.5,14.5,18,12,21.5}},
+    trophy = {{"p",7,3,17,3,17,10,15,14,9,14,7,10,7,3},{"p",7,5,3.5,5,3.5,8,7,10},{"p",17,5,20.5,5,20.5,8,17,10},{"l",12,14,12,18},{"p",8,21,8,18.5,16,18.5,16,21,8,21}},
+    gift = {{"r",3.5,10.5,17,10.5,1.5},{"r",2.5,7,19,3.5,1.5},{"l",12,7,12,21},{"p",12,7,8.5,7,7,5.5,7,4,8.5,3,10.5,3.5,12,7},{"p",12,7,15.5,7,17,5.5,17,4,15.5,3,13.5,3.5,12,7}},
+    dollar = {{"c",12,12,9.5},{"l",12,5,12,7},{"l",12,17,12,19},{"p",15,9.2,13.5,8.2,10.5,8.2,9,9.2,9,11,10.5,12,13.5,12,15,13,15,14.8,13.5,15.8,10.5,15.8,9,14.8}},
+    dice = {{"r",3.5,3.5,17,17,3.5},{"d",8.5,8.5,1.3},{"d",15.5,8.5,1.3},{"d",12,12,1.3},{"d",8.5,15.5,1.3},{"d",15.5,15.5,1.3}},
+    rocket = {{"p",12,2.5,16,7,16,14,14,17,10,17,8,14,8,7,12,2.5},{"c",12,10,1.8},{"p",8,12,4.5,15.5,4.5,19,8,16},{"p",16,12,19.5,15.5,19.5,19,16,16},{"l",12,19.5,12,22}},
+    car = {{"p",3,16,3,12,5,7,8.5,5,15.5,5,19,7,21,12,21,16,3,16},{"l",3.5,12,20.5,12},{"c",7.5,17,2},{"c",16.5,17,2}},
+    map = {{"p",3,6,9,3,15,6,21,3,21,18,15,21,9,18,3,21,3,6},{"l",9,3,9,18},{"l",15,6,15,21}},
+    compass = {{"c",12,12,9.5},{"p",15.5,8.5,13.5,13.5,8.5,15.5,10.5,10.5,15.5,8.5}},
+    anchor = {{"c",12,5,2.2},{"l",12,7.2,12,21},{"l",7.5,11,16.5,11},{"p",20,13,19.4,16.1,17.7,18.7,15.1,20.4,12,21,8.9,20.4,6.3,18.7,4.6,16.1,4,13}},
+    bug = {{"p",17,14,16.6,16.5,15.5,18.6,13.9,20,12,20.5,10.1,20,8.5,18.6,7.4,16.5,7,14,7.4,11.5,8.5,9.4,10.1,8,12,7.5,13.9,8,15.5,9.4,16.6,11.5,17,14},{"c",12,6.5,2.4},{"l",7,10,3.5,8},{"l",7,14,3,14},{"l",7.5,18,4,20.5},{"l",17,10,20.5,8},{"l",17,14,21,14},{"l",16.5,18,20,20.5},{"l",12,8,12,20}},
+    terminal = {{"r",2.5,4.5,19,15,3},{"p",6.5,9.5,9.5,12,6.5,14.5},{"l",12,15,17,15}},
+    database = {{"p",20,6,19.2,7.3,17,8.3,13.8,8.9,10.2,8.9,7,8.3,4.8,7.3,4,6,4.8,4.7,7,3.7,10.2,3.1,13.8,3.1,17,3.7,19.2,4.7,20,6},{"l",4,6,4,18},{"l",20,6,20,18},{"p",20,18,19.6,18.9,18.5,19.8,16.7,20.4,14.5,20.9,12,21,9.5,20.9,7.3,20.4,5.5,19.8,4.4,18.9,4,18},{"p",20,12,19.6,12.9,18.5,13.8,16.7,14.4,14.5,14.9,12,15,9.5,14.9,7.3,14.4,5.5,13.8,4.4,12.9,4,12}},
+    server = {{"r",3,4,18,6,2},{"r",3,14,18,6,2},{"d",7,7,1},{"d",7,17,1}},
+    wifi = {{"p",8.1,14.6,9.9,13.4,12,13,14.1,13.4,15.9,14.6},{"p",4.9,11.4,7,9.8,9.4,8.8,12,8.5,14.6,8.8,17,9.8,19.1,11.4},{"p",1.7,8.2,3.9,6.4,6.5,5.1,9.2,4.3,12,4,14.8,4.3,17.5,5.1,20.1,6.4,22.3,8.2},{"d",12,19,1.4}},
+    battery = {{"r",2.5,7,17,10,2.5},{"l",21.5,10.5,21.5,13.5},{"L",6.5,12,14,12}},
+    cloud = {{"p",7,18.5,5,18.5,2.8,16.5,2.8,13.5,5,11.5,5.5,9.5,8,8,10.5,8.5,12.5,6.5,16,6.5,18.5,9,19,11.5,21,12.5,21.5,15.5,19.5,18.5,7,18.5}},
+    sun = {{"c",12,12,4},{"l",18.8,12,21.5,12},{"l",16.8,16.8,18.7,18.7},{"l",12,18.8,12,21.5},{"l",7.2,16.8,5.3,18.7},{"l",5.2,12,2.5,12},{"l",7.2,7.2,5.3,5.3},{"l",12,5.2,12,2.5},{"l",16.8,7.2,18.7,5.3}},
+    moon = {{"p",21,12,20.5,15,19,17.6,16.8,19.6,14,20.8,11,20.9,8.1,20.1,5.6,18.4,3.9,15.9,3.1,13,3.2,10,4.4,7.2,6.4,5,9,3.5,12,3},{"p",12,3,10.6,5.1,10.1,7.5,10.6,9.9,12,12,14.1,13.4,16.5,13.9,18.9,13.4,21,12}},
+    sparkles = {{"p",12,3,14,10,21,12,14,14,12,21,10,14,3,12,10,10,12,3}},
+    image = {{"r",3,3,18,18,3},{"d",8.5,8.5,1.6},{"p",3,17,8.5,12,13,16.5,16,13.5,21,18.5}},
+    camera = {{"r",2.5,7,19,13,3},{"c",12,13.5,3.5},{"p",8,7,9.5,4,14.5,4,16,7}},
+    video = {{"r",2.5,6,13,12,3},{"p",15.5,10.5,21.5,7,21.5,17,15.5,13.5}},
+    music = {{"l",9,18,9,5.5},{"p",9,5.5,19,3.5,19,15.5},{"c",6.5,18,2.6},{"c",16.5,15.5,2.6}},
+    volume = {{"p",3,9.5,7,9.5,12,5,12,19,7,14.5,3,14.5,3,9.5},{"p",15.9,8.1,17.1,9.9,17.5,12,17.1,14.1,15.9,15.9},{"p",18.7,5.3,20.8,8.4,21.5,12,20.8,15.6,18.7,18.7}},
+    mute = {{"p",3,9.5,7,9.5,12,5,12,19,7,14.5,3,14.5,3,9.5},{"l",16,9.5,21,14.5},{"l",21,9.5,16,14.5}},
+    mic = {{"r",9,3,6,11,3},{"p",5.5,11,5.5,12,8,16,12,17.5,16,16,18.5,12,18.5,11},{"l",12,17.5,12,21},{"l",8.5,21,15.5,21}},
+    clock = {{"c",12,12,9.5},{"p",12,6.5,12,12,15.5,14}},
+    calendar = {{"r",3.5,5,17,16,3},{"l",3.5,10,20.5,10},{"l",8,2.5,8,6.5},{"l",16,2.5,16,6.5}},
+    hourglass = {{"p",6.5,3,17.5,3,17.5,7,12,12,17.5,17,17.5,21,6.5,21,6.5,17,12,12,6.5,7,6.5,3}},
+    mail = {{"r",2.5,5,19,14,3},{"p",3.5,7,12,13.5,20.5,7}},
+    message = {{"p",4,4.5,20,4.5,21,5.5,21,16.5,20,17.5,12,17.5,7,21.5,7,17.5,4,17.5,3,16.5,3,5.5,4,4.5}},
+    lightbulb = {{"p",7.4,14.1,6.1,12.3,5.5,10.2,5.7,8.1,6.5,6,7.9,4.4,9.9,3.4,12,3,14.1,3.4,16.1,4.4,17.5,6,18.3,8.1,18.5,10.2,17.9,12.3,16.6,14.1},{"p",7.4,14.1,9,17,15,17,16.6,14.1},{"l",10,20,14,20}},
+    leaf = {{"p",5,19,4,14,7,8,13,4.5,20,4,19.5,11,16,16,10.5,18,5,19},{"l",5,19,12,12}},
+    drop = {{"p",12,2.5,18,10,19.5,14.5,17.5,19,12,21.5,6.5,19,4.5,14.5,6,10,12,2.5}},
+    snow = {{"l",12,2.5,12,21.5},{"l",3.5,7.2,20.5,16.8},{"l",20.5,7.2,3.5,16.8}},
+    hash = {{"l",9,4,7,20},{"l",17,4,15,20},{"l",4,9,20,9},{"l",3.5,15,19.5,15}},
+    zoomin = {{"c",10.5,10.5,7},{"l",15.5,15.5,21,21},{"l",10.5,7.5,10.5,13.5},{"l",7.5,10.5,13.5,10.5}},
+    zoomout = {{"c",10.5,10.5,7},{"l",15.5,15.5,21,21},{"l",7.5,10.5,13.5,10.5}},
+    magnet = {{"l",5,3,5,12},{"l",19,3,19,12},{"p",19,12,18.7,14.2,17.7,16.1,16.1,17.7,14.2,18.7,12,19,9.8,18.7,7.9,17.7,6.3,16.1,5.3,14.2,5,12},{"l",2.5,6,7.5,6},{"l",16.5,6,21.5,6}},
+    pointer = {{"p",5,3,5,19,9.5,15,13,21,15.5,19.5,12,14,18,14,5,3}},
+    userplus = {{"c",10,8,4},{"p",2,21.1,3.8,18.2,6.6,16.2,10,15.5,13.4,16.2,16.2,18.2,18,21.1},{"l",19,8,19,14},{"l",16,11,22,11}},
+    eyeoff = {{"p",2,12,5,8,8.5,5.8,12,5,15.5,5.8,19,8,22,12,19,16,15.5,18.2,12,19,8.5,18.2,5,16,2,12},{"c",12,12,3.2},{"l",3.5,3.5,20.5,20.5}},
+    unlock = {{"r",4.5,10.5,15,10.5,2.5},{"p",8,10.5,8,7,9.5,4.5,12,3.5,14.5,4.5,16,7},{"d",12,15.7,1.4}},
+    medal = {{"c",12,15,5.5},{"p",8,2.5,10.5,10},{"p",16,2.5,13.5,10},{"d",12,15,1.4}},
+    fish = {{"p",18,12,17.4,13.9,15.8,15.5,13.4,16.6,10.5,17,7.6,16.6,5.2,15.5,3.6,13.9,3,12,3.6,10.1,5.2,8.5,7.6,7.4,10.5,7,13.4,7.4,15.8,8.5,17.4,10.1,18,12},{"p",18,12,22,8,22,16,18,12},{"d",7,10.5,1}},
+    tree = {{"p",12,2.5,18,11,15,11,19.5,17,4.5,17,9,11,6,11,12,2.5},{"l",12,17,12,21.5}},
+    mountain = {{"p",2.5,20,9,8,13,14,15.5,10.5,21.5,20,2.5,20}},
+    signal = {{"l",5,19,5,16},{"l",10,19,10,12},{"l",15,19,15,8},{"l",20,19,20,4}},
+    toggle = {{"r",2,7,20,10,5},{"d",16,12,2.6}},
+    layout = {{"r",3,3,18,18,3},{"l",3,9,21,9},{"l",9,9,9,21}},
+    columns = {{"r",3,3,18,18,3},{"l",12,3,12,21}},
+    sidebar = {{"r",3,3,18,18,3},{"l",9,3,9,21}},
+    apps = {{"r",3.5,3.5,7,7,2},{"r",13.5,3.5,7,7,2},{"r",3.5,13.5,7,7,2},{"r",13.5,13.5,7,7,2}},
+    timer = {{"c",12,13.5,8},{"l",12,13.5,12,9.5},{"l",9.5,2.5,14.5,2.5},{"l",12,2.5,12,5.5}},
+    ghost = {{"p",5,10,5.5,7.3,7.1,5.1,9.3,3.5,12,3,14.7,3.5,16.9,5.1,18.5,7.3,19,10},{"p",19,10,19,21,16.5,19,14.25,21,12,19,9.75,21,7.5,19,5,21,5,10},{"d",9.5,10,1.2},{"d",14.5,10,1.2}},
+    barchart = {{"L",5,20,5,12},{"L",12,20,12,5},{"L",19,20,19,9}},
+    trending = {{"p",3,17,9,11,13,15,21,7},{"p",15,7,21,7,21,13}},
+}
+local ICONALIAS = { -- nama lain -> nama ikon (huruf besar/kecil tidak masalah)
+    gear = "settings", cog = "settings", x = "close", cross = "close", trash2 = "trash", chevrondown = "chevron", lightning = "zap", bolt = "zap", flash = "zap", swords = "sword", crosshairs = "crosshair", aim = "crosshair", location = "pin", mappin = "pin", sound = "volume", speaker = "volume", chat = "message", comment = "message", email = "mail", time = "clock", watch = "clock", picture = "image", photo = "image", movie = "video", edit = "pencil", pen = "pencil", warning = "alert", warn = "alert", error = "xcircle", success = "checkcircle", question = "help", world = "globe", web = "globe", internet = "wifi", cash = "dollar", money = "dollar", coin = "dollar", award = "medal", cup = "trophy", fire = "flame", exit = "logout", signout = "logout", hamburger = "menu", dots = "more", controller = "gamepad", gaming = "gamepad", vehicle = "car", delete = "trash", add = "plus", remove = "minus", download2 = "download", fullscreen = "maximize", expand = "maximize", collapse = "minimize", stats = "barchart", chart = "barchart", graph = "trending", night = "moon", day = "sun", magic = "sparkles", idea = "lightbulb", hourglass2 = "hourglass", password = "key", secure = "lock",
 }
 local GLYPH = {
     grid = "▦", home = "⌂", sprout = "✿", sliders = "☰", pickaxe = "⚒", hammer = "⚒", zap = "ϟ", wrench = "✎", save = "▣", eraser = "▱",
@@ -279,6 +395,11 @@ local GLYPH = {
 local function mkIcon(parent, name, size, color, props)
     local ic = {}
     name = tostring(name or "dot")
+    do -- nama lain / huruf besar-kecil -> nama ikon baku (tidak menyentuh asset id)
+        local ln = name:lower()
+        if ICONALIAS[ln] then name = ICONALIAS[ln]
+        elseif ICONS[ln] or ln == "search" or ln == "grid" or ln == "bell" or ln == "crown" or ln == "gem" or ln == "rank" then name = ln end
+    end
     local src = SORU.Icons[name] or name
     local o
     if src:match("^rbxasset") or src:match("^%d%d%d+$") then
@@ -694,7 +815,7 @@ function SORU:CreateWindow(C)
     NOANIM = (C.NoAnim == true) or (F.UINoAnim == true)
     if F.NexSkin ~= true then F.NexSkin, F.UITheme = true, "Nexrift" persist() end -- sekali saja: pindah ke tema Nexrift
     local curTheme = (type(F.UITheme) == "string" and THEMES[F.UITheme]) and F.UITheme or ORDER[1]
-    applyTheme(curTheme)
+    applyTheme(curTheme, true)
     local toggleKey = C.ToggleKey or Enum.KeyCode.RightControl
     if type(F.MenuKey) == "string" then toggleKey = toKey(F.MenuKey) or toggleKey end
     local binding, activeStop = false, nil
@@ -1411,9 +1532,9 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local scroll = new("ScrollingFrame", {Name = "Scroll", Active = true, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 2, ScrollBarImageTransparency = 0.3,
             CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, Visible = false}, parent)
         skin(scroll, "ScrollBarImageColor3", "accent")
-        new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14)}, scroll)
+        new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16)}, scroll)
         local holder = new("Frame", {Name = "Columns", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, scroll)
-        new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top}, holder)
+        local hlay = new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top}, holder)
         local single = (columns == 1)
         local function col(i)
             local c = new("Frame", {Name = "Col" .. i, Size = single and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -5, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, holder)
@@ -1421,7 +1542,23 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             return c
         end
         local cL = col(1)
-        return scroll, cL, (not single) and col(2) or nil
+        local cR = (not single) and col(2) or nil
+        if cR then -- window sempit: 2 kolom otomatis jadi 1 kolom bertumpuk, supaya komponen di sisi kanan tidak terpotong
+            local narrowNow
+            local function relayout()
+                local cw = winSize.X - SIDE_W - 32 -- lebar isi dalam satuan lokal
+                local narrow = (cw - 10) / 2 < 205
+                if narrow == narrowNow then return end
+                narrowNow = narrow
+                hlay.FillDirection = narrow and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal
+                local sz = narrow and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -5, 0, 0)
+                cL.Size, cR.Size = sz, sz
+            end
+            relayout()
+            scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
+            scroll:GetPropertyChangedSignal("Visible"):Connect(relayout)
+        end
+        return scroll, cL, cR
     end
 
     local buildComponents, go -- didefinisikan di bawah
@@ -1975,7 +2112,35 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             themeFns[#themeFns + 1] = paintFill
             local knob = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromOffset(12, 12), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 2}, sbar)
             corner(knob, "full")
-            skin(stroke(knob, T.accent, 2, 0.55), "Color", "accent")
+            local kst = skin(stroke(knob, T.accent, 2, 0.55), "Color", "accent")
+            -- bubble nilai di atas knob + halo, hanya tampil saat digeser
+            local bub = new("Frame", {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0, 3), Size = UDim2.fromOffset(0, 15), AutomaticSize = Enum.AutomaticSize.X, BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 4}, knob)
+            skin(bub, "BackgroundColor3", "accent")
+            corner(bub, 6)
+            new("UIPadding", {PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)}, bub)
+            local btx = text(bub, {Size = UDim2.new(0, 0, 1, 0), AutomaticSize = Enum.AutomaticSize.X, TextXAlignment = XC, W = 4, TextSize = 10, TextColor3 = WHITE, TextTransparency = 1, TextTruncate = NOTRUNC})
+            local halo = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(14, 14), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false}, knob)
+            corner(halo, "full")
+            local hst = skin(stroke(halo, T.accent, 1.5, 1), "Color", "accent")
+            local bTok = 0
+            local function bubble(show)
+                bTok = bTok + 1
+                local my = bTok
+                if show then
+                    bub.Visible = true
+                    play(bub, {BackgroundTransparency = 0, Position = UDim2.new(0.5, 0, 0, -1)}, 0.16, BACK)
+                    play(btx, {TextTransparency = 0}, 0.12)
+                    play(kst, {Transparency = 0.15, Thickness = 3}, 0.12)
+                    halo.Size, hst.Transparency, halo.Visible = UDim2.fromOffset(14, 14), 0.25, true
+                    play(halo, {Size = UDim2.fromOffset(34, 34)}, 0.45)
+                    play(hst, {Transparency = 1}, 0.45)
+                else
+                    play(bub, {BackgroundTransparency = 1, Position = UDim2.new(0.5, 0, 0, 3)}, 0.14)
+                    play(btx, {TextTransparency = 1}, 0.12)
+                    play(kst, {Transparency = 0.55, Thickness = 2}, 0.15)
+                    task.delay(NOANIM and 0 or 0.18, function() if bTok == my then bub.Visible = false halo.Visible = false end end)
+                end
+            end
             local hit = new("TextButton", {Position = UDim2.fromOffset(0, ty - 9), Size = UDim2.new(1, 0, 0, 23), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, ZIndex = 3}, f)
             local function quant(x)
                 x = math.clamp(mn + math.floor((x - mn) / step + 0.5) * step, mn, mx)
@@ -1986,6 +2151,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                 play(fill, {Size = UDim2.fromScale(a, 1)}, 0.05)
                 play(knob, {Position = UDim2.fromScale(a, 0.5)}, 0.05)
                 vl.Text = tostring(x) .. (o.Suffix or "")
+                btx.Text = vl.Text
             end
             val = quant(val)
             render(val)
@@ -2007,6 +2173,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     scroll.ScrollingEnabled = false
                     play(knob, {Size = UDim2.fromOffset(16, 16)}, 0.12)
                     play(tl, {TextColor3 = T.text}, 0.12)
+                    bubble(true)
                     fromX(pos.X)
                     return true
                 end,
@@ -2015,6 +2182,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
                     scroll.ScrollingEnabled = true
                     play(knob, {Size = UDim2.fromOffset(12, 12)}, 0.12)
                     play(tl, {TextColor3 = T.mid}, 0.12)
+                    bubble(false)
                     if flag then F[flag] = val persist() end
                     safe(o.OnRelease, val)
                 end)
