@@ -1,4 +1,4 @@
--- v1.3.3.0 (edit): ikon jadi 144, tema berpindah mulus, bubble nilai di slider, kolom otomatis menumpuk saat window sempit.
+-- v1.3.3.0 (edit): lebar window minimum 600 supaya 2 kolom tidak kesempitan, ikon jadi 144, tema berpindah mulus, bubble nilai di slider.
 -- v1.3.2.0 (edit): ikon vektor buatan sendiri tanpa asset id (144 ikon dari Frame), badge ikon di sidebar, pil melar antar tab, toast dengan tombol aksi + tumpukan menutup mulus.
 -- v1.3.1.2: palet kartu/isi window digelapkan, pill lebih gelap + semburat aksen, kartu dashboard bergradien tipis.
 -- v1.3.1.1: pill launcher diganti desain baru (kapsul abu gelap + sheen putih tipis di atas, badge logo N, equalizer, FPS).
@@ -826,7 +826,7 @@ function SORU:CreateWindow(C)
     local REF = C.ReferenceSize or Vector2.new(1280, 650)
     local root = new("Frame", {Name = "Root", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1)}, gui)
     local rootScale = new("UIScale", {}, root)
-    local DEFAULT, MINS, MAXS = Vector2.new(640, 410), Vector2.new(500, 330), Vector2.new(1000, 660)
+    local DEFAULT, MINS, MAXS = Vector2.new(640, 410), Vector2.new(600, 330), Vector2.new(1000, 660)
     local winSize = Vector2.new(math.clamp(tonumber(F.UIW) or DEFAULT.X, MINS.X, MAXS.X), math.clamp(tonumber(F.UIH) or DEFAULT.Y, MINS.Y, MAXS.Y))
     local winPos, curPos, virt = nil, Vector2.new(), Vector2.new(REF.X, REF.Y)
     local layoutWin, layoutLauncher
@@ -1534,7 +1534,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         skin(scroll, "ScrollBarImageColor3", "accent")
         new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 16), PaddingRight = UDim.new(0, 16)}, scroll)
         local holder = new("Frame", {Name = "Columns", Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0}, scroll)
-        local hlay = new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top}, holder)
+        new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Top}, holder)
         local single = (columns == 1)
         local function col(i)
             local c = new("Frame", {Name = "Col" .. i, Size = single and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -5, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0, LayoutOrder = i}, holder)
@@ -1542,23 +1542,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             return c
         end
         local cL = col(1)
-        local cR = (not single) and col(2) or nil
-        if cR then -- window sempit: 2 kolom otomatis jadi 1 kolom bertumpuk, supaya komponen di sisi kanan tidak terpotong
-            local narrowNow
-            local function relayout()
-                local cw = winSize.X - SIDE_W - 32 -- lebar isi dalam satuan lokal
-                local narrow = (cw - 10) / 2 < 205
-                if narrow == narrowNow then return end
-                narrowNow = narrow
-                hlay.FillDirection = narrow and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal
-                local sz = narrow and UDim2.new(1, 0, 0, 0) or UDim2.new(0.5, -5, 0, 0)
-                cL.Size, cR.Size = sz, sz
-            end
-            relayout()
-            scroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout)
-            scroll:GetPropertyChangedSignal("Visible"):Connect(relayout)
-        end
-        return scroll, cL, cR
+        return scroll, cL, (not single) and col(2) or nil
     end
 
     local buildComponents, go -- didefinisikan di bawah
