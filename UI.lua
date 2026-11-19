@@ -1209,7 +1209,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if NEXPILL then
             -- PILL NEXRIFT (desain dari video): kapsul abu gelap (atas abu terang -> bawah hampir hitam) | sheen putih tipis di tepi atas |
             -- badge bulat berisi logo N | nama bergradien putih -> aksen | bar equalizer warna aksen (tinggi ikut FPS, kadang jadi titik) | angka FPS live
-            local PW, PH = 232, 46
+            local PW, PH = 190, 27
             launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = WHITE, BackgroundTransparency = 0, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
             corner(launcher, "full")
             local bodyG = new("UIGradient", {Rotation = 90}, launcher)
