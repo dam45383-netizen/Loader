@@ -1,3 +1,4 @@
+-- v1.3.4.0 (edit): SORU:KeySystem({...}) = window key system gaya NEXRIFT (lihat komentar di atasnya). Sebelumnya v1.3.3.0:
 -- v1.3.3.0 (edit): lebar window minimum 600 supaya 2 kolom tidak kesempitan, ikon jadi 144, tema berpindah mulus, bubble nilai di slider.
 -- v1.3.2.0 (edit): ikon vektor buatan sendiri tanpa asset id (144 ikon dari Frame), badge ikon di sidebar, pil melar antar tab, toast dengan tombol aksi + tumpukan menutup mulus.
 -- v1.3.1.2: palet kartu/isi window digelapkan, pill lebih gelap + semburat aksen, kartu dashboard bergradien tipis.
@@ -741,6 +742,462 @@ end
 ----------------------------------------------------------------------
 -- WINDOW
 ----------------------------------------------------------------------
+-- KEY SYSTEM gaya NEXRIFT. Panggil SEBELUM CreateWindow. Fungsi ini menunggu sampai key benar (return true) atau window ditutup (return false).
+--   local ok = SORU:KeySystem({
+--       GetKeyLink = "https://...",                  -- tombol "Get Key": link disalin ke clipboard
+--       Discord    = "https://discord.gg/...",       -- opsional: link di kanan bawah (disalin)
+--       Note       = "Key lasts 24 hours",           -- opsional: teks kecil di kiri bawah
+--       Keys       = {"KEY-AAAA", "KEY-BBBB"},       -- cara 1: daftar lokal (siapa pun yang membaca script bisa melihatnya)
+--       Url        = "https://host/check?key={key}", -- cara 2: GET ke servermu; balasan "true"/"valid" atau JSON {"valid":true,"message":"Premium"}
+--       Validate   = function(key) return true, "Premium" end, -- cara 3: fungsi sendiri (boleh yield), prioritas tertinggi
+--       Attempts = 3, Lockout = 30, SaveKey = true, Blur = true, Closable = true, Accent = Color3.fromRGB(229, 32, 46),
+--       OnSuccess = function(key, info) end, OnClose = function() end, Async = false,
+--   })
+--   if not ok then return end
+function SORU:KeySystem(cfg)
+    cfg = type(cfg) == "table" and cfg or {}
+    local W, H = 440, 288
+    local accent = typeof(cfg.Accent) == "Color3" and cfg.Accent or Color3.fromRGB(229, 32, 46)
+    local accL, accD = accent:Lerp(WHITE, 0.25), accent:Lerp(Color3.new(0, 0, 0), 0.35)
+    local ERR = accent:Lerp(WHITE, 0.45)
+    local GREEN, DIM, FAINT, LINE = Color3.fromRGB(61, 220, 132), Color3.fromRGB(154, 154, 164), Color3.fromRGB(140, 140, 150), Color3.fromRGB(43, 43, 51)
+    local maxTries = math.max(1, math.floor(tonumber(cfg.Attempts) or 3))
+    local lockSec = math.max(5, tonumber(cfg.Lockout) or 30)
+    local saveFile = tostring(cfg.SaveFile or "NEXRIFT_key.txt")
+    local canSave = cfg.SaveKey ~= false and writefile ~= nil and readfile ~= nil and isfile ~= nil
+    local function trim(s) return (tostring(s or ""):gsub("^%s+", ""):gsub("%s+$", "")) end
+
+    -- GUI + overlay
+    local pl = Players.LocalPlayer
+    local pg = pl:WaitForChild("PlayerGui")
+    local host = pg
+    pcall(function() if gethui then host = gethui() end end)
+    for _, h in ipairs({host, pg}) do
+        local old = h:FindFirstChild("NEXRIFT_KEY")
+        if old then old:Destroy() end
+    end
+    pcall(function() local ob = Lighting:FindFirstChild("NEXRIFT_KeyBlur") if ob then ob:Destroy() end end)
+    local gui = new("ScreenGui", {Name = "NEXRIFT_KEY", ResetOnSpawn = false, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, IgnoreGuiInset = true, DisplayOrder = 120})
+    gui.Parent = host
+    local dim = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, BorderSizePixel = 0, Active = true}, gui)
+    play(dim, {BackgroundTransparency = 0.38}, 0.35)
+    local blur
+    if cfg.Blur ~= false then
+        pcall(function()
+            blur = new("BlurEffect", {Name = "NEXRIFT_KeyBlur", Size = 0}, Lighting)
+            play(blur, {Size = 14}, 0.4)
+        end)
+    end
+    local function pulseLoop(o, prop, to, t) -- denyut halus tanpa henti
+        if NOANIM then return end
+        pcall(function() TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {[prop] = to}):Play() end)
+    end
+    local function slash(px, py, rot) -- garis diagonal bercahaya di sudut (seperti brand sheet)
+        local band = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(px, py), Size = UDim2.fromOffset(720, 64), Rotation = rot, BackgroundColor3 = accent, BackgroundTransparency = 0.62, BorderSizePixel = 0}, dim)
+        new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.6, 0), NumberSequenceKeypoint.new(1, 1)})}, band)
+        local ln = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(px, 0, py, 30), Size = UDim2.fromOffset(460, 2), Rotation = rot, BackgroundColor3 = accL, BorderSizePixel = 0}, dim)
+        new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})}, ln)
+        pulseLoop(band, "BackgroundTransparency", 0.8, 2)
+    end
+    slash(0.1, 0.2, -38)
+    slash(0.9, 0.82, -38)
+
+    -- panel (wrap = skala layar, holder = animasi buka/tutup)
+    local wrap = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(W, H), BackgroundTransparency = 1}, gui)
+    local fit = new("UIScale", {Scale = 1}, wrap)
+    local function refit()
+        local vp = gui.AbsoluteSize
+        fit.Scale = math.clamp(math.min(vp.X / (W + 40), vp.Y / (H + 60)), 0.5, 1.3)
+    end
+    refit()
+    gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(refit)
+    local holder = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 14), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1}, wrap)
+    local pop = new("UIScale", {Scale = 0.93}, holder)
+    local halos = {}
+    for i, pad in ipairs({22, 10}) do -- halo cahaya berlapis di belakang panel
+        local g = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, pad, 1, pad), BackgroundColor3 = accent, BackgroundTransparency = (i == 1) and 0.95 or 0.9, BorderSizePixel = 0}, holder)
+        corner(g, 18 + pad / 2)
+        halos[i] = g
+    end
+    local panel = new("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(14, 14, 18), BorderSizePixel = 0}, holder)
+    corner(panel, 18)
+    new("UIGradient", {Rotation = 70, Color = ColorSequence.new(Color3.fromRGB(26, 26, 33), Color3.fromRGB(11, 11, 15))}, panel)
+    local panelSt = stroke(panel, accent, 1, 0.75)
+    local edge = new("Frame", {Position = UDim2.new(0, 24, 0, -1), Size = UDim2.new(1, -48, 0, 2), BackgroundColor3 = accL, BorderSizePixel = 0, ZIndex = 5}, panel)
+    new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})}, edge)
+
+    local function group() return new("CanvasGroup", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0, GroupTransparency = 1}, panel) end
+    local idle = group()
+    local done = group()
+    done.Visible = false
+
+    -- mark / logo
+    local function mark(parent, h, props)
+        if cfg.Logo then
+            local im = new("ImageLabel", {BackgroundTransparency = 1, Image = tostring(cfg.Logo), Size = UDim2.fromOffset(h, h), ScaleType = Enum.ScaleType.Fit}, parent)
+            for k, v in pairs(props or {}) do im[k] = v end
+            return im
+        end
+        if BANNER == "" and cfg.CodeLogo ~= true then pcall(function() BANNER, BANNER2 = loadBanner() end) end
+        if BANNER ~= "" and BANNER2 ~= "" then
+            local im = new("ImageLabel", {Name = "NexMark", BackgroundTransparency = 1, BorderSizePixel = 0, Image = BANNER, ImageRectOffset = NEXMARK_OFF, ImageRectSize = NEXMARK_SIZE,
+                Size = UDim2.fromOffset(math.floor(h * NEXMARK_SIZE.X / NEXMARK_SIZE.Y + 0.5), h), ScaleType = Enum.ScaleType.Stretch, ImageColor3 = bannerTint(accent):Lerp(WHITE, 0.35)}, parent)
+            for k, v in pairs(props or {}) do im[k] = v end
+            return im
+        end
+        local box = new("Frame", {BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromOffset(h, h)}, parent) -- cadangan: huruf N dari Frame
+        for k, v in pairs(props or {}) do box[k] = v end
+        local bw, bh = math.max(2, math.floor(h * 0.2 + 0.5)), h * 0.84
+        local function bar(x, w, hh, rot, col)
+            new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(x, h / 2), Size = UDim2.fromOffset(w, hh), Rotation = rot, BackgroundColor3 = col, BorderSizePixel = 0}, box)
+        end
+        bar(bw / 2, bw, bh, 0, accent)
+        bar(h - bw / 2, bw, bh, 0, accent)
+        bar(h / 2, bw, math.sqrt((h - bw) ^ 2 + bh ^ 2) - bw * 0.3, -math.deg(math.atan2(h - bw, bh)), accL)
+        return box
+    end
+
+    -- header
+    local badge = new("Frame", {Position = UDim2.fromOffset(22, 20), Size = UDim2.fromOffset(42, 42), BackgroundColor3 = Color3.fromRGB(24, 14, 17), BorderSizePixel = 0}, idle)
+    corner(badge, 13)
+    new("UIGradient", {Rotation = 70, Color = ColorSequence.new(Color3.fromRGB(34, 18, 22), Color3.fromRGB(11, 11, 15))}, badge)
+    local badgeSt = stroke(badge, accent, 1.2, 0.1)
+    mark(badge, 20, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+    pulseLoop(badgeSt, "Transparency", 0.6, 1.4)
+    local wmRich = (cfg.Title == nil) and nameRich(hexOf(accent)) or tostring(cfg.Title)
+    text(idle, {Text = wmRich, RichText = true, FontFace = FONT_I, TextSize = 19, Position = UDim2.fromOffset(76, 19), Size = UDim2.fromOffset(220, 22), TextColor3 = WHITE, TextTruncate = NOTRUNC})
+    text(idle, {Text = spaced(tostring(cfg.Tagline or NEX.Tag), ".", hexOf(accent)), RichText = true, W = 2, TextSize = 8, Position = UDim2.fromOffset(76, 44), Size = UDim2.fromOffset(260, 12), TextColor3 = FAINT, TextTruncate = NOTRUNC})
+    local closable = cfg.Closable ~= false
+    local chipW = math.floor(textW("KEY SYSTEM", 9)) + 24
+    local chip = text(idle, {Text = "KEY SYSTEM", W = 4, TextSize = 9, TextXAlignment = XC, TextColor3 = ERR, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 31), Size = UDim2.fromOffset(chipW, 20), TextTruncate = NOTRUNC})
+    corner(chip, "full")
+    stroke(chip, accL, 1, 0.6)
+    local closeB = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Visible = closable, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 6), Size = UDim2.fromOffset(24, 24)}, idle)
+    local closeIc = mkIcon(closeB, "close", 11, DIM, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+    closeB.MouseEnter:Connect(function() closeIc.tint(WHITE, 0.12) end)
+    closeB.MouseLeave:Connect(function() closeIc.tint(DIM, 0.12) end)
+
+    text(idle, {Text = tostring(cfg.Heading or "Enter your key"), W = 4, TextSize = 15, Position = UDim2.fromOffset(22, 80), Size = UDim2.new(1, -44, 0, 18), TextColor3 = WHITE})
+    text(idle, {Text = tostring(cfg.Subtitle or "Get a free key, paste it below to unlock the hub."), W = 2, TextSize = 11, Position = UDim2.fromOffset(22, 100), Size = UDim2.new(1, -44, 0, 14), TextColor3 = DIM})
+
+    -- input key
+    local inF = new("Frame", {Position = UDim2.fromOffset(22, 126), Size = UDim2.new(1, -44, 0, 42), BackgroundColor3 = Color3.fromRGB(8, 8, 11), BorderSizePixel = 0}, idle)
+    corner(inF, 11)
+    local inSt = stroke(inF, LINE, 1, 0)
+    mkIcon(inF, "key", 16, accL, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 12, 0.5, 0)})
+    local box = new("TextBox", {Position = UDim2.fromOffset(38, 0), Size = UDim2.new(1, -108, 1, 0), BackgroundTransparency = 1, Text = "", PlaceholderText = "XXXX-XXXX-XXXX-XXXX", PlaceholderColor3 = FAINT,
+        TextColor3 = WHITE, Font = Enum.Font.Code, TextSize = 13, TextXAlignment = XL, ClearTextOnFocus = false, TextTruncate = Enum.TextTruncate.AtEnd}, inF)
+    local pasteB = new("TextButton", {Text = "Paste", AutoButtonColor = false, FontFace = FONT[4], TextSize = 10, TextColor3 = Color3.fromRGB(201, 201, 210), BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -9, 0.5, 0), Size = UDim2.fromOffset(52, 24)}, inF)
+    corner(pasteB, 7)
+    local pasteSt = stroke(pasteB, Color3.fromRGB(51, 51, 60), 1, 0)
+    pasteB.MouseEnter:Connect(function() play(pasteSt, {Color = accL}, 0.12) end)
+    pasteB.MouseLeave:Connect(function() play(pasteSt, {Color = Color3.fromRGB(51, 51, 60)}, 0.12) end)
+
+    -- progress (saat memverifikasi) + status
+    local pbar = new("Frame", {Position = UDim2.fromOffset(22, 171), Size = UDim2.new(1, -44, 0, 3), BackgroundColor3 = Color3.fromRGB(27, 27, 33), BorderSizePixel = 0, ClipsDescendants = true, Visible = false}, idle)
+    corner(pbar, "full")
+    local pfill = new("Frame", {Position = UDim2.fromScale(-0.4, 0), Size = UDim2.fromScale(0.4, 1), BackgroundColor3 = accL, BorderSizePixel = 0}, pbar)
+    corner(pfill, "full")
+    new("UIGradient", {Color = ColorSequence.new(accD, accL)}, pfill)
+    local stIc = mkIcon(idle, "alert", 13, ERR, {Position = UDim2.fromOffset(22, 179)})
+    stIc.inst.Visible = false
+    local stTxt = text(idle, {Text = "", W = 3, TextSize = 11, Position = UDim2.fromOffset(40, 178), Size = UDim2.new(1, -62, 0, 16), TextColor3 = ERR, TextTransparency = 1})
+    local function setStatus(msg, kind)
+        if not msg or msg == "" then
+            play(stTxt, {TextTransparency = 1}, 0.15)
+            stIc.inst.Visible = false
+            return
+        end
+        local col = (kind == "ok") and GREEN or (kind == "info") and DIM or ERR
+        stTxt.Text = msg
+        stTxt.TextColor3 = col
+        stIc.set((kind == "ok") and "check" or (kind == "info") and "info" or "alert")
+        stIc.tint(col, 0)
+        stIc.inst.Visible = true
+        stTxt.TextTransparency = 1
+        play(stTxt, {TextTransparency = 0}, 0.2)
+    end
+
+    -- tombol
+    local getB = new("TextButton", {Text = "Get Key", AutoButtonColor = false, FontFace = FONT[4], TextSize = 12, TextColor3 = Color3.fromRGB(228, 228, 234), BackgroundColor3 = Color3.fromRGB(15, 15, 19),
+        Position = UDim2.fromOffset(22, 200), Size = UDim2.fromOffset(154, 40), BorderSizePixel = 0}, idle)
+    corner(getB, 11)
+    local getSt = stroke(getB, Color3.fromRGB(51, 51, 60), 1, 0)
+    getB.MouseEnter:Connect(function() play(getSt, {Color = accL}, 0.12) end)
+    getB.MouseLeave:Connect(function() play(getSt, {Color = Color3.fromRGB(51, 51, 60)}, 0.12) end)
+    local verB = new("TextButton", {Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE, Position = UDim2.fromOffset(186, 200), Size = UDim2.new(1, -208, 0, 40), BorderSizePixel = 0, ClipsDescendants = true}, idle)
+    corner(verB, 11)
+    new("UIGradient", {Rotation = 45, Color = ColorSequence.new(accL, accD)}, verB)
+    local verSt = stroke(verB, accL, 2, 0.5)
+    pulseLoop(verSt, "Transparency", 0.88, 1.1)
+    local verTxt = text(verB, {Text = "Verify Key", W = 4, TextSize = 12, TextXAlignment = XC, TextColor3 = WHITE, Size = UDim2.fromScale(1, 1), TextTruncate = NOTRUNC, ZIndex = 3})
+    local spin = mkIcon(verB, "refresh", 14, WHITE, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, -30, 0.5, 0), ZIndex = 3})
+    spin.inst.Visible = false
+    local shine = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, -60, 0.5, 0), Size = UDim2.fromOffset(34, 90), Rotation = 20, BackgroundColor3 = WHITE, BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 2}, verB)
+    new("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})}, shine)
+
+    -- footer: titik percobaan, catatan, discord
+    local dots = {}
+    for i = 1, maxTries do
+        dots[i] = new("Frame", {Position = UDim2.fromOffset(22 + (i - 1) * 11, 256), Size = UDim2.fromOffset(7, 7), BackgroundColor3 = Color3.fromRGB(51, 51, 60), BorderSizePixel = 0}, idle)
+        corner(dots[i], "full")
+    end
+    local noteX = 22 + maxTries * 11 + 4
+    text(idle, {Text = tostring(cfg.Note or "Attempts"), W = 2, TextSize = 10, Position = UDim2.fromOffset(noteX, 252), Size = UDim2.new(0.5, -noteX, 0, 14), TextColor3 = FAINT})
+    local disB
+    if cfg.Discord then
+        disB = text(idle, {Text = "Join our Discord", W = 4, TextSize = 10, TextXAlignment = XR, TextColor3 = ERR, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 252), Size = UDim2.fromOffset(150, 14)})
+    end
+
+    -- layar sukses
+    local ring = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(W / 2, 84), Size = UDim2.fromOffset(60, 60), BackgroundTransparency = 1, BorderSizePixel = 0}, done)
+    corner(ring, "full")
+    local ringSt = stroke(ring, GREEN, 2, 0)
+    local pulseR = new("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, BorderSizePixel = 0}, ring)
+    corner(pulseR, "full")
+    local pulseSt = stroke(pulseR, GREEN, 1.5, 1)
+    local okIc = mkIcon(ring, "check", 28, GREEN, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5)})
+    okIc.inst.Visible = false
+    text(done, {Text = "Key accepted", W = 4, TextSize = 17, TextXAlignment = XC, Position = UDim2.fromOffset(0, 128), Size = UDim2.new(1, 0, 0, 22), TextColor3 = WHITE})
+    local doneInfo = text(done, {Text = "Welcome", W = 2, TextSize = 11, TextXAlignment = XC, Position = UDim2.fromOffset(22, 154), Size = UDim2.new(1, -44, 0, 14), TextColor3 = DIM})
+    local dbar = new("Frame", {Position = UDim2.fromOffset(22, 204), Size = UDim2.new(1, -44, 0, 4), BackgroundColor3 = Color3.fromRGB(27, 27, 33), BorderSizePixel = 0, ClipsDescendants = true}, done)
+    corner(dbar, "full")
+    local dfill = new("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = GREEN, BorderSizePixel = 0}, dbar)
+    corner(dfill, "full")
+    text(done, {Text = "Loading hub...", W = 2, TextSize = 10, Position = UDim2.fromOffset(22, 216), Size = UDim2.fromOffset(150, 14), TextColor3 = FAINT})
+    text(done, {Text = tostring(cfg.Title or NEX.Name), W = 4, TextSize = 10, TextXAlignment = XR, AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -22, 0, 216), Size = UDim2.fromOffset(150, 14), TextColor3 = accL})
+
+    -- logika
+    local state, tries, result = "idle", 0, nil
+    local function paintDots()
+        for i, d in ipairs(dots) do play(d, {BackgroundColor3 = (i <= tries) and accL or Color3.fromRGB(51, 51, 60)}, 0.2) end
+    end
+    local function finish(ok)
+        if result ~= nil then return end
+        result = ok and true or false
+        state = "closed"
+        play(idle, {GroupTransparency = 1}, 0.2)
+        play(done, {GroupTransparency = 1}, 0.2)
+        play(pop, {Scale = 0.94}, 0.25)
+        play(holder, {Position = UDim2.new(0.5, 0, 0.5, 10)}, 0.25)
+        play(dim, {BackgroundTransparency = 1}, 0.3)
+        if blur then play(blur, {Size = 0}, 0.3) end
+        task.delay(NOANIM and 0 or 0.4, function()
+            pcall(function() gui:Destroy() end)
+            if blur then pcall(function() blur:Destroy() end) end
+        end)
+        if ok then safe(cfg.OnSuccess, cfg.__key, cfg.__info) else safe(cfg.OnClose) end
+    end
+    gui.Destroying:Connect(function()
+        if result == nil then result = false end
+    end)
+    closeB.MouseButton1Click:Connect(function() if state ~= "done" then finish(false) end end)
+
+    local function checkKey(key)
+        local function bool(v) return v == true or v == 1 end
+        if type(cfg.Validate) == "function" then
+            local ok, a, b = pcall(cfg.Validate, key)
+            if not ok then warn("[NEXRIFT] KeySystem Validate error: " .. tostring(a)) return false, "Could not verify the key. Try again." end
+            return bool(a), type(b) == "string" and b or nil
+        end
+        if type(cfg.Url) == "string" then
+            local enc = Http:UrlEncode(key)
+            local url = cfg.Url
+            if url:find("{key}", 1, true) then url = url:gsub("{key}", function() return enc end)
+            else url = url .. (url:find("?", 1, true) and "&" or "?") .. "key=" .. enc end
+            local ok, body = pcall(function() return game:HttpGet(url) end)
+            if not ok then return false, "Could not reach the key server." end
+            body = trim(body)
+            local low = body:lower()
+            if low == "true" or low == "valid" or low == "ok" or low == "success" or low == "1" then return true end
+            local okj, data = pcall(function() return Http:JSONDecode(body) end)
+            if okj and type(data) == "table" then
+                local v = data.valid
+                if v == nil then v = data.success end
+                if v == nil then v = data.ok end
+                local msg = data.message or data.info or data.expires
+                return bool(v), type(msg) == "string" and msg or nil
+            end
+            return false
+        end
+        if type(cfg.Keys) == "table" then
+            local low = key:lower()
+            for _, k in ipairs(cfg.Keys) do
+                if trim(k):lower() == low then return true end
+            end
+            return false
+        end
+        warn("[NEXRIFT] KeySystem: isi Keys, Url atau Validate.")
+        return false, "Key check is not configured."
+    end
+
+    local function setBusy(on)
+        verTxt.Text = on and "Verifying" or "Verify Key"
+        verTxt.Position = on and UDim2.fromOffset(12, 0) or UDim2.fromOffset(0, 0)
+        spin.inst.Visible = on
+        pbar.Visible = on
+        play(inSt, {Color = on and accL or LINE}, 0.15)
+        if on then
+            if not NOANIM then pcall(function() TweenService:Create(spin.inst, TweenInfo.new(0.8, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 360}):Play() end) end
+            task.spawn(function()
+                while state == "busy" and gui.Parent do
+                    pfill.Position = UDim2.fromScale(-0.4, 0)
+                    play(pfill, {Position = UDim2.fromScale(1, 0)}, 0.8, Enum.EasingStyle.Sine)
+                    task.wait(0.85)
+                end
+            end)
+        else
+            pcall(function() TweenService:Create(spin.inst, TweenInfo.new(0), {Rotation = 0}):Play() end)
+        end
+    end
+    local function shake()
+        task.spawn(function()
+            for _, dx in ipairs({-9, 8, -6, 4, 0}) do
+                play(inF, {Position = UDim2.fromOffset(22 + dx, 126)}, 0.05, Enum.EasingStyle.Linear)
+                task.wait(0.05)
+            end
+        end)
+    end
+    local function success(key, info)
+        state = "done"
+        cfg.__key, cfg.__info = key, info
+        if canSave then pcall(function() writefile(saveFile, key) end) end
+        doneInfo.Text = info or "Welcome"
+        done.Visible = true
+        done.GroupTransparency = 1
+        play(idle, {GroupTransparency = 1}, 0.2)
+        play(done, {GroupTransparency = 0}, 0.3)
+        play(panelSt, {Color = GREEN}, 0.4)
+        for _, g in ipairs(halos) do play(g, {BackgroundColor3 = GREEN}, 0.4) end
+        task.spawn(function()
+            task.wait(0.15)
+            ring.Size = UDim2.fromOffset(46, 46)
+            play(ring, {Size = UDim2.fromOffset(60, 60)}, 0.4, BACK)
+            okIc.inst.Visible = true
+            okIc.inst.Size = UDim2.fromOffset(6, 6)
+            play(okIc.inst, {Size = UDim2.fromOffset(28, 28)}, 0.4, BACK)
+            pulseSt.Transparency = 0.3
+            play(pulseR, {Size = UDim2.fromScale(1.9, 1.9)}, 0.7)
+            play(pulseSt, {Transparency = 1}, 0.7)
+            play(dfill, {Size = UDim2.fromScale(1, 1)}, 1.2, Enum.EasingStyle.Quad)
+            task.wait(1.5)
+            finish(true)
+        end)
+    end
+    local function lockdown()
+        state = "locked"
+        task.spawn(function()
+            for s = lockSec, 1, -1 do
+                if state ~= "locked" or not gui.Parent then return end
+                setStatus("Too many attempts. Try again in " .. s .. "s", "err")
+                task.wait(1)
+            end
+            if state ~= "locked" then return end
+            tries = 0
+            paintDots()
+            state = "idle"
+            setStatus("")
+        end)
+    end
+    local function fail(msg, auto)
+        tries = tries + 1
+        paintDots()
+        play(inSt, {Color = accent}, 0.15)
+        box.TextColor3 = ERR
+        shake()
+        if auto then pcall(function() delfile(saveFile) end) end
+        if tries >= maxTries then
+            lockdown()
+        else
+            state = "idle"
+            local left = maxTries - tries
+            setStatus(msg or (auto and "Saved key is no longer valid." or ("Invalid key. " .. left .. (left == 1 and " attempt" or " attempts") .. " left.")), "err")
+        end
+    end
+    local function verify(key, auto)
+        if state ~= "idle" then return end
+        key = trim(key)
+        if key == "" then
+            setStatus("Please enter your key.", "err")
+            shake()
+            return
+        end
+        state = "busy"
+        setStatus("")
+        setBusy(true)
+        task.spawn(function()
+            local t0 = os.clock()
+            local ok, info = checkKey(key)
+            local rest = 0.7 - (os.clock() - t0) -- tampilkan "Verifying" minimal sebentar supaya animasinya kelihatan
+            if rest > 0 then task.wait(rest) end
+            if state ~= "busy" then return end
+            state = "checked"
+            setBusy(false)
+            if ok then success(key, info) else fail(info, auto) end
+        end)
+    end
+
+    verB.MouseButton1Click:Connect(function() verify(box.Text) end)
+    box.FocusLost:Connect(function(enter) if enter then verify(box.Text) end end)
+    box:GetPropertyChangedSignal("Text"):Connect(function()
+        if state == "idle" then
+            play(inSt, {Color = LINE}, 0.15)
+            box.TextColor3 = WHITE
+        end
+    end)
+    pasteB.MouseButton1Click:Connect(function()
+        local ok, v = pcall(function() return getclipboard and getclipboard() or nil end)
+        if ok and type(v) == "string" and trim(v) ~= "" then
+            box.Text = trim(v)
+        else
+            setStatus("Clipboard not available. Press Ctrl+V in the box.", "info")
+        end
+    end)
+    getB.MouseButton1Click:Connect(function()
+        safe(cfg.OnGetKey)
+        if cfg.GetKeyLink then
+            copy(tostring(cfg.GetKeyLink))
+            setStatus("Link copied. Open it in your browser.", "ok")
+        else
+            setStatus("No key link has been set.", "info")
+        end
+    end)
+    if disB then
+        local b = new("TextButton", {Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1)}, disB)
+        b.MouseButton1Click:Connect(function() copy(tostring(cfg.Discord)) setStatus("Discord invite copied.", "ok") end)
+    end
+
+    -- animasi buka + kilau tombol + key tersimpan
+    play(idle, {GroupTransparency = 0}, 0.35)
+    play(pop, {Scale = 1}, 0.45, BACK)
+    play(holder, {Position = UDim2.fromScale(0.5, 0.5)}, 0.45)
+    task.spawn(function()
+        while gui.Parent and result == nil do
+            if state == "idle" then
+                shine.Position = UDim2.new(0, -60, 0.5, 0)
+                play(shine, {Position = UDim2.new(1, 60, 0.5, 0)}, 0.7, Enum.EasingStyle.Sine)
+            end
+            task.wait(3.2)
+        end
+    end)
+    if canSave then
+        local okf, saved = pcall(function() if isfile(saveFile) then return readfile(saveFile) end end)
+        if okf and type(saved) == "string" and trim(saved) ~= "" then
+            task.delay(0.55, function()
+                if state == "idle" and gui.Parent then
+                    box.Text = trim(saved)
+                    verify(saved, true)
+                end
+            end)
+        end
+    end
+
+    if cfg.Async == true then return end
+    while result == nil do task.wait(0.1) end
+    return result
+end
+
 function SORU:CreateWindow(C)
     C = C or {}
     skins, themeFns = {}, {}
