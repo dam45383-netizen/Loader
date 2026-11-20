@@ -1199,6 +1199,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     ------------------------------------------------------------------
     local launchPos = nil -- (x tengah, y atas) dalam koordinat virtual
     local launcher
+    local setPillScale = function() end -- diisi oleh pill NEXRIFT: ubah ukuran pill atas (persen)
     do
         local pB, pT, pS = "", "", ""
         local NEXPILL = false
@@ -1209,8 +1210,9 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         if NEXPILL then
             -- PILL NEXRIFT (desain dari video): kapsul abu gelap (atas abu terang -> bawah hampir hitam) | sheen putih tipis di tepi atas |
             -- badge bulat berisi logo N | nama bergradien putih -> aksen | bar equalizer warna aksen (tinggi ikut FPS, kadang jadi titik) | angka FPS live
-            local PW, PH = 190, 27
-            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(PW, PH), BackgroundColor3 = WHITE, BackgroundTransparency = 0, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
+            local PW, PH = 232, 46 -- ukuran DASAR pill; ukuran tampil = dasar x PS (diatur di Settings > Appearance > Pill size, atau CreateWindow({PillScale = 120}))
+            local PS = math.clamp((tonumber(F.UIPillScale) or tonumber(C.PillScale) or 100) / 100, 0.5, 2)
+            launcher = new("Frame", {Name = "Launcher", AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromOffset(math.floor(PW * PS + 0.5), math.floor(PH * PS + 0.5)), BackgroundColor3 = WHITE, BackgroundTransparency = 0, BorderSizePixel = 0, Active = true, ZIndex = 90}, root)
             corner(launcher, "full")
             local bodyG = new("UIGradient", {Rotation = 90}, launcher)
             -- tepi tipis: paling terang di atas, memudar ke tengah, garis samar lagi di bawah
@@ -1223,25 +1225,33 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
                 NumberSequenceKeypoint.new(0, 0.86), NumberSequenceKeypoint.new(0.22, 0.95), NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(1, 1)})}, sheen)
 
+            -- isi pill digambar di wadah berukuran dasar lalu diskalakan (UIScale di wadah, BUKAN di launcher, supaya Position & drag launcher tidak ikut terskala)
+            local pbody = new("Frame", {Name = "Body", Size = UDim2.fromOffset(PW, PH), BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            local pscale = new("UIScale", {Scale = PS}, pbody)
+            setPillScale = function(v)
+                PS = math.clamp(tonumber(v) or 1, 0.5, 2)
+                pscale.Scale = PS
+                launcher.Size = UDim2.fromOffset(math.floor(PW * PS + 0.5), math.floor(PH * PS + 0.5))
+            end
             local BD = 30 -- badge bulat, jarak sama ke kiri / atas / bawah (8px)
-            local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 91}, launcher)
+            local badge = new("Frame", {Name = "Badge", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(BD, BD), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 91}, pbody)
             corner(badge, "full")
             local badgeG = new("UIGradient", {Rotation = 55}, badge)
             local badgeSt = stroke(badge, T.accent, 1, 0.65)
             nexMark(badge, 16, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), ZIndex = 92}, 0.5)
 
-            local wm = text(launcher, {Name = "Wordmark", Text = NEX.Name, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 50, 0.5, 0), Size = UDim2.fromOffset(104, 18), W = 4, TextSize = 14, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
+            local wm = text(pbody, {Name = "Wordmark", Text = NEX.Name, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 50, 0.5, 0), Size = UDim2.fromOffset(104, 18), W = 4, TextSize = 14, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
             local wmG = new("UIGradient", {Rotation = 90}, wm)
 
             local BW, BGAP, BX0, BMIN = 4, 3, 167, 4
             local BMAX = math.floor(PH * 0.42 + 0.5)
             local sig, barG = {}, {}
             for i = 1, 4 do
-                sig[i] = new("Frame", {Name = "Bar" .. i, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, BX0 + (i - 1) * (BW + BGAP), 0.5, 0), Size = UDim2.fromOffset(BW, BMIN + 4), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 92}, launcher)
+                sig[i] = new("Frame", {Name = "Bar" .. i, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, BX0 + (i - 1) * (BW + BGAP), 0.5, 0), Size = UDim2.fromOffset(BW, BMIN + 4), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 92}, pbody)
                 corner(sig[i], "full")
                 barG[i] = new("UIGradient", {Rotation = 90}, sig[i])
             end
-            local fpsL = text(launcher, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 199, 0.5, 0), Size = UDim2.fromOffset(30, 18), W = 4, TextSize = 14, TextXAlignment = XL, TextYAlignment = YC, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
+            local fpsL = text(pbody, {Name = "FPS", Text = "--", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 199, 0.5, 0), Size = UDim2.fromOffset(30, 18), W = 4, TextSize = 14, TextXAlignment = XL, TextYAlignment = YC, TextColor3 = WHITE, TextTruncate = NOTRUNC, ZIndex = 92})
 
             local function pulse(fps) -- bar naik-turun acak, makin tinggi FPS makin tinggi bar
                 local q = math.clamp(fps / 60, 0.2, 1)
@@ -2649,6 +2659,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
     function Window:Close() closeA() end
     function Window:OpenSettings() if isOpen == false then openA() end go(SETTINGS) end
     function Window:SetScale(pct) userScale = math.clamp((tonumber(pct) or 100) / 100, 0.6, 1.5) F.UIScale = math.floor(userScale * 100 + 0.5) applyScale() persist() end
+    function Window:SetPillScale(pct) F.UIPillScale = math.clamp(math.floor((tonumber(pct) or 100) + 0.5), 50, 200) setPillScale(F.UIPillScale / 100) persist() end
     function Window:SaveConfig(name) saveCfg(name or curName) return true end
     function Window:LoadConfig(name)
         local d = readCfg(name or curName)
@@ -4305,7 +4316,7 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
         local function resetAll()
             resetWindow()
             local defs = {
-                {"UITheme", "Nexrift"}, {"UIPill", true}, {"UIBlur", false}, {"UIBlurSize", 18}, {"UINoAnim", false},
+                {"UITheme", "Nexrift"}, {"UIPill", true}, {"UIPillScale", 100}, {"UIBlur", false}, {"UIBlurSize", 18}, {"UINoAnim", false},
                 {"StartMode", "Open menu"}, {"NotifToasts", true}, {"NotifPos", "Bottom right"}, {"NotifDurPct", 100}, {"NotifLoad", true},
                 {"FpsOverlay", false}, {"OvExpanded", true}, {"OvScale", 90}, {"OvRate", "Normal"}, {"OvLock", false},
                 {"FpsCap", "Default"}, {"Render3D", false},
@@ -4396,6 +4407,8 @@ local dragLogo = new("Frame", {Name = "LogoArea", Size = UDim2.new(0, SIDE_W - 1
             end})
         a1:Toggle({Title = "Top pill", Desc = "Show the name + FPS pill at the top", Flag = "UIPill", Default = true,
             Callback = function(v) launcher.Visible = v and true or false end})
+        a1:Slider({Title = "Pill size", Desc = "Size of the top pill (name + FPS)", Flag = "UIPillScale", Min = 60, Max = 160, Step = 5, Suffix = "%", Default = 100,
+            Callback = function(v) setPillScale((tonumber(v) or 100) / 100) end})
 
         local a2 = ap:Accordion({Title = "Window size", Icon = "sliders", Column = 2})
         sizeUI.w = a2:Slider({Title = "Width", Flag = "UIW", Min = MINS.X, Max = MAXS.X, Step = 5, Suffix = " px", Default = math.floor(winSize.X + 0.5),
