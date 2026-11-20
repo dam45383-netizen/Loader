@@ -1010,12 +1010,24 @@ local function repo(file)
     return BASE .. HttpService:UrlEncode(file)
 end
 
-local KEYSYSTEM_URL = repo("keysytem")
-local SORU_URL      = repo("UI.lua")
+local SORU_URL    = repo("UI.lua")
 
 -- GANTI KEY DISINI, KALO LU GANTI OTOMATIS DISURUH INPUT LAGI
-local CURRENT_KEY = "BornToLead"
+local CURRENT_KEY = "NX_Qi2"
 local SAVE_FILE   = "SORU_HUB/soru.key"
+
+local SORU = loadstring(game:HttpGet(SORU_URL))()
+
+local ok = SORU:KeySystem({
+    Keys       = {CURRENT_KEY},
+    SaveFile   = SAVE_FILE,
+    GetKeyLink = "https://link-key-kamu", -- hapus baris ini kalau gak dipakai
+    Discord    = "https://discord.gg/xxxx", -- sama
+})
+if not ok then return end
+
+local Window = SORU:CreateWindow({Title = "SORU HUB"})
+-- sisa script lu lanjut di sini kayak biasa
 
 -- =====================================================
 -- DAFTAR GAME: [PlaceId] = repo("NamaFile")
