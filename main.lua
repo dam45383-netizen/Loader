@@ -1025,7 +1025,7 @@ local VBL = repo("VBL.lua")
 
 local GAMES = {
     [114326934417838] = repo("BAS.lua"),
-    [131378148336503] = repo(""),
+    [131378148336503] = repo("DDS.lua"),
     [129081220403721] = repo("Throw A Seed"),
     [93978595733734]  = repo("Violence Discrict"),
     [97927337336367]  = repo("Scrooms"),
