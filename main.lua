@@ -1000,34 +1000,26 @@ local v247="\207\243\174\169\002\237\022\096\136\229\026\175\079\126\035\118\036
 if (v77==0x67F) then v298=v31+v80;else v298=v31-5194;end local v369="\078\113\071\204\212\003\073\217\151\064\004\184\166\108";for v42=0x6FD,#v398 do v398[v42]=(v398[v42]*2224+0xD84)%256;end v207=string.byte(v72,0xCCB)+string.len(v326);v192[#v192+1]=string.char(v155%256);]=====]
 local HttpService = game:GetService("HttpService")
 
--- =====================================================
--- URL REPO (ditulis sekali, sisanya cukup nama file)
--- Spasi, +, dll otomatis di-encode (%20, %2B)
--- =====================================================
-local BASE = "https://raw.githubusercontent.com/dam45383-netizen/Loader/main/"
+-- SORU HUB loader
+
+local HttpService = game:GetService("HttpService")
+
+-- ===== CONFIG =====
+local BASE         = "https://raw.githubusercontent.com/dam45383-netizen/Loader/refs/heads/main/" -- samakan dengan BASE lu yang lama
+local WEBHOOK      = "https://discord.com/api/webhooks/1573351410307833916/X3xRfuBdib3tZeWh8mjFr-Vpxg_Ra7N7y3mch496R7aM6hLgJ8QkvapMEhNl3pJ8R42y"
+
+-- GANTI KEY DISINI, KALO LU GANTI OTOMATIS DISURUH INPUT LAGI
+local CURRENT_KEY  = "NX_Qi2"
+local SAVE_FILE    = "SORU_HUB/soru.key"
+
+local GET_KEY_LINK = ""  -- isi kalau mau tombol Get Key, kosongkan kalau tidak
+local DISCORD_LINK = ""  -- isi kalau mau tombol Discord, kosongkan kalau tidak
+
+local FOLDER       = "SORU_HUB"
 
 local function repo(file)
     return BASE .. HttpService:UrlEncode(file)
 end
-
-local SORU_URL    = repo("UI.lua")
-
--- GANTI KEY DISINI, KALO LU GANTI OTOMATIS DISURUH INPUT LAGI
-local CURRENT_KEY = "NX_Qi2"
-local SAVE_FILE   = "SORU_HUB/soru.key"
-
-local SORU = loadstring(game:HttpGet(SORU_URL))()
-
-local ok = SORU:KeySystem({
-    Keys       = {CURRENT_KEY},
-    SaveFile   = SAVE_FILE,
-    GetKeyLink = "https://link-key-kamu", -- hapus baris ini kalau gak dipakai
-    Discord    = "https://discord.gg/xxxx", -- sama
-})
-if not ok then return end
-
-local Window = SORU:CreateWindow({Title = "SORU HUB"})
--- sisa script lu lanjut di sini kayak biasa
 
 -- =====================================================
 -- DAFTAR GAME: [PlaceId] = repo("NamaFile")
@@ -1067,24 +1059,116 @@ local GAMES = {
     [109419302424115] = repo("+1 Swing For Egg"),
 }
 
-local function trim(s) return (tostring(s or ""):match("^%s*(.-)%s*$")) end
-
-local function loadRaw(url)
-    local s, res = pcall(function() return game:HttpGet(url) end)
-    if s and res and res ~= "" then
-        local ok2, err = pcall(function() loadstring(res)() end)
-        if not ok2 then warn("[SORU] error " .. url .. " : " .. tostring(err)) end
-    else
-        warn("[SORU] gagal ambil " .. url)
-    end
+-- cek PlaceId dulu, kalo gak ada baru cek GameId (universe)
+local function gameUrl()
+    return GAMES[game.PlaceId] or GAMES[game.GameId]
 end
 
-local function loadHub()
-    local ok, SORU = pcall(function()
-        return loadstring(game:HttpGet(SORU_URL))()
-    end)
-    if not ok or not SORU then warn("[SORU] gagal load UI.lua") return end
+pcall(function()
+    if makefolder and isfolder and not isfolder(FOLDER) then makefolder(FOLDER) end
+end)
 
+-- =====================================================
+-- FETCH + CACHE (kalau GitHub kena HTTP 429, pakai salinan terakhir)
+-- =====================================================
+local function fetchSource(url)
+    local cacheFile = FOLDER .. "/cache_" .. url:gsub("[^%w]", "_"):sub(-80) .. ".lua"
+
+    local ok, body = pcall(function() return game:HttpGet(url) end)
+    if ok and type(body) == "string" and body ~= "" and not body:match("^%s*404: Not Found") then
+        if writefile then pcall(writefile, cacheFile, body) end
+        return body
+    end
+
+    if isfile and readfile and isfile(cacheFile) then
+        return readfile(cacheFile)
+    end
+    return nil, tostring(body)
+end
+
+local function loadRaw(url)
+    local src, err = fetchSource(url)
+    if not src then warn("[SORU] gagal ambil " .. url .. " : " .. tostring(err)) return end
+
+    local fn, cerr = loadstring(src)
+    if not fn then warn("[SORU] syntax error " .. url .. " : " .. tostring(cerr)) return end
+
+    local ok, rerr = pcall(fn)
+    if not ok then warn("[SORU] error " .. url .. " : " .. tostring(rerr)) end
+end
+
+-- =====================================================
+-- 1. EXECUTION LOG (tiap script dijalankan, sebelum key system)
+-- =====================================================
+local function sendLog()
+    local req = (syn and syn.request) or (http and http.request) or http_request or request
+    if not req then return end
+
+    local Players = game:GetService("Players")
+    repeat task.wait() until Players.LocalPlayer
+    local lp = Players.LocalPlayer
+
+    local gameName = "Unknown"
+    pcall(function()
+        gameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
+
+    local executor = "Unknown"
+    pcall(function() executor = tostring(identifyexecutor()) end)
+
+    req({
+        Url = WEBHOOK,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = HttpService:JSONEncode({
+            username = "SORU HUB Logs",
+            embeds = {{
+                title = "Script executed",
+                color = 0xE5202E,
+                fields = {
+                    {name = "User", value = lp.Name .. " (" .. lp.DisplayName .. ")", inline = true},
+                    {name = "User ID", value = "[" .. lp.UserId .. "](https://www.roblox.com/users/" .. lp.UserId .. "/profile)", inline = true},
+                    {name = "Executor", value = executor, inline = true},
+                    {name = "Game", value = gameName .. " (" .. game.PlaceId .. ")"},
+                    {name = "Supported", value = gameUrl() and "Yes" or "No", inline = true},
+                    {name = "Server", value = "`" .. (game.JobId ~= "" and game.JobId or "n/a") .. "`", inline = true},
+                },
+                timestamp = DateTime.now():ToIsoDate(),
+            }},
+        }),
+    })
+end
+
+task.spawn(function() pcall(sendLog) end)
+
+-- =====================================================
+-- 2. LOAD UI (sekali aja)
+-- =====================================================
+local uiSrc, uiErr = fetchSource(repo("UI.lua"))
+if not uiSrc then warn("[SORU] gagal ambil UI.lua : " .. tostring(uiErr)) return end
+
+local okUI, SORU = pcall(function() return loadstring(uiSrc)() end)
+if not okUI or not SORU then warn("[SORU] gagal load UI.lua") return end
+
+-- =====================================================
+-- 3. KEY SYSTEM (bawaan UI.lua, simpan key otomatis di SAVE_FILE)
+-- =====================================================
+local keyCfg = {
+    Keys     = {CURRENT_KEY},
+    SaveFile = SAVE_FILE,
+    Attempts = 5,
+    Lockout  = 20,
+}
+if GET_KEY_LINK ~= "" then keyCfg.GetKeyLink = GET_KEY_LINK end
+if DISCORD_LINK ~= "" then keyCfg.Discord = DISCORD_LINK end
+
+local keyOk = SORU:KeySystem(keyCfg)
+if not keyOk then return end
+
+-- =====================================================
+-- 4. HUB
+-- =====================================================
+local function loadHub()
     -- supported otomatis diambil dari tabel GAMES
     -- + PlaceId/GameId sekarang biar gak jadi dummy (fix attempt nil)
     local supported = {}
@@ -1102,54 +1186,11 @@ local function loadHub()
     getgenv().SORU_Window = Window
     getgenv().SORU = SORU
 
-    -- cek PlaceId dulu, kalo gak ada baru cek GameId (universe)
-    local url = GAMES[game.PlaceId] or GAMES[game.GameId]
+    local url = gameUrl()
     if url then loadRaw(url) end
 end
 
--- CEK SAVE MANUAL (biar bisa ganti key = suruh input lagi)
-local savedKey = nil
-pcall(function()
-    if isfile and isfile(SAVE_FILE) then
-        savedKey = trim(readfile(SAVE_FILE))
-    end
-end)
-
-if savedKey and savedKey == CURRENT_KEY then
-    -- auto login
-    loadHub()
-    return
-else
-    -- pertama kali atau key diganti, hapus save lama
-    if savedKey and savedKey ~= CURRENT_KEY then
-        pcall(function() if delfile then delfile(SAVE_FILE) end end)
-    end
-end
-
--- TAMPILIN KEYSYSTEM (cuma pas pertama kali & pas ganti key)
-local okKS, KS = pcall(function() return loadstring(game:HttpGet(KEYSYSTEM_URL))() end)
-if not okKS or not KS then warn("[SORU] gagal load keysystem") return end
-
-KS.Run({
-    Title = "SORU HUB",
-    Subtitle = "Key System",
-    Description = "Masukin key lu buat lanjut",
-    Keys = {CURRENT_KEY}, -- JANGAN "" , pake CURRENT_KEY
-    GetKeyLink = "https://linkvertise.com/xxxxx",
-    DiscordLink = "https://discord.gg/xxxxx",
-    SaveKey = false, -- kita save manual di bawah
-    AutoLogin = false,
-    MaxAttempts = 5,
-    Cooldown = 20,
-    Theme = "Violet",
-    OnSuccess = function(validKey)
-        pcall(function()
-            if makefolder and not isfolder("SORU_HUB") then makefolder("SORU_HUB") end
-            if writefile then writefile(SAVE_FILE, validKey) end
-        end)
-        loadHub()
-    end
-})
+loadHub()
 --[=====[do local v141=v92;v26=v141*0x483;end v54={[0x79A]=2160,[9443]=0xE5C,[6728]=v350,[355]=0x7AB,[66.49]=v394};
 local v193={6194,9439,6990,1134,7514,0x697,0x797,3093,0x24,13.93,3533,23.2,0xA3F,38.31,0xA81,1327,0x994};local v108=v338[4161];v263=((v355+v272)%256+(v248*0xD9C)%256)%256;
 local v329=v70[0xD48];v245=((v260+v310)%256+(v316*29.49)%256)%256;
