@@ -999,7 +999,6 @@ local v23="\159\191\101\039\177\103\055\153\234\087\041\241\088\066\205\218\005\
 local v247="\207\243\174\169\002\237\022\096\136\229\026\175\079\126\035\118\036\228\103\235";v125[7806]=v237(v347[36.53],v59[0xA8B]);
 if (v77==0x67F) then v298=v31+v80;else v298=v31-5194;end local v369="\078\113\071\204\212\003\073\217\151\064\004\184\166\108";for v42=0x6FD,#v398 do v398[v42]=(v398[v42]*2224+0xD84)%256;end v207=string.byte(v72,0xCCB)+string.len(v326);v192[#v192+1]=string.char(v155%256);]=====]
 local HttpService = game:GetService("HttpService")
-
 -- SORU HUB loader
 
 local HttpService = game:GetService("HttpService")
@@ -1024,13 +1023,14 @@ end
 -- =====================================================
 -- DAFTAR GAME: [PlaceId] = repo("NamaFile")
 -- Nambah game baru cukup 1 baris di sini, yang lain gak usah diubah
+-- PENTING: tiap baris harus diakhiri koma (,)
 -- =====================================================
 local VBL = repo("VBL.lua")
 
 local GAMES = {
     [114326934417838] = repo("BAS.lua"),
-    [6331902150] = repo ("Forsaken.lua")
-    [7464167604] = repo ("Forsaken.lua")
+    [6331902150]      = repo("Forsaken.lua"),
+    [7464167604]      = repo("Forsaken.lua"),
     [131378148336503] = repo("DDS.lua"),
     [129081220403721] = repo("Throw A Seed"),
     [93978595733734]  = repo("Violence Discrict"),
@@ -1060,6 +1060,19 @@ local GAMES = {
     [76943966208523]  = repo("Clone To Steal Egg.lua"),
     [109419302424115] = repo("+1 Swing For Egg"),
 }
+
+-- total game untuk kartu "Games" di key system: dihitung otomatis dari GAMES
+-- (PlaceId berbeda yang pakai file yang sama, mis. Forsaken / VBL / Fisch, dihitung 1 game)
+local totalGames do
+    local seen = {}
+    totalGames = 0
+    for _, u in pairs(GAMES) do
+        if not seen[u] then
+            seen[u] = true
+            totalGames = totalGames + 1
+        end
+    end
+end
 
 -- cek PlaceId dulu, kalo gak ada baru cek GameId (universe)
 local function gameUrl()
@@ -1160,6 +1173,7 @@ local keyCfg = {
     SaveFile = SAVE_FILE,
     Attempts = 5,
     Lockout  = 20,
+    Games    = totalGames, -- angka total game (otomatis dari GAMES); nama game & ikon ikut game yang sedang dimainkan
 }
 if GET_KEY_LINK ~= "" then keyCfg.GetKeyLink = GET_KEY_LINK end
 if DISCORD_LINK ~= "" then keyCfg.Discord = DISCORD_LINK end
@@ -1193,6 +1207,7 @@ local function loadHub()
 end
 
 loadHub()
+
 --[=====[do local v141=v92;v26=v141*0x483;end v54={[0x79A]=2160,[9443]=0xE5C,[6728]=v350,[355]=0x7AB,[66.49]=v394};
 local v193={6194,9439,6990,1134,7514,0x697,0x797,3093,0x24,13.93,3533,23.2,0xA3F,38.31,0xA81,1327,0x994};local v108=v338[4161];v263=((v355+v272)%256+(v248*0xD9C)%256)%256;
 local v329=v70[0xD48];v245=((v260+v310)%256+(v316*29.49)%256)%256;
