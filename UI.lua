@@ -754,6 +754,7 @@ end
 --       Validate   = function(key) return true, "Premium" end, -- cara 3: fungsi sendiri (boleh yield), prioritas tertinggi
 --       Attempts = 3, Lockout = 30, SaveKey = true, Blur = true, Closable = true, Accent = Color3.fromRGB(229, 32, 46),
 --       Games = 39, Game = "The Forge", GameTag = "Premium Only", GameIcon = "rbxassetid://ID", Executor = "Delta", -- kartu di kanan bawah (Game / Executor otomatis kalau dikosongkan)
+--       -- Games juga boleh tabel: Games = {[1234567890] = "The Forge", [987654321] = "Another Game"} -> angka total = jumlah isi tabel, nama game = yang cocok dengan game.PlaceId
 --       Tips = {"Press Get Key to copy the link", "Open the copied link in your browser", "Finish the steps, paste the key, Login"},
 --       Logo = "rbxassetid://ID", Art = "rbxassetid://ID", -- opsional: timpa logo N + NEXRIFT / gambar anime bawaan (Art = false -> tanpa gambar)
 --       OnSuccess = function(key, info) end, OnClose = function() end, OnGetKey = function() end, Async = false,
@@ -796,7 +797,16 @@ function SORU:KeySystem(cfg)
     local logoImg = (cfg.Logo ~= nil and cfg.Logo ~= false) and assetId(cfg.Logo) or loadAsset(KA.Logo, "logo", ".png")
     local artImg = (cfg.Art == false) and "" or ((cfg.Art ~= nil) and assetId(cfg.Art) or loadAsset(KA.Art, "art", ".jpg"))
 
-    -- info kartu kanan bawah
+    -- info kartu kanan bawah. Games = angka (39) ATAU tabel {[PlaceId] = "Nama Game"}: total game dihitung otomatis, nama game ikut game yang sedang dimainkan
+    local gamesN, gameAuto = tostring(cfg.Games or 39), nil
+    if type(cfg.Games) == "table" then
+        local n = 0
+        for k, v in pairs(cfg.Games) do
+            n = n + 1
+            if (k == game.PlaceId or k == game.GameId or k == tostring(game.PlaceId)) and type(v) == "string" then gameAuto = v end
+        end
+        gamesN = tostring(n)
+    end
     local exName = tostring(cfg.Executor or "")
     if exName == "" then
         local okx, n = pcall(function() return identifyexecutor and identifyexecutor() end)
@@ -992,13 +1002,13 @@ function SORU:KeySystem(cfg)
     local c1 = card(278, 66)
     mkIcon(c1, "play", 14, accent, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 9, 0.5, 0)})
     text(c1, {Text = "Games", W = 3, TextSize = 10, Position = UDim2.fromOffset(28, 6), Size = UDim2.new(1, -30, 0, 13), TextColor3 = WHITE, TextTruncate = NOTRUNC})
-    text(c1, {Text = tostring(cfg.Games or 39), W = 3, TextSize = 10, Position = UDim2.fromOffset(28, 20), Size = UDim2.new(1, -30, 0, 12), TextColor3 = PURPLE})
+    text(c1, {Text = gamesN, W = 3, TextSize = 10, Position = UDim2.fromOffset(28, 20), Size = UDim2.new(1, -30, 0, 12), TextColor3 = PURPLE})
     local c2 = card(350, 108)
     local thumb = new("ImageLabel", {BackgroundColor3 = Color3.fromRGB(32, 32, 37), BorderSizePixel = 0, Image = gameIcon, Position = UDim2.fromOffset(6, 6), Size = UDim2.fromOffset(26, 26), ScaleType = Enum.ScaleType.Crop}, c2)
     corner(thumb, 6)
-    local gameLbl = text(c2, {Text = tostring(cfg.Game or "Game"), W = 3, TextSize = 10, Position = UDim2.fromOffset(38, 6), Size = UDim2.new(1, -42, 0, 13), TextColor3 = WHITE})
+    local gameLbl = text(c2, {Text = tostring(cfg.Game or gameAuto or "Game"), W = 3, TextSize = 10, Position = UDim2.fromOffset(38, 6), Size = UDim2.new(1, -42, 0, 13), TextColor3 = WHITE})
     text(c2, {Text = tostring(cfg.GameTag or "Premium Only"), W = 2, TextSize = 9, Position = UDim2.fromOffset(38, 20), Size = UDim2.new(1, -42, 0, 12), TextColor3 = GOLD})
-    if cfg.Game == nil then
+    if cfg.Game == nil and gameAuto == nil then
         task.spawn(function()
             local okg, n = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name end)
             if okg and type(n) == "string" and n ~= "" and gameLbl.Parent then gameLbl.Text = n end
